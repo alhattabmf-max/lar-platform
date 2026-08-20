@@ -788,11 +788,11 @@ hard crash costs a bounded delay, never a lost event.
 
 Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 
-### 8B — Web foundation
+### 8B — Web foundation *(delivered)*
 
 | | |
 |---|---|
-| Backend | `GET /branding` public (1 endpoint) |
+| Backend | `GET /branding` public (**1 endpoint**) |
 | Schema | none |
 | Frontend | Tailwind + PostCSS + `app/globals.css` design tokens (logical properties); `lib/{api-client,errors,session}.ts`; `components/ui/*`; app shell |
 | Shared types | `contracts/`: `ErrorEnvelope` (moved), `Paginated<T>`, `BrandingPublic`, `MeResponse` |
@@ -800,6 +800,19 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 | Acceptance gate | build + typecheck + lint green; zero hardcoded user-visible strings; logical properties instead of left/right; zero `dangerouslySetInnerHTML` |
 | Depends on | — |
 | Risks | low — topology is settled |
+
+### 8B.1 — Dynamic brand theme foundation *(delivered)*
+
+| | |
+|---|---|
+| Backend | **4 admin endpoints**: `GET /admin/branding/theme`, `PUT /admin/branding/theme/draft`, `POST /admin/branding/theme/publish`, `POST /admin/branding/theme/reset`. `GET /branding` widened to carry the ACTIVE theme |
+| Schema | **none** — active and draft are `system_settings` rows; the defaults are a code constant (§14.5) |
+| Frontend | `lib/theme.ts` (CSS custom properties via a React style object); shell applies the active theme; branding fetch moved to `cache: "no-store"` until 8G revisits caching |
+| Shared types | `BrandThemeColors`, `BrandThemePublic`, `BrandThemeDraft`, `BrandThemeAdminView`, `BrandThemeValidationResult`, `DEFAULT_BRAND_THEME`, `FIXED_BRAND_COLORS`, `HEX_COLOR_PATTERN` |
+| Tests | hex format and normalisation; WCAG contrast per pair; every default pair passes; unreadable primary/secondary/accent/accent-interactive/focus each rejected at publish; draft never public; publish atomic; reset restores defaults; missing and corrupt settings resolve to defaults; audit on every mutation; no CSS injection |
+| Acceptance gate | zero migrations; public response carries the active theme only; publish refused on any format or contrast issue |
+| Depends on | 8B |
+| Risks | low — no new table, no new UI; the colour picker is deferred to 8F |
 
 ### 8C — Auth screens, public marketplace, banners
 
@@ -887,17 +900,79 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 | Metric | Value |
 |---|---|
 | Migrations | **87 → 90** (88 banners, 89 outbox relay, 90 notifications) |
-| Endpoints | **178 → 197** (+19; 8D0 adds zero) |
-| Batches | **7** — 8B, 8C, 8D0, 8D, 8E, 8F, 8G |
+| Endpoints | **178 → 201** (+23; 8D0 adds zero) |
+| Batches | **7** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G |
 | Notification types | 18, of which 11 emit `EMAIL_NOTIFICATION_V1` |
 | Legacy outbox event types left outside the relay | 13 |
 | Shared wire enums | 9 |
 
-New endpoints by group: branding 1; banners public 1 + admin 5 + image 2; notifications
-4; documents 2; settlements 2; audit 1; outbox stats 1 = **19**.
+New endpoints by group:
+
+| Group | Count | Batch |
+|---|---|---|
+| Public branding | 1 | 8B |
+| Admin brand theme | 4 | 8B.1 |
+| Banners — public 1 + admin 5 + image 2 | 8 | 8C |
+| Notifications | 4 | 8D |
+| Documents — trader + supplier | 2 | 8D / 8E |
+| Supplier settlements | 2 | 8E |
+| Audit log viewer | 1 | 8F |
+| Outbox stats | 1 | 8F |
+| **Total** | **23** | |
+
+The earlier figure of 19 predated 8B.1, which added the four admin brand-theme
+routes. Migrations are unaffected: 8B.1 stores the active and draft themes as
+`system_settings` rows and keeps the defaults in code, so the total stays 87 → 90.
 
 There is deliberately **no** `DELETE /admin/banners/:id` — deactivation only, which
 preserves the audit trail and avoids orphaned storage objects.
+
+---
+
+## 11.1 Test execution status
+
+Not every written test has been executed. This section records which, so that
+"written" is never mistaken for "passing".
+
+### Executed locally and passing
+
+| Suite | Result |
+|---|---|
+| `apps/web` (Vitest) | 187 passing |
+| `apps/api` unit (Jest, `src/**/*.spec.ts`) | 340 passing |
+| `packages/types` guard (`node --test`) | 5 passing |
+| `packages/domain` / `packages/config` | 66 / 6 passing |
+| `pnpm run test:scripts` | 22 passing |
+| typecheck · lint · build | green |
+
+### Written but NOT executed
+
+**`apps/api/test/branding-public.e2e-spec.ts` — 13 cases across two suites.**
+
+Covering: 200 with no session; all-null fallback; exact public key set; admin-only
+and internal fields never exposed (key-level and value-level); CSRF not required for
+the public GET; POST rejected; default theme when unconfigured; active theme once
+published; **the draft never reaching the public surface**; default served when only
+a draft exists; corrupt stored theme resolving to defaults; theme exposing only the
+four colour keys with no admin or validation metadata; the four admin theme routes
+requiring an admin session; state-changing admin routes refused without a CSRF
+origin; and no trader, supplier, or public route to the theme.
+
+These have **never been run**. The development machine has no PostgreSQL, Redis, or
+MinIO — ports 5432, 6379 and 9000 are closed — and the E2E suite requires all three.
+They are expected to run for the first time on GitHub Actions, where those services
+are provided.
+
+**Their status is therefore unknown, not passing.** Until a CI run is green, no
+document, report, or commit message may describe them as verified. The security
+properties they assert — chiefly that the theme draft is never publicly readable —
+are separately covered by executed unit tests in
+`src/branding/brand-theme.service.spec.ts` and
+`src/branding/branding.service.spec.ts`, which is why 8B.1 was accepted without
+them; that is a mitigation, not a substitute.
+
+The same applies to every other pre-existing `*.e2e-spec.ts` and
+`*.integration-spec.ts` file in the repository: none of them run on this machine.
 
 ---
 
