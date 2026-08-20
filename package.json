@@ -1,0 +1,27 @@
+{
+  "name": "platform-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter api run start:dev",
+    "dev:web": "pnpm --filter web run dev",
+    "dev:worker": "pnpm --filter worker run start:dev",
+    "clean": "node scripts/build/clean-workspace-artifacts.mjs",
+    "test:scripts": "node --test \"scripts/build/__tests__/*.test.mjs\"",
+    "build:packages": "pnpm --filter @platform/types run build && pnpm --filter @platform/config run build && pnpm --filter @platform/domain run build && pnpm --filter @platform/opportunity-lifecycle run build",
+    "typecheck": "pnpm run build:packages && pnpm -r --filter=./apps/* --filter=./packages/* run typecheck",
+    "lint": "pnpm -r --filter=./apps/* --filter=./packages/* run lint",
+    "test": "pnpm run build:packages && pnpm -r --filter=./apps/* --filter=./packages/* run test",
+    "build": "pnpm run clean && pnpm run build:packages && pnpm -r --filter=./apps/* run build"
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "prettier": "^3.4.2"
+  }
+}

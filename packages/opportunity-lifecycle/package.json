@@ -1,0 +1,24 @@
+{
+  "name": "@platform/opportunity-lifecycle",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "node ../../scripts/build/clean-build-artifacts.mjs",
+    "prebuild": "pnpm run clean",
+    "build": "tsc -p tsconfig.json",
+    "postbuild": "node ../../scripts/build/verify-build-output.mjs dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "echo \"no unit tests in @platform/opportunity-lifecycle -- covered by apps/api integration tests\" && exit 0"
+  },
+  "dependencies": {
+    "@platform/domain": "workspace:*",
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

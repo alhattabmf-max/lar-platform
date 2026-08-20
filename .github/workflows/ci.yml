@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: platform_minio_access
+          MINIO_ROOT_PASSWORD: platform_minio_secret
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      TZ: UTC
+      DEFAULT_DISPLAY_TIMEZONE: Asia/Riyadh
+      DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      STORAGE_ENDPOINT: http://localhost:9000
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: platform_minio_access
+      STORAGE_SECRET_KEY: platform_minio_secret
+      STORAGE_BUCKET_NAME: platform-test
+      STORAGE_FORCE_PATH_STYLE: "true"
+      EMAIL_PROVIDER_MODE: mock
+      MAP_PROVIDER_MODE: manual
+      CORS_ALLOWED_ORIGINS: http://localhost:3001
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Enable corepack
+        run: corepack enable
+
+      # Generates FRESH, RANDOM encryption keys for THIS run only —
+      # never a shared or hardcoded value, never a production secret.
+      # ::add-mask:: prevents the values from ever appearing in logs,
+      # even if a later step accidentally echoes them.
+      - name: Generate ephemeral encryption keys for this CI run
+        run: |
+          ADMIN_KEY="$(openssl rand -hex 32)"
+          BANK_KEY="$(openssl rand -hex 32)"
+          echo "::add-mask::$ADMIN_KEY"
+          echo "::add-mask::$BANK_KEY"
+          echo "ADMIN_TOTP_ENCRYPTION_KEY=$ADMIN_KEY" >> "$GITHUB_ENV"
+          echo "BANK_DATA_ENCRYPTION_KEY=$BANK_KEY" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Guards the cross-platform build tooling itself
+      # (scripts/build/*.mjs) before anything relies on it. Kept as its
+      # own step — never folded into "Unit tests" — so a regression in
+      # the clean/verify scripts shows up as a distinctly named CI
+      # failure rather than being buried in the app test output.
+      # Placed early: it needs nothing but Node, so failing here saves
+      # the whole database/Docker leg of the run. It must, in any case,
+      # come before "Production build", which depends on these scripts.
+      - name: Build scripts safety tests
+        run: pnpm run test:scripts
+
+      - name: Generate Prisma client
+        run: pnpm --filter api run prisma:generate
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Apply database migrations
+        run: pnpm --filter api run prisma:deploy
+
+      - name: Unit tests — all apps/packages (includes packages/domain)
+        run: pnpm run test
+
+      - name: E2E tests (api) — run twice consecutively for stability
+        run: |
+          pnpm --filter api run test:e2e
+          pnpm --filter api run test:e2e
+
+      - name: Integration tests (api — live Postgres/Redis/MinIO; includes the upgrade-path regression test)
+        run: pnpm --filter api run test:integration
+
+      - name: Integration tests (worker — live Postgres/Redis)
+        run: pnpm --filter worker run test:integration
+
+      # Clean build of every package and app (packages/types, config,
+      # domain, opportunity-lifecycle, then apps/api, apps/worker,
+      # apps/web) — always starts from a clean dist/ and no stale
+      # .tsbuildinfo, per the root `build` script's `clean` step.
+      - name: Production build (all packages and apps)
+        run: pnpm run build
+
+      # Real `docker build` for api and worker — this is the one
+      # verification that could NOT be run in the development
+      # environment this project was built in (no Docker daemon
+      # available there; see README.md). GitHub Actions runners have
+      # Docker pre-installed, so this is where these images are
+      # actually built and smoke-tested for the first time.
+      - name: Docker build — api
+        run: docker build -t forsa-api:ci -f apps/api/Dockerfile .
+
+      - name: Docker build — worker
+        run: docker build -t forsa-worker:ci -f apps/worker/Dockerfile .
+
+      - name: Docker smoke test — api /health
+        run: |
+          docker run -d --name forsa-api-ci --network host \
+            -e NODE_ENV=production \
+            -e PORT=3098 \
+            -e DATABASE_URL="postgresql://platform:platform@localhost:5432/platform_test?schema=public" \
+            -e REDIS_URL="redis://localhost:6379" \
+            -e ADMIN_TOTP_ENCRYPTION_KEY="$ADMIN_TOTP_ENCRYPTION_KEY" \
+            -e BANK_DATA_ENCRYPTION_KEY="$BANK_DATA_ENCRYPTION_KEY" \
+            -e STORAGE_ENDPOINT="http://localhost:9000" \
+            -e STORAGE_REGION="us-east-1" \
+            -e STORAGE_ACCESS_KEY="platform_minio_access" \
+            -e STORAGE_SECRET_KEY="platform_minio_secret" \
+            -e STORAGE_BUCKET_NAME="platform-test" \
+            -e CORS_ALLOWED_ORIGINS="http://localhost:3001" \
+            forsa-api:ci
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3098/health > /dev/null; then
+              echo "api /health responded OK"
+              docker logs forsa-api-ci
+              docker stop forsa-api-ci
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "api /health did not respond in time"
+          docker logs forsa-api-ci
+          docker stop forsa-api-ci
+          exit 1
+
+      - name: Docker smoke test — worker boot + graceful shutdown
+        run: |
+          docker run -d --name forsa-worker-ci --network host \
+            -e NODE_ENV=production \
+            -e DATABASE_URL="postgresql://platform:platform@localhost:5432/platform_test?schema=public" \
+            -e REDIS_URL="redis://localhost:6379" \
+            forsa-worker:ci
+          sleep 5
+          docker logs forsa-worker-ci
+          docker stop -t 10 forsa-worker-ci
+          docker logs forsa-worker-ci | grep -q "shutdown complete" && echo "graceful shutdown confirmed" || (echo "graceful shutdown NOT confirmed in logs" && exit 1)

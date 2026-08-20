@@ -1,0 +1,1 @@
+ALTER TYPE "MasterOrderStatus" ADD VALUE 'FULFILLED';

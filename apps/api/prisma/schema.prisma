@@ -1,0 +1,2125 @@
+// ============================================================================
+// Phase 1 — Database Foundation
+//
+// Scope: cross-cutting infrastructure tables only, as explicitly agreed
+// before implementation started:
+//   audit_logs, system_settings, branding_settings, idempotency_keys,
+//   outbox_events.
+// Business entities (users, companies, products, opportunities, orders,
+// payments, ...) start in Phase 2 and beyond, per the Blueprint's
+// Development Phases (§77) and are NOT created here.
+//
+// UUID Strategy:
+//   - Primary keys use PostgreSQL's built-in gen_random_uuid() (core since
+//     PG13 — no extension required), generated at the DATABASE level via
+//     @default(dbgenerated("gen_random_uuid()")), not by the Prisma client.
+//   - One rule, enforced by the database: uniqueness holds even for rows
+//     inserted outside Prisma (raw SQL, admin scripts, a future service in
+//     another language).
+//
+// Timestamps:
+//   - All timestamp columns are `timestamptz` and store UTC. Display-time
+//     conversion (default Asia/Riyadh) happens at the presentation layer,
+//     never in the database.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------
+// audit_logs — mandatory audit trail for financial, settings, permission,
+// integration, and policy changes (Blueprint §64). Append-only: rows are
+// never updated or deleted.
+// -----------------------------------------------------------------------
+enum AuditActorType {
+  SYSTEM
+  USER
+  ADMIN
+}
+
+model AuditLog {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorType  AuditActorType @map("actor_type")
+  actorId    String?        @map("actor_id") @db.Uuid
+  companyId  String?        @map("company_id") @db.Uuid
+  action     String
+  entityType String         @map("entity_type")
+  entityId   String         @map("entity_id")
+  beforeData Json?          @map("before_data")
+  afterData  Json?          @map("after_data")
+  reason     String?
+  requestId  String         @map("request_id")
+  ipAddress  String?        @map("ip_address")
+  userAgent  String?        @map("user_agent")
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([requestId])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------
+// system_settings — admin-configurable key/value store (commission rate,
+// hold durations, email verification ON/OFF, etc.). Empty in Phase 1;
+// populated starting Phase 2+ as each setting is introduced.
+// -----------------------------------------------------------------------
+model SystemSetting {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  value       Json
+  description String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("system_settings")
+}
+
+// -----------------------------------------------------------------------
+// branding_settings — Singleton table. `singleton_key` is unique AND
+// database-constrained to the literal value 'default' (see migration
+// SQL), so more than one row can never exist, regardless of what
+// application code does.
+// -----------------------------------------------------------------------
+model BrandingSettings {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  singletonKey       String   @unique @default("default") @map("singleton_key")
+  nameAr             String?  @map("name_ar")
+  nameEn             String?  @map("name_en")
+  logoMainUrl        String?  @map("logo_main_url")
+  logoSmallUrl       String?  @map("logo_small_url")
+  faviconUrl         String?  @map("favicon_url")
+  shortDescriptionAr String?  @map("short_description_ar")
+  shortDescriptionEn String?  @map("short_description_en")
+  invoiceLogoUrl     String?  @map("invoice_logo_url")
+  emailLogoUrl       String?  @map("email_logo_url")
+  headerFooterConfig Json?    @map("header_footer_config")
+  updatedBy          String?  @map("updated_by") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("branding_settings")
+}
+
+// -----------------------------------------------------------------------
+// idempotency_keys — required for every sensitive financial operation
+// from Phase 6 onward (checkout, payment intent, webhook, refund,
+// shipment create, settlement payout, ...). Table exists from Phase 1 so
+// the pattern is available from day one.
+// -----------------------------------------------------------------------
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model IdempotencyKey {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key              String
+  scope            String
+  requestHash      String            @map("request_hash")
+  responseSnapshot Json?             @map("response_snapshot")
+  status           IdempotencyStatus @default(IN_PROGRESS)
+  expiresAt        DateTime          @map("expires_at") @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+// -----------------------------------------------------------------------
+// outbox_events — Outbox Pattern: guarantees an event is only published
+// after the database transaction that produced it has committed
+// successfully, instead of calling an external service directly inside
+// the transaction.
+// -----------------------------------------------------------------------
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+model OutboxEvent {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType   String       @map("event_type")
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  lastError   String?      @map("last_error")
+  idempotencyKey String?   @map("idempotency_key")
+  publishedAt DateTime?    @map("published_at") @db.Timestamptz(3)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@map("outbox_events")
+}
+
+// ============================================================================
+// Phase 2 — Identity & Companies
+// ============================================================================
+
+enum AccountType {
+  TRADER
+  SUPPLIER
+}
+
+enum CompanyVerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+// A company may have more than one user starting Phase 2's schema,
+// even though Phase 2's registration flow only ever creates one
+// (OWNER). This avoids a 1:1-shaped schema having to be re-modeled
+// when Team Members ship later.
+enum UserCompanyRole {
+  OWNER
+}
+
+// User authentication status is independent from the company's
+// commercial verification_status — a company being PENDING_VERIFICATION
+// or SUSPENDED must never be the mechanism that blocks a user's login;
+// that gating belongs here.
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+// WAIVED (not just PENDING/VERIFIED) exists specifically so that an
+// account created while email_verification_enabled=false is never
+// silently locked out if the setting is later flipped ON — a WAIVED
+// user keeps logging in normally forever, unlike a PENDING one.
+enum EmailVerificationStatus {
+  PENDING
+  VERIFIED
+  WAIVED
+}
+
+// -----------------------------------------------------------------------
+// companies — one row per Commercial Registration (Blueprint §5:
+// "One Commercial Registration = One Company Account"). account_type is
+// immutable after creation from application code in Phase 2; only a
+// future Admin action (Phase 3+) may change it.
+//
+// company.id is the ONLY durable internal identity used anywhere else
+// in the schema (every FK below points at it). cr_number is a mutable
+// business identifier — used only to look a company up at login — and
+// must never be treated as an internal identity or referenced by FK.
+// -----------------------------------------------------------------------
+model Company {
+  id                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  crNumber           String                    @unique @map("cr_number")
+  legalName          String                    @map("legal_name")
+  accountType        AccountType               @map("account_type")
+  verificationStatus CompanyVerificationStatus @default(PENDING_VERIFICATION) @map("verification_status")
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users             User[]
+  contacts          CompanyContact[]
+  locations         CompanyLocation[]
+  policyAcceptances PolicyAcceptance[]
+  products          Product[]
+
+  // Phase 5 — Supplier Financial Readiness
+  bankAccounts        SupplierBankAccount[]     @relation("SupplierBankAccountOwner")
+  activeBankAccountId String?                   @unique @map("active_bank_account_id") @db.Uuid
+  activeBankAccount   SupplierBankAccount?      @relation("CompanyActiveBankAccount", fields: [activeBankAccountId], references: [id])
+  payoutHoldUntil     DateTime?                 @map("payout_hold_until") @db.Timestamptz(3)
+  taxProfile          SupplierTaxProfile?
+  invoicingProfile    SupplierInvoicingProfile?
+  traderTaxProfile    TraderTaxProfile?
+
+  // Phase 6 — Opportunities Core
+  opportunities       Opportunity[]
+
+  // Phase 7B — Checkout (as trader)
+  checkoutSessions    CheckoutSession[]
+
+  @@map("companies")
+}
+
+// -----------------------------------------------------------------------
+// users — Company 1:N Users from the start (companyId is deliberately
+// NOT unique), even though Phase 2's registration flow only ever
+// creates a single OWNER per company. This lets Team Members be added
+// in a later phase purely as new rows, with no migration reshaping
+// this relation from 1:1 to 1:N.
+// -----------------------------------------------------------------------
+model User {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId               String                  @map("company_id") @db.Uuid
+  role                    UserCompanyRole         @default(OWNER)
+  status                  UserStatus              @default(ACTIVE)
+  email                   String                  @unique
+  emailVerificationStatus EmailVerificationStatus @default(PENDING) @map("email_verification_status")
+  emailVerifiedAt         DateTime?               @map("email_verified_at") @db.Timestamptz(3)
+  passwordHash            String                  @map("password_hash")
+  primaryMobile1          String                  @map("primary_mobile_1")
+  primaryMobile2          String                  @map("primary_mobile_2")
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company                 Company                  @relation(fields: [companyId], references: [id])
+  policyAcceptances       PolicyAcceptance[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  paymentAttempts         PaymentAttempt[]
+
+  @@index([companyId])
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------
+// company_contacts — soft-deleted via is_active (Blueprint's "no hard
+// delete" principle, applied consistently even though these rows have
+// not yet entered any transaction).
+// -----------------------------------------------------------------------
+model CompanyContact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  name      String
+  phone     String
+  email     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("company_contacts")
+}
+
+// -----------------------------------------------------------------------
+// company_locations — main location + branches (§9). Exactly one
+// default location per company is enforced at the DATABASE level via a
+// partial unique index added by raw SQL in the migration (Prisma's
+// schema language has no native partial-index syntax), the same
+// singleton-style pattern used for branding_settings in Phase 1.
+// -----------------------------------------------------------------------
+model CompanyLocation {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  cityId       String   @map("city_id") @db.Uuid
+  name         String
+  shortAddress String   @map("short_address")
+  latitude     Decimal  @db.Decimal(9, 6)
+  longitude    Decimal  @db.Decimal(9, 6)
+  contactName  String   @map("contact_name")
+  contactPhone String   @map("contact_phone")
+  isDefault    Boolean  @default(false) @map("is_default")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+  city    City    @relation(fields: [cityId], references: [id])
+  opportunities Opportunity[]
+  checkoutLocationAllocations CheckoutLocationAllocation[]
+
+  @@index([companyId])
+  @@index([cityId])
+  @@map("company_locations")
+}
+
+// -----------------------------------------------------------------------
+// policy_documents / policy_versions / policy_acceptances — Legal
+// Policy Center (§52). Actual legal text is never authored by the
+// system; only Placeholder text is seeded until real content is
+// supplied.
+// -----------------------------------------------------------------------
+model PolicyDocument {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  versions PolicyVersion[]
+
+  @@map("policy_documents")
+}
+
+model PolicyVersion {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyDocumentId     String    @map("policy_document_id") @db.Uuid
+  versionLabel         String    @map("version_label")
+  textAr               String    @map("text_ar")
+  textEn               String    @map("text_en")
+  isPublished          Boolean   @default(false) @map("is_published")
+  isMandatory          Boolean   @default(true) @map("is_mandatory")
+  requiresReacceptance Boolean   @default(false) @map("requires_reacceptance")
+  publishedAt          DateTime? @map("published_at") @db.Timestamptz(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  policyDocument PolicyDocument     @relation(fields: [policyDocumentId], references: [id])
+  acceptances    PolicyAcceptance[]
+
+  @@index([policyDocumentId])
+  @@map("policy_versions")
+}
+
+model PolicyAcceptance {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyVersionId     String      @map("policy_version_id") @db.Uuid
+  companyId           String      @map("company_id") @db.Uuid
+  userId              String      @map("user_id") @db.Uuid
+  accountTypeSnapshot AccountType @map("account_type_snapshot")
+  ipAddress           String?     @map("ip_address")
+  userAgent           String?     @map("user_agent")
+  acceptedAt          DateTime    @default(now()) @map("accepted_at") @db.Timestamptz(3)
+
+  policyVersion PolicyVersion @relation(fields: [policyVersionId], references: [id])
+  company       Company       @relation(fields: [companyId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+  paymentAttempts PaymentAttempt[]
+
+  @@unique([policyVersionId, userId])
+  @@index([companyId])
+  @@index([policyVersionId])
+  @@map("policy_acceptances")
+}
+
+// -----------------------------------------------------------------------
+// email_verification_tokens / password_reset_tokens — only a hash of
+// the token is ever stored; the raw token exists only in the email
+// sent to the user. Single-use (consumed_at) and short-lived
+// (expires_at).
+// -----------------------------------------------------------------------
+model EmailVerificationToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ============================================================================
+// Phase 3 — Admin Foundation
+// ============================================================================
+
+enum AdminUserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+// -----------------------------------------------------------------------
+// admin_users — completely separate identity space from companies/users.
+// No self-registration: the first row is created only by the
+// bootstrap CLI (src/cli/bootstrap-admin.ts), never by an HTTP endpoint.
+// two_factor_secret_encrypted is ciphertext (AES-256-GCM), never the
+// raw TOTP secret — see common/security/crypto.util.ts.
+// -----------------------------------------------------------------------
+model AdminUser {
+  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                    String          @unique
+  passwordHash             String          @map("password_hash")
+  status                   AdminUserStatus @default(ACTIVE)
+  twoFactorSecretEncrypted String?         @map("two_factor_secret_encrypted")
+  twoFactorEnabledAt       DateTime?       @map("two_factor_enabled_at") @db.Timestamptz(3)
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  recoveryCodes AdminRecoveryCode[]
+
+  @@map("admin_users")
+}
+
+// -----------------------------------------------------------------------
+// admin_recovery_codes — one-time-use 2FA fallback codes. Only a hash
+// (SHA-256, via the same token.util.ts pattern as email/password
+// tokens) is ever stored; the raw code is shown to the operator
+// exactly once, at generation time, and never persisted anywhere.
+// -----------------------------------------------------------------------
+model AdminRecoveryCode {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  codeHash    String    @unique @map("code_hash")
+  consumedAt  DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([adminUserId])
+  @@map("admin_recovery_codes")
+}
+
+// ============================================================================
+// Phase 4 — Taxonomy & Catalog
+// ============================================================================
+
+enum ProductApprovalStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  CLOSED
+}
+
+enum ApprovalSource {
+  ADMIN
+  AUTO
+}
+
+// -----------------------------------------------------------------------
+// taxonomy_nodes — self-referencing tree, unlimited depth (no fixed
+// Sector/Category/Subcategory tables). Admin-managed exclusively.
+// Cycle prevention (a node cannot become its own ancestor) is enforced
+// in application code at move-time — Postgres has no native
+// recursive-FK-cycle constraint.
+// -----------------------------------------------------------------------
+model TaxonomyNode {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
+  nameAr    String   @map("name_ar")
+  nameEn    String   @map("name_en")
+  iconUrl   String?  @map("icon_url")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  parent   TaxonomyNode?  @relation("TaxonomyNodeParent", fields: [parentId], references: [id])
+  children TaxonomyNode[] @relation("TaxonomyNodeParent")
+  products Product[]
+
+  @@index([parentId])
+  @@map("taxonomy_nodes")
+}
+
+// -----------------------------------------------------------------------
+// sales_units — admin-managed, general list (Piece/Pack/Box/...).
+// -----------------------------------------------------------------------
+model SalesUnit {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nameAr    String   @map("name_ar")
+  nameEn    String   @map("name_en")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products Product[]
+
+  @@map("sales_units")
+}
+
+// -----------------------------------------------------------------------
+// products — owned by a SUPPLIER company only (enforced in application
+// code, not a DB constraint, since account_type lives on Company).
+// approval_status (review workflow) and archived_at (lifecycle) are
+// deliberately independent — see docs/architecture.md Phase 4 section.
+// No price/quantity/duration/ship-from-city fields here on purpose —
+// those belong exclusively to Opportunity (Phase 6).
+// -----------------------------------------------------------------------
+model Product {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String                @map("company_id") @db.Uuid
+  taxonomyNodeId  String                @map("taxonomy_node_id") @db.Uuid
+  // salesUnitId is a SOFT reference only — a UI suggestion/autocomplete
+  // source, never authoritative. Business logic (snapshots, opportunities,
+  // orders) reads salesUnitNameAr/En exclusively; nothing reads FROM
+  // salesUnitId. See salesUnitNameAr/En below for the real source of truth.
+  salesUnitId     String?               @map("sales_unit_id") @db.Uuid
+  salesUnitNameAr String                @map("sales_unit_name_ar")
+  salesUnitNameEn String                @map("sales_unit_name_en")
+  // Package content — an optional group (all four fields together, or
+  // none). Decimal, not Int, to support fractional quantities (2.5L, 0.5kg).
+  packageContentQuantity     Decimal? @map("package_content_quantity") @db.Decimal(10, 3)
+  packageContentUnitNameAr   String?  @map("package_content_unit_name_ar")
+  packageContentUnitNameEn   String?  @map("package_content_unit_name_en")
+  nameAr          String                @map("name_ar")
+  nameEn          String                @map("name_en")
+  descriptionAr   String?               @map("description_ar")
+  descriptionEn   String?               @map("description_en")
+  weightPerUnit   Decimal               @map("weight_per_unit") @db.Decimal(10, 3)
+  lengthCm        Decimal               @map("length_cm") @db.Decimal(10, 2)
+  widthCm         Decimal               @map("width_cm") @db.Decimal(10, 2)
+  heightCm        Decimal               @map("height_cm") @db.Decimal(10, 2)
+  approvalStatus  ProductApprovalStatus @default(DRAFT) @map("approval_status")
+  rejectionReason String?               @map("rejection_reason")
+  archivedAt      DateTime?             @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company      Company                   @relation(fields: [companyId], references: [id])
+  taxonomyNode TaxonomyNode              @relation(fields: [taxonomyNodeId], references: [id])
+  salesUnit    SalesUnit?                @relation(fields: [salesUnitId], references: [id])
+  media        ProductMedia[]
+  snapshots    ProductApprovalSnapshot[]
+  opportunities Opportunity[]
+  reports      ProductReport[]
+
+  @@index([companyId])
+  @@index([taxonomyNodeId])
+  @@index([approvalStatus])
+  @@map("products")
+}
+
+// -----------------------------------------------------------------------
+// product_media — hard-deletable (not a financial/transactional
+// record). Exactly one is_main=true per product is enforced at the
+// DATABASE level via a partial unique index (added by raw SQL in the
+// migration), same singleton pattern as branding_settings and
+// company_locations' default flag.
+// -----------------------------------------------------------------------
+model ProductMedia {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId          String   @map("product_id") @db.Uuid
+  objectKey          String   @map("object_key")
+  thumbnailObjectKey String   @map("thumbnail_object_key")
+  contentType        String   @map("content_type")
+  sizeBytes          Int      @map("size_bytes")
+  isMain             Boolean  @default(false) @map("is_main")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("product_media")
+}
+
+// -----------------------------------------------------------------------
+// product_approval_snapshots — append-only proof of exactly what was
+// approved and when. Never updated or deleted; a later edit collapsing
+// the product back to DRAFT does not touch past snapshots.
+// -----------------------------------------------------------------------
+model ProductApprovalSnapshot {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  snapshot          Json
+  approvalSource    ApprovalSource @map("approval_source")
+  // Nullable — AUTO-sourced snapshots have no admin actor. Consistency
+  // with approvalSource is enforced by a DB CHECK (AUTO<=>NULL, ADMIN<=>NOT NULL).
+  approvedByAdminId String?  @map("approved_by_admin_id") @db.Uuid
+  approvedAt        DateTime @default(now()) @map("approved_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id])
+  opportunities Opportunity[]
+  reports ProductReport[]
+  quoteSnapshots QuoteSnapshot[]
+
+  @@index([productId])
+  @@map("product_approval_snapshots")
+}
+
+// ============================================================================
+// Phase 5 — Supplier Financial Readiness
+// ============================================================================
+
+enum BankAccountVerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUPERSEDED
+}
+
+// -----------------------------------------------------------------------
+// supplier_bank_accounts — append-only history. A VERIFIED row is
+// NEVER edited in place: any change to IBAN/account identity creates
+// a brand-new row (PENDING_VERIFICATION) that requires its own admin
+// approval. On approval, the previously-active row (if any) moves to
+// SUPERSEDED — never deleted, never rewritten.
+//
+// iban_ciphertext is an AES-256-GCM envelope (key-versioned — see
+// crypto-envelope.util.ts) encrypted with BANK_DATA_ENCRYPTION_KEY, a
+// key deliberately independent from ADMIN_TOTP_ENCRYPTION_KEY.
+// iban_fingerprint is an HMAC-SHA256 of the normalized IBAN, used to
+// detect a resubmitted/duplicate account WITHOUT decrypting anything.
+// Deliberately not globally unique — the same account appearing under
+// a different company is a future risk/audit signal, not a hard DB
+// rejection (Founder decision).
+// -----------------------------------------------------------------------
+model SupplierBankAccount {
+  id                 String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String                        @map("company_id") @db.Uuid
+  accountHolderName  String                        @map("account_holder_name")
+  bankName           String                        @map("bank_name")
+  ibanCiphertext     String                        @map("iban_ciphertext")
+  ibanFingerprint    String                        @map("iban_fingerprint")
+  ibanLast4          String                        @map("iban_last4")
+  verificationStatus BankAccountVerificationStatus @default(PENDING_VERIFICATION) @map("verification_status")
+  rejectionReason    String?                       @map("rejection_reason")
+  verifiedAt         DateTime?                     @map("verified_at") @db.Timestamptz(3)
+  createdAt          DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company          Company  @relation("SupplierBankAccountOwner", fields: [companyId], references: [id])
+  activeForCompany Company? @relation("CompanyActiveBankAccount")
+  masterOrders     MasterOrder[]
+  supplierPayouts  SupplierPayout[]
+
+  @@index([companyId])
+  @@index([ibanFingerprint])
+  @@index([verificationStatus])
+  @@map("supplier_bank_accounts")
+}
+
+// -----------------------------------------------------------------------
+// supplier_tax_profiles — self-declared (Phase 5 scope). NOT a legal
+// verification of VAT registration — no admin approval workflow exists
+// for this yet, by explicit decision. The actual Tax Engine
+// calculation logic is Phase 7 (skeleton) / Phase 10 (production).
+// -----------------------------------------------------------------------
+model SupplierTaxProfile {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId       String   @unique @map("company_id") @db.Uuid
+  isVatRegistered Boolean  @map("is_vat_registered")
+  vatNumber       String?  @map("vat_number")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("supplier_tax_profiles")
+}
+
+// -----------------------------------------------------------------------
+// supplier_invoicing_profiles — supplier-declared invoicing details
+// only. NOT the invoicing engine itself (Invoicing Provider
+// Adapter / PDF generation is Phase 10 scope).
+// -----------------------------------------------------------------------
+model SupplierInvoicingProfile {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String   @unique @map("company_id") @db.Uuid
+  invoicingLegalName String   @map("invoicing_legal_name")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("supplier_invoicing_profiles")
+}
+
+// ============================================================================
+// Phase 6 — Opportunities Core
+// ============================================================================
+
+// -----------------------------------------------------------------------
+// regions / cities — fully structured geography reference lists,
+// admin-managed exactly like taxonomy_nodes/sales_units (Phase 4).
+// company_locations.city_id is a FK here — never free text — so
+// filtering by city is exact-match on a stable id, never fragmented
+// by spelling/capitalization variance. A city's region is derived
+// from city.region_id; the supplier never enters a region directly.
+//
+// A single inactive "Sentinel" city (fixed id, seeded by migration)
+// exists solely to satisfy the NOT NULL constraint on pre-existing
+// company_locations rows during migration — it can never be selected
+// at registration or in any location create/update call, and any
+// opportunity whose location resolves to it is blocked at publish.
+// -----------------------------------------------------------------------
+model Region {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nameAr    String   @map("name_ar")
+  nameEn    String   @map("name_en")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  cities City[]
+
+  @@map("regions")
+}
+
+model City {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  regionId  String   @map("region_id") @db.Uuid
+  nameAr    String   @map("name_ar")
+  nameEn    String   @map("name_en")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  region            Region              @relation(fields: [regionId], references: [id])
+  companyLocations  CompanyLocation[]
+  opportunities     Opportunity[]
+
+  @@index([regionId])
+  @@map("cities")
+}
+
+enum OpportunityStatus {
+  DRAFT
+  SCHEDULED
+  ACTION_REQUIRED
+  ACTIVE
+  PAUSED
+  FUNDED
+  EXPIRED
+  CANCELLED
+}
+
+enum OpportunityCurrency {
+  SAR
+}
+
+// -----------------------------------------------------------------------
+// opportunities — the purchasable unit suppliers publish themselves,
+// with NO admin approval step (Self-Service & Automation First). Admin
+// is monitor-only here: pause/resume/cancel for exceptions, never
+// day-to-day publishing decisions.
+//
+// Snapshot philosophy: fulfillment location (city/region), the
+// approved product version, and the tax breakdown are all captured
+// as of the moment the opportunity leaves DRAFT (publish or
+// re-publish from ACTION_REQUIRED) — re-captured on every edit while
+// still SCHEDULED, and frozen permanently by a DB trigger the first
+// time the row ever reaches ACTIVE (first_activated_at, set exactly
+// once). No price/quantity/duration data exists on Product (Phase 4)
+// — it lives here exclusively, as originally scoped.
+//
+// funded_quantity is created at 0 and NEVER incremented by any Phase
+// 6 code path — no endpoint, no internal helper. The future atomic
+// increment (Phase 7, tied to a unique payment record + idempotency
+// key) is documented only, not implemented, here.
+// -----------------------------------------------------------------------
+model Opportunity {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+
+  fulfillmentLocationId String @map("fulfillment_location_id") @db.Uuid
+
+  // Location/region snapshot — NULL while DRAFT, populated on leaving
+  // DRAFT, frozen after first_activated_at.
+  fulfillmentCityId         String? @map("fulfillment_city_id") @db.Uuid
+  fulfillmentCityNameAr     String? @map("fulfillment_city_name_ar")
+  fulfillmentCityNameEn     String? @map("fulfillment_city_name_en")
+  fulfillmentRegionId       String? @map("fulfillment_region_id") @db.Uuid
+  fulfillmentRegionNameAr   String? @map("fulfillment_region_name_ar")
+  fulfillmentRegionNameEn   String? @map("fulfillment_region_name_en")
+
+  // Product snapshot reference — the specific approved version this
+  // opportunity was built on. NULL while DRAFT.
+  productApprovalSnapshotId String? @map("product_approval_snapshot_id") @db.Uuid
+
+  // targetQuantity is a SUPPLY CAP the supplier is willing to sell —
+  // never a collective funding goal that must be reached before any
+  // order proceeds. Every individually-paid order is created and
+  // sent to the supplier for fulfillment immediately on payment
+  // success, independent of how much of the cap is sold.
+  // fundedQuantity is "quantity sold so far", increased ONLY by a
+  // confirmed successful payment tied to a valid, still-live
+  // Checkout Lock (Phase 7) — a late/unrelated webhook without a
+  // valid lock must never increase it. This field is never reversed
+  // by the opportunity's own expiry/pause/cancellation.
+  // DEFERRED TO PHASE 7: what a later cancellation/refund of an
+  // individual paid order does to available/sellable quantity (e.g.
+  // whether the unit becomes resellable) is an order/inventory
+  // decision made there — not decided or implemented here.
+  targetQuantity      Int     @map("target_quantity")
+  fundedQuantity      Int     @default(0) @map("funded_quantity")
+  unitPriceAmount     Decimal @map("unit_price_amount") @db.Decimal(12, 2)
+  currency            OpportunityCurrency @default(SAR)
+
+  // Share-tier snapshot — NULL while DRAFT/never-published-CANCELLED,
+  // required from SCHEDULED onward. shareTierPolicyVersionId, once
+  // set, is NEVER re-resolved to the current policy on a later edit
+  // (SCHEDULED edit, ACTION_REQUIRED republish) — only the resulting
+  // total value / tier / share quantity are recomputed, against that
+  // SAME pinned version's tiers.
+  totalValueInclTaxAmount   Decimal? @map("total_value_incl_tax_amount") @db.Decimal(14, 2)
+  shareTierPolicyVersionId  String?  @map("share_tier_policy_version_id") @db.Uuid
+  shareTierIndex             Int?    @map("share_tier_index")
+  shareBasisPoints           Int?    @map("share_basis_points")
+  shareQuantity               Int?   @map("share_quantity")
+
+  // Sales unit + package content snapshot — sourced from the FROZEN
+  // ProductApprovalSnapshot.snapshot (salesUnitNameAr/En,
+  // packageContentQuantity/UnitNameAr/En) at publish time, NEVER from
+  // a live Product/SalesUnit join. There is deliberately no
+  // salesUnitId FK here — the names ARE the source of truth, not a
+  // pointer to a table nothing else reads from.
+  salesUnitNameAr   String? @map("sales_unit_name_ar")
+  salesUnitNameEn   String? @map("sales_unit_name_en")
+  packageContentQuantity   Decimal? @map("package_content_quantity") @db.Decimal(10, 3)
+  packageContentUnitNameAr String?  @map("package_content_unit_name_ar")
+  packageContentUnitNameEn String?  @map("package_content_unit_name_en")
+
+  // Commission snapshot — same pinning philosophy as
+  // shareTierPolicyVersionId: set once, never re-resolved to the
+  // current policy on a later SCHEDULED edit or ACTION_REQUIRED
+  // republish. Only Version + Rate are frozen here — the actual
+  // commission AMOUNT is never computed or stored on the opportunity;
+  // it is computed per-Order, on that order's paid quantity, in 7C.
+  commissionPolicyVersionId String? @map("commission_policy_version_id") @db.Uuid
+  commissionRateBasisPoints Int?    @map("commission_rate_basis_points")
+
+  // Tax snapshot — NULL while DRAFT, required from SCHEDULED onward.
+  taxRatePercent             Decimal? @map("tax_rate_percent") @db.Decimal(5, 2)
+  unitPriceExclTaxAmount     Decimal? @map("unit_price_excl_tax_amount") @db.Decimal(12, 2)
+  unitTaxAmount              Decimal? @map("unit_tax_amount") @db.Decimal(12, 2)
+  taxCalculationRuleCode    String?  @map("tax_calculation_rule_code")
+  taxCalculationRuleVersion String?  @map("tax_calculation_rule_version")
+
+  startAt                  DateTime @map("start_at") @db.Timestamptz(3)
+  endAt                    DateTime @map("end_at") @db.Timestamptz(3)
+  expectedPreparationDays  Int      @map("expected_preparation_days")
+
+  descriptionAr String? @map("description_ar")
+  descriptionEn String? @map("description_en")
+
+  status           OpportunityStatus @default(DRAFT)
+  firstActivatedAt DateTime?         @map("first_activated_at") @db.Timestamptz(3)
+  extendedAt       DateTime?         @map("extended_at") @db.Timestamptz(3)
+  pausedAt         DateTime?         @map("paused_at") @db.Timestamptz(3)
+  pauseReason      String?           @map("pause_reason")
+  cancelReason     String?           @map("cancel_reason")
+
+  // ACTION_REQUIRED — closed reason-code set, safe pre-written details only.
+  reasonCode    String?   @map("reason_code")
+  reasonDetails String?   @map("reason_details")
+  blockedAt     DateTime? @map("blocked_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company                 Company                  @relation(fields: [companyId], references: [id])
+  product                 Product                  @relation(fields: [productId], references: [id])
+  fulfillmentLocation     CompanyLocation          @relation(fields: [fulfillmentLocationId], references: [id])
+  fulfillmentCity         City?                    @relation(fields: [fulfillmentCityId], references: [id])
+  productApprovalSnapshot ProductApprovalSnapshot? @relation(fields: [productApprovalSnapshotId], references: [id])
+  shareTierPolicyVersion  ShareTierPolicyVersion?  @relation(fields: [shareTierPolicyVersionId], references: [id], onDelete: Restrict)
+  commissionPolicyVersion CommissionPolicyVersion? @relation(fields: [commissionPolicyVersionId], references: [id], onDelete: Restrict)
+  checkoutSessions        CheckoutSession[]
+
+  @@index([companyId])
+  @@index([productId])
+  @@index([status, startAt])
+  @@index([status, endAt])
+  @@index([fulfillmentCityId])
+  @@index([shareTierPolicyVersionId])
+  @@index([commissionPolicyVersionId])
+  @@map("opportunities")
+}
+
+// -----------------------------------------------------------------------
+// share_tier_policy_versions — Append-Only, exactly like
+// product_approval_snapshots: every admin edit inserts a NEW row
+// (never UPDATEs an existing one), enforced by a DB trigger that
+// blocks UPDATE/DELETE unconditionally. Opportunity.shareTierPolicyVersionId
+// pins to one specific row forever once set, so a later admin policy
+// change never silently alters an already-published opportunity's
+// economics. Version 1 (the documented default tiers) is seeded by
+// its own migration — createdBy is NULL for that row (system-seeded,
+// not created by any specific admin action), matching the existing
+// nullable-actor precedent (audit_logs.actor_id for SYSTEM actions).
+// -----------------------------------------------------------------------
+model ShareTierPolicyVersion {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version   Int      @unique @default(autoincrement())
+  tiers     Json
+  // Plain UUID, no Prisma relation object — matches the existing
+  // ProductApprovalSnapshot.approvedByAdminId precedent exactly
+  // (no FK constraint declared at the Prisma level either).
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  opportunities Opportunity[]
+
+  @@map("share_tier_policy_versions")
+}
+
+// ============================================================================
+// Phase 7A — Product Auto-Approval, Reports, Commission Policy
+// ============================================================================
+
+enum ProductReportReasonCode {
+  COUNTERFEIT
+  MISLEADING_INFO
+  SAFETY_CONCERN
+  REGULATORY_CONCERN
+  INTELLECTUAL_PROPERTY
+  INAPPROPRIATE_CONTENT
+  DUPLICATE_OR_SPAM
+  OTHER
+}
+
+enum ProductReportStatus {
+  OPEN
+  CLARIFICATION_REQUESTED
+  DISMISSED
+  RESOLVED
+}
+
+// -----------------------------------------------------------------------
+// product_reports — any registered trader may file one, no anonymous
+// reports (reporterCompanyId always set). At most one OPEN report per
+// (product, reporter) — enforced by a partial unique index. Always
+// pins the EXACT approval snapshot being reported via
+// reportedProductApprovalSnapshotId, since the supplier may edit the
+// product (creating a new snapshot) while the report is still open.
+// -----------------------------------------------------------------------
+model ProductReport {
+  id                               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId                        String                   @map("product_id") @db.Uuid
+  reporterCompanyId                String                   @map("reporter_company_id") @db.Uuid
+  reportedProductApprovalSnapshotId String                  @map("reported_product_approval_snapshot_id") @db.Uuid
+  reasonCode                       ProductReportReasonCode  @map("reason_code")
+  reasonDetails                    String?                  @map("reason_details")
+  status                           ProductReportStatus      @default(OPEN)
+  adminDecisionNote                String?                  @map("admin_decision_note")
+  resolvedByAdminId                String?                  @map("resolved_by_admin_id") @db.Uuid
+  createdAt                        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  resolvedAt                       DateTime?                @map("resolved_at") @db.Timestamptz(3)
+
+  product                    Product                  @relation(fields: [productId], references: [id])
+  reportedProductApprovalSnapshot ProductApprovalSnapshot @relation(fields: [reportedProductApprovalSnapshotId], references: [id])
+  evidence                   ProductReportEvidence[]
+
+  @@index([productId])
+  @@index([reporterCompanyId])
+  @@map("product_reports")
+}
+
+// -----------------------------------------------------------------------
+// product_report_evidence — Append-Only after the report is filed
+// (never edited/deleted). Object storage references only, never a raw
+// payload/blob inline. Deliberately separate from ProductMedia, which
+// is supplier-owned product imagery, not evidence submitted by a
+// third-party reporter.
+// -----------------------------------------------------------------------
+model ProductReportEvidence {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId     String   @map("report_id") @db.Uuid
+  objectKey    String   @map("object_key")
+  contentType  String   @map("content_type")
+  sizeBytes    Int      @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  report ProductReport @relation(fields: [reportId], references: [id])
+
+  @@index([reportId])
+  @@map("product_report_evidence")
+}
+
+// -----------------------------------------------------------------------
+// commission_policy_versions — Append-Only, identical pattern to
+// share_tier_policy_versions: every admin change inserts a NEW row,
+// never updates one (enforced unconditionally by a trigger). Version 1
+// (500 basis points = 5%) is seeded by its own migration.
+// -----------------------------------------------------------------------
+model CommissionPolicyVersion {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version           Int      @unique @default(autoincrement())
+  rateBasisPoints   Int      @map("rate_basis_points")
+  createdBy         String?  @map("created_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  opportunities Opportunity[]
+
+  @@map("commission_policy_versions")
+}
+
+// ============================================================================
+// Phase 7B — Checkout Quote, Locks, Branch Allocation, Shipping
+// ============================================================================
+
+enum CheckoutSessionStatus {
+  LOCKED
+  EXPIRED
+  ABANDONED
+  PAYMENT_PENDING
+  PAID
+}
+
+enum CheckoutLockReleaseReason {
+  EXPIRED
+  TRADER_ABANDONED
+  OPPORTUNITY_CANCELLED
+  ADMIN_ABANDONED
+}
+
+enum ShippingTierCode {
+  SAME_CITY
+  SAME_REGION_DIFFERENT_CITY
+  DIFFERENT_REGION
+}
+
+// -----------------------------------------------------------------------
+// checkout_sessions — the root aggregate. A partial unique index
+// enforces "at most one ACTIVE lock per (opportunity, trader company)"
+// directly at the database level — lockReleasedAt IS NULL is the sole
+// reservation contract, never `status` alone. No idempotencyKey
+// column here — that lives entirely in the shared idempotency_keys
+// table, scoped per trader company (see IdempotencyKey usage in
+// CheckoutSessionService).
+// -----------------------------------------------------------------------
+model CheckoutSession {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  opportunityId    String                    @map("opportunity_id") @db.Uuid
+  traderCompanyId  String                    @map("trader_company_id") @db.Uuid
+  status           CheckoutSessionStatus     @default(LOCKED)
+  lockedQuantity   Int                       @map("locked_quantity")
+  lockCreatedAt    DateTime                  @map("lock_created_at") @db.Timestamptz(3)
+  lockExpiresAt    DateTime                  @map("lock_expires_at") @db.Timestamptz(3)
+  lockReleasedAt   DateTime?                 @map("lock_released_at") @db.Timestamptz(3)
+  releaseReason    CheckoutLockReleaseReason? @map("release_reason")
+  // Filled only when the first payment attempt starts (LOCKED ->
+  // PAYMENT_PENDING) — the quantity-reservation deadline during payment
+  // waiting, computed from CheckoutSettingsService, NEVER derived from
+  // the original lockExpiresAt. Deliberately kept even after the row
+  // moves to EXPIRED, so a late-arriving webhook can still compare a
+  // real providerCapturedAt against it.
+  paymentDeadlineAt DateTime?                @map("payment_deadline_at") @db.Timestamptz(3)
+  // Set only on the PAID transition — providerCapturedAt from the
+  // winning webhook, never now(). Distinct from releaseReason, which
+  // stays NULL for PAID (payment is a completion, not a "release").
+  capturedAt        DateTime?                @map("captured_at") @db.Timestamptz(3)
+  // {legalName, crNumber} only — no VAT/tax profile at this stage,
+  // deliberately deferred to 7C before any real invoice is built.
+  traderCompanySnapshot Json                 @map("trader_company_snapshot")
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  opportunity     Opportunity                 @relation(fields: [opportunityId], references: [id])
+  traderCompany   Company                     @relation(fields: [traderCompanyId], references: [id])
+  allocations     CheckoutLocationAllocation[]
+  quoteSnapshot   QuoteSnapshot?
+  paymentAttempts PaymentAttempt[]
+  order           MasterOrder?
+
+  @@index([opportunityId])
+  @@index([traderCompanyId])
+  @@map("checkout_sessions")
+}
+
+// -----------------------------------------------------------------------
+// quote_snapshots — Append-Only, immutable at the DB level (trigger).
+// checkoutSessionId is the ONLY foreign key between this table and
+// CheckoutSession — deliberately no reverse column on CheckoutSession,
+// so there is no circular reference to reason about. All financial
+// fields are copied verbatim from the FROZEN Opportunity fields
+// (unit price/tax already frozen at publish time in Phase 6) —
+// nothing here ever recomputes tax from a live rate.
+// -----------------------------------------------------------------------
+model QuoteSnapshot {
+  id                             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkoutSessionId              String   @unique @map("checkout_session_id") @db.Uuid
+  productApprovalSnapshotId      String   @map("product_approval_snapshot_id") @db.Uuid
+  salesUnitNameAr                String   @map("sales_unit_name_ar")
+  salesUnitNameEn                String   @map("sales_unit_name_en")
+  packageContentQuantity         Decimal? @map("package_content_quantity") @db.Decimal(10, 3)
+  packageContentUnitNameAr       String?  @map("package_content_unit_name_ar")
+  packageContentUnitNameEn       String?  @map("package_content_unit_name_en")
+  quantity                       Int
+  shareQuantity                  Int      @map("share_quantity")
+  sharePercentageReadable        Decimal  @map("share_percentage_readable") @db.Decimal(5, 2)
+  unitPriceInclTaxAmount         Decimal  @map("unit_price_incl_tax_amount") @db.Decimal(12, 2)
+  unitPriceExclTaxAmount         Decimal  @map("unit_price_excl_tax_amount") @db.Decimal(12, 2)
+  unitTaxAmount                  Decimal  @map("unit_tax_amount") @db.Decimal(12, 2)
+  taxRatePercent                 Decimal  @map("tax_rate_percent") @db.Decimal(5, 2)
+  taxCalculationRuleCode         String   @map("tax_calculation_rule_code")
+  taxCalculationRuleVersion      String   @map("tax_calculation_rule_version")
+  productsSubtotalExclTaxAmount  Decimal  @map("products_subtotal_excl_tax_amount") @db.Decimal(14, 2)
+  productsTaxAmount              Decimal  @map("products_tax_amount") @db.Decimal(14, 2)
+  productsSubtotalInclTaxAmount  Decimal  @map("products_subtotal_incl_tax_amount") @db.Decimal(14, 2)
+  totalShippingFeeAmount         Decimal  @map("total_shipping_fee_amount") @db.Decimal(12, 2)
+  grandTotalAmount               Decimal  @map("grand_total_amount") @db.Decimal(14, 2)
+  currency                       String   @default("SAR")
+  shippingTariffPolicyVersionId  String   @map("shipping_tariff_policy_version_id") @db.Uuid
+  shippingProviderCode           String   @map("shipping_provider_code")
+  createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  checkoutSession             CheckoutSession          @relation(fields: [checkoutSessionId], references: [id])
+  productApprovalSnapshot     ProductApprovalSnapshot  @relation(fields: [productApprovalSnapshotId], references: [id])
+  shippingTariffPolicyVersion ShippingTariffPolicyVersion @relation(fields: [shippingTariffPolicyVersionId], references: [id], onDelete: Restrict)
+
+  @@map("quote_snapshots")
+}
+
+// -----------------------------------------------------------------------
+// checkout_location_allocations — Append-Only, immutable at the DB
+// level (trigger). companyLocationId is a historical pointer only —
+// every field needed to display/act on the branch is snapshotted
+// alongside it, so a later edit or deactivation of the live location
+// never changes an already-locked allocation.
+// -----------------------------------------------------------------------
+model CheckoutLocationAllocation {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkoutSessionId      String           @map("checkout_session_id") @db.Uuid
+  companyLocationId      String           @map("company_location_id") @db.Uuid
+  locationNameSnapshot   String           @map("location_name_snapshot")
+  cityNameArSnapshot     String           @map("city_name_ar_snapshot")
+  cityNameEnSnapshot     String           @map("city_name_en_snapshot")
+  regionNameArSnapshot   String           @map("region_name_ar_snapshot")
+  regionNameEnSnapshot   String           @map("region_name_en_snapshot")
+  addressSnapshot        String           @map("address_snapshot")
+  latitudeSnapshot       Decimal?         @map("latitude_snapshot") @db.Decimal(9, 6)
+  longitudeSnapshot      Decimal?         @map("longitude_snapshot") @db.Decimal(9, 6)
+  contactNameSnapshot    String           @map("contact_name_snapshot")
+  contactPhoneSnapshot   String           @map("contact_phone_snapshot")
+  quantity               Int
+  shippingTierCode       ShippingTierCode @map("shipping_tier_code")
+  shippingFeeAmount      Decimal          @map("shipping_fee_amount") @db.Decimal(12, 2)
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  checkoutSession CheckoutSession @relation(fields: [checkoutSessionId], references: [id])
+  companyLocation CompanyLocation @relation(fields: [companyLocationId], references: [id], onDelete: Restrict)
+  orderAllocation OrderAllocation?
+
+  @@map("checkout_location_allocations")
+}
+
+// -----------------------------------------------------------------------
+// shipping_tariff_policy_versions — Append-Only, identical pattern to
+// commission_policy_versions/share_tier_policy_versions. Deliberately
+// NOT seeded with any default row by its migration — getCurrentPolicy()
+// throws SHIPPING_TARIFF_NOT_CONFIGURED until an admin explicitly sets
+// one, rather than inventing a starting tariff.
+// -----------------------------------------------------------------------
+model ShippingTariffPolicyVersion {
+  id                                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version                             Int      @unique @default(autoincrement())
+  sameCityFeeAmount                   Decimal  @map("same_city_fee_amount") @db.Decimal(12, 2)
+  sameRegionDifferentCityFeeAmount    Decimal  @map("same_region_different_city_fee_amount") @db.Decimal(12, 2)
+  differentRegionFeeAmount            Decimal  @map("different_region_fee_amount") @db.Decimal(12, 2)
+  providerCode                        String   @default("ADMIN_TARIFF_V1") @map("provider_code")
+  createdBy                           String?  @map("created_by") @db.Uuid
+  createdAt                           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  quotes QuoteSnapshot[]
+
+  @@map("shipping_tariff_policy_versions")
+}
+
+// ============================================================================
+// Phase 7C — Payment, Order, Ledger
+// ============================================================================
+
+enum PaymentAttemptStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  SUPERSEDED
+  EXPIRED
+}
+
+enum ProviderEventType {
+  SUCCESS
+  FAILURE
+}
+
+enum ProviderEventOutcome {
+  ORDER_CREATED
+  REFUND_REQUIRED
+  PAYMENT_FAILED
+  IGNORED_OUT_OF_ORDER
+  DUPLICATE
+}
+
+enum RefundObligationReasonCode {
+  LATE_CAPTURE_AFTER_CANCEL
+  LATE_CAPTURE_AFTER_DEADLINE
+  COMMISSION_TAX_NOT_CONFIGURED
+  BANK_ACCOUNT_NOT_VERIFIED
+  DUPLICATE_SUCCESSFUL_CAPTURE
+  CAPTURE_AMOUNT_MISMATCH
+  DISPUTE_FULL_REFUND
+  DISPUTE_PARTIAL_REFUND
+  TRADER_TAX_PROFILE_INCOMPLETE
+}
+
+enum RefundObligationStatus {
+  PENDING_EXECUTION
+  SENT
+  COMPLETED
+  FAILED
+}
+
+enum RefundAttemptStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  DEFINITIVE_FAILED
+}
+
+enum MasterOrderStatus {
+  IN_FULFILLMENT
+  FULFILLED
+}
+
+enum OrderAllocationStatus {
+  AWAITING_PREPARATION
+  PREPARING
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+}
+
+enum LedgerAccount {
+  CASH_CLEARING
+  SUPPLIER_PAYABLE
+  PLATFORM_COMMISSION_REVENUE
+  COMMISSION_TAX_PAYABLE
+  SHIPPING_LIABILITY
+  CUSTOMER_REFUND_PAYABLE
+  PAYMENT_PROCESSING_FEE_EXPENSE
+  REFUND_RECONCILIATION_RECEIVABLE
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+// -----------------------------------------------------------------------
+// commission_tax_policy_versions — Append-Only, identical pattern to
+// shipping_tariff_policy_versions. No Version 1 seeded — getCurrentPolicy()
+// fails explicitly (COMMISSION_TAX_NOT_CONFIGURED) until an admin sets it.
+// -----------------------------------------------------------------------
+model CommissionTaxPolicyVersion {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version    Int      @unique @default(autoincrement())
+  ratePercent Decimal @map("rate_percent") @db.Decimal(5, 2)
+  ruleCode   String   @map("rule_code")
+  ruleVersion String  @map("rule_version")
+  createdBy  String?  @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("commission_tax_policy_versions")
+}
+
+// -----------------------------------------------------------------------
+// payment_attempts — one row per attempted payment intent. TX1 creates it
+// as CREATED; providerReference is filled once known. A partial unique
+// index (defined at the migration level) allows only one CREATED/PENDING
+// row per checkout session at a time.
+// -----------------------------------------------------------------------
+model PaymentAttempt {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkoutSessionId     String               @map("checkout_session_id") @db.Uuid
+  status                PaymentAttemptStatus @default(CREATED)
+  providerCode          String               @map("provider_code")
+  providerReference     String?              @map("provider_reference")
+  idempotencyKey        String               @map("idempotency_key")
+  amount                Decimal              @db.Decimal(14, 2)
+  currency              String               @default("SAR")
+  providerCapturedAt    DateTime?            @map("provider_captured_at") @db.Timestamptz(3)
+  providerCapturedAmount Decimal?            @map("provider_captured_amount") @db.Decimal(14, 2)
+  providerFeeAmount     Decimal?             @map("provider_fee_amount") @db.Decimal(14, 2)
+  // Frozen at TX1 (checkout-time), copied onto MasterOrder only once
+  // Capture actually creates it — never re-read live at that point.
+  policyAcceptanceId    String?              @map("policy_acceptance_id") @db.Uuid
+  acceptedByUserId      String?              @map("accepted_by_user_id") @db.Uuid
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  checkoutSession CheckoutSession @relation(fields: [checkoutSessionId], references: [id])
+  policyAcceptance PolicyAcceptance? @relation(fields: [policyAcceptanceId], references: [id])
+  acceptedByUser   User?             @relation(fields: [acceptedByUserId], references: [id])
+  events          ProviderPaymentEvent[]
+  order           MasterOrder?
+  refundObligations RefundObligation[]
+
+  @@index([checkoutSessionId])
+  @@map("payment_attempts")
+}
+
+// -----------------------------------------------------------------------
+// provider_payment_events — Immutable: inserted ONCE, at the end of the
+// webhook-processing transaction, already carrying its final resolved
+// outcome. Never updated afterward (a duplicate webhook re-reads this row,
+// never re-writes it).
+// -----------------------------------------------------------------------
+model ProviderPaymentEvent {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider               String
+  providerEventId        String                @map("provider_event_id")
+  paymentAttemptId       String                @map("payment_attempt_id") @db.Uuid
+  eventType              ProviderEventType     @map("event_type")
+  providerCapturedAt     DateTime?             @map("provider_captured_at") @db.Timestamptz(3)
+  providerCapturedAmount Decimal?              @map("provider_captured_amount") @db.Decimal(14, 2)
+  providerFeeAmount      Decimal?              @map("provider_fee_amount") @db.Decimal(14, 2)
+  processingOutcome      ProviderEventOutcome  @map("processing_outcome")
+  payloadHash            String                @map("payload_hash")
+  payloadMetadataRedacted Json                 @map("payload_metadata_redacted")
+  receivedAt             DateTime              @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  paymentAttempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+
+  @@unique([provider, providerEventId])
+  @@index([paymentAttemptId])
+  @@map("provider_payment_events")
+}
+
+// -----------------------------------------------------------------------
+// master_orders — created directly IN_FULFILLMENT (never PAID — payment
+// status lives exclusively on PaymentAttempt). checkoutSessionId UNIQUE
+// is the structural guarantee of "one order per checkout, ever".
+// -----------------------------------------------------------------------
+model MasterOrder {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkoutSessionId     String            @unique @map("checkout_session_id") @db.Uuid
+  opportunityId         String            @map("opportunity_id") @db.Uuid
+  traderCompanyId       String            @map("trader_company_id") @db.Uuid
+  supplierCompanyId     String            @map("supplier_company_id") @db.Uuid
+  paymentAttemptId      String            @unique @map("payment_attempt_id") @db.Uuid
+  supplierBankAccountId String            @map("supplier_bank_account_id") @db.Uuid
+  status                MasterOrderStatus @default(IN_FULFILLMENT)
+  totalAmount           Decimal           @map("total_amount") @db.Decimal(14, 2)
+  commissionBase          Decimal @map("commission_base") @db.Decimal(14, 2)
+  commissionRateBasisPoints Int   @map("commission_rate_basis_points")
+  commissionAmount         Decimal @map("commission_amount") @db.Decimal(14, 2)
+  commissionTaxRate         Decimal @map("commission_tax_rate") @db.Decimal(5, 2)
+  commissionTaxRuleCode     String  @map("commission_tax_rule_code")
+  commissionTaxRuleVersion  String  @map("commission_tax_rule_version")
+  commissionTaxAmount       Decimal @map("commission_tax_amount") @db.Decimal(14, 2)
+  supplierPayableAmount     Decimal @map("supplier_payable_amount") @db.Decimal(14, 2)
+  supplierLegalNameSnapshot String @map("supplier_legal_name_snapshot")
+  supplierCrNumberSnapshot  String @map("supplier_cr_number_snapshot")
+  supplierTaxProfileSnapshot Json  @map("supplier_tax_profile_snapshot")
+  supplierInvoicingProfileSnapshot Json @map("supplier_invoicing_profile_snapshot")
+  traderTaxProfileSnapshot Json?     @map("trader_tax_profile_snapshot")
+  traderBillingLegalNameSnapshot String? @map("trader_billing_legal_name_snapshot")
+  policyAcceptanceId    String?           @map("policy_acceptance_id") @db.Uuid
+  acceptedByUserId      String?           @map("accepted_by_user_id") @db.Uuid
+  paidAt                DateTime          @map("paid_at") @db.Timestamptz(3)
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  checkoutSession  CheckoutSession @relation(fields: [checkoutSessionId], references: [id])
+  paymentAttempt   PaymentAttempt  @relation(fields: [paymentAttemptId], references: [id])
+  supplierBankAccount SupplierBankAccount @relation(fields: [supplierBankAccountId], references: [id], onDelete: Restrict)
+  allocations      OrderAllocation[]
+  invoiceDocuments InvoiceDocument[]
+  buyerBillingOverride MasterOrderBuyerBillingOverride?
+
+  @@index([opportunityId])
+  @@index([traderCompanyId])
+  @@index([supplierCompanyId])
+  @@map("master_orders")
+}
+
+// -----------------------------------------------------------------------
+// order_allocations — 1:1 with CheckoutLocationAllocation (already
+// frozen in 7B: address/contact/quantity/shipping fee). No duplicate
+// snapshot here — only the preparation-deadline fields, computed and
+// frozen once, here, so they are never re-derived later.
+// -----------------------------------------------------------------------
+model OrderAllocation {
+  id                          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  masterOrderId               String                 @map("master_order_id") @db.Uuid
+  checkoutLocationAllocationId String                @unique @map("checkout_location_allocation_id") @db.Uuid
+  status                       OrderAllocationStatus @default(AWAITING_PREPARATION)
+  expectedPreparationDays      Int                    @map("expected_preparation_days")
+  preparationDueAt             DateTime               @map("preparation_due_at") @db.Timestamptz(3)
+  preparationStartedAt         DateTime?              @map("preparation_started_at") @db.Timestamptz(3)
+  readyToShipAt                DateTime?              @map("ready_to_ship_at") @db.Timestamptz(3)
+  shippedAt                    DateTime?              @map("shipped_at") @db.Timestamptz(3)
+  deliveredAt                  DateTime?              @map("delivered_at") @db.Timestamptz(3)
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  masterOrder MasterOrder                @relation(fields: [masterOrderId], references: [id])
+  checkoutLocationAllocation CheckoutLocationAllocation @relation(fields: [checkoutLocationAllocationId], references: [id], onDelete: Restrict)
+  shipmentTracking ShipmentTracking?
+  deliveryConfirmation DeliveryConfirmation?
+
+  // Phase 7E — Disputes/Refunds/Settlement (nullable during Expand phase)
+  disputeWindowClosesAt DateTime?   @map("dispute_window_closes_at") @db.Timestamptz(3)
+  payoutSettledAt       DateTime?   @map("payout_settled_at") @db.Timestamptz(3)
+  financialSnapshot     OrderAllocationFinancialSnapshot?
+  dispute               Dispute?
+  supplierPayout        SupplierPayout?
+  replacementObligations ReplacementObligation[]
+  shippingDocument      ShippingDocument?
+
+  @@index([masterOrderId])
+  @@map("order_allocations")
+}
+
+// -----------------------------------------------------------------------
+// journal_entries / ledger_postings — Double-entry, Append-Only,
+// immutable. A DEFERRABLE CONSTRAINT TRIGGER (evaluated via explicit
+// SET CONSTRAINTS ... IMMEDIATE inside the owning transaction, per the
+// lesson from 7B) enforces SUM(debit) = SUM(credit) per journal entry.
+// -----------------------------------------------------------------------
+model JournalEntry {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType       String   @map("event_type")
+  referenceType   String   @map("reference_type")
+  referenceId     String   @map("reference_id") @db.Uuid
+  idempotencyKey  String   @unique @map("idempotency_key")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  postings LedgerPosting[]
+  refundReconciliationIncident RefundReconciliationIncident?
+
+  @@map("journal_entries")
+}
+
+model LedgerPosting {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journalEntryId String          @map("journal_entry_id") @db.Uuid
+  account        LedgerAccount
+  direction      LedgerDirection
+  amount         Decimal         @db.Decimal(14, 2)
+  currency       String          @default("SAR")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id])
+
+  @@index([journalEntryId])
+  @@map("ledger_postings")
+}
+
+enum RefundObligationSource {
+  PAYMENT_EXCEPTION
+  DISPUTE
+}
+
+// -----------------------------------------------------------------------
+// refund_obligations — Immutable from insertion (core fields). Execution
+// is tracked via RefundAttempt/RefundProviderEvent, never here directly.
+// PAYMENT_EXCEPTION rows (7C's original LATE_CAPTURE_* etc): a single
+// independent amount, product/shipping both NULL, never debits
+// SUPPLIER_PAYABLE, no Allocation cap applies.
+// DISPUTE rows (7E): product+shipping always both non-NULL and sum to
+// total, capped against the Allocation's refundable value.
+// -----------------------------------------------------------------------
+model RefundObligation {
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentAttemptId String                      @map("payment_attempt_id") @db.Uuid
+  source           RefundObligationSource      @map("source")
+  disputeDecisionId String?                    @unique @map("dispute_decision_id") @db.Uuid
+  reasonCode       RefundObligationReasonCode  @map("reason_code")
+  productRefundAmountInclTax Decimal?          @map("product_refund_amount_incl_tax") @db.Decimal(14, 2)
+  shippingRefundAmount       Decimal?          @map("shipping_refund_amount") @db.Decimal(14, 2)
+  amount           Decimal                     @db.Decimal(14, 2)
+  currency         String                      @default("SAR")
+  status           RefundObligationStatus      @default(PENDING_EXECUTION)
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  paymentAttempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  disputeDecision DisputeDecision? @relation(fields: [disputeDecisionId], references: [id], onDelete: Restrict)
+  attempts RefundAttempt[]
+  reconciliationIncidents RefundReconciliationIncident[]
+
+  @@index([paymentAttemptId])
+  @@map("refund_obligations")
+}
+
+// -----------------------------------------------------------------------
+// refund_attempts — 1:N per RefundObligation, supports retry after
+// RETRYABLE_UNKNOWN. Append-only; status progresses via a guarded
+// transition only.
+// -----------------------------------------------------------------------
+model RefundAttempt {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refundObligationId String              @map("refund_obligation_id") @db.Uuid
+  providerCode       String              @map("provider_code")
+  idempotencyKey     String              @unique @map("idempotency_key")
+  status             RefundAttemptStatus @default(CREATED)
+  providerReference  String?             @map("provider_reference")
+  failureReason      String?             @map("failure_reason")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  refundObligation RefundObligation @relation(fields: [refundObligationId], references: [id])
+  providerEvents   RefundProviderEvent[]
+  reconciliationIncident RefundReconciliationIncident?
+
+  @@index([refundObligationId])
+  @@map("refund_attempts")
+}
+
+// -----------------------------------------------------------------------
+// refund_provider_events — Append-only, immutable. Raw webhook events
+// from the refund provider, same rigor as ProviderPaymentEvent (7C) /
+// CarrierTrackingEvent (7D).
+// -----------------------------------------------------------------------
+enum RefundProviderEventOutcome {
+  RECORDED
+  SUCCEEDED
+  DEFINITIVE_FAILED
+  IGNORED_OUT_OF_ORDER
+  DUPLICATE_SUCCESS_REQUIRES_RECONCILIATION
+}
+
+model RefundProviderEvent {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refundAttemptId String   @map("refund_attempt_id") @db.Uuid
+  providerCode    String   @map("provider_code")
+  providerEventId String   @map("provider_event_id")
+  eventType       String   @map("event_type")
+  processingOutcome RefundProviderEventOutcome @map("processing_outcome")
+  payloadHash     String   @map("payload_hash")
+  receivedAt      DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  refundAttempt RefundAttempt @relation(fields: [refundAttemptId], references: [id])
+
+  @@unique([providerCode, providerEventId])
+  @@index([refundAttemptId])
+  @@map("refund_provider_events")
+}
+
+enum RefundReconciliationIncidentReasonCode {
+  DUPLICATE_PROVIDER_REFUND
+}
+
+enum RefundReconciliationIncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+// -----------------------------------------------------------------------
+// refund_reconciliation_incidents — Immutable, one per attempt. Raised
+// when a genuinely distinct RefundAttempt reports success from the
+// provider AFTER its RefundObligation was already COMPLETED by
+// another attempt — a real duplicate transfer that must never be
+// hidden or auto-resolved.
+// -----------------------------------------------------------------------
+model RefundReconciliationIncident {
+  id                  String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refundObligationId  String                                  @map("refund_obligation_id") @db.Uuid
+  refundAttemptId     String                                  @unique @map("refund_attempt_id") @db.Uuid
+  journalEntryId      String                                  @unique @map("journal_entry_id") @db.Uuid
+  excessAmount        Decimal                                 @map("excess_amount") @db.Decimal(14, 2)
+  currency            String                                  @default("SAR")
+  reasonCode          RefundReconciliationIncidentReasonCode  @map("reason_code")
+  status              RefundReconciliationIncidentStatus      @default(OPEN)
+  createdAt           DateTime                                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  refundObligation RefundObligation @relation(fields: [refundObligationId], references: [id], onDelete: Restrict)
+  refundAttempt    RefundAttempt    @relation(fields: [refundAttemptId], references: [id], onDelete: Restrict)
+  journalEntry     JournalEntry     @relation(fields: [journalEntryId], references: [id], onDelete: Restrict)
+
+  @@index([refundObligationId])
+  @@map("refund_reconciliation_incidents")
+}
+
+// -----------------------------------------------------------------------
+// platform_billing_profile_versions — Versioned, Append-only. FORSA's
+// own legal identity for the (internal, non-tax) commission draft's
+// "seller" side. No default seed — absence must block commission
+// draft creation with an explicit error.
+// -----------------------------------------------------------------------
+model PlatformBillingProfileVersion {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version               Int      @unique
+  legalName             String   @map("legal_name")
+  crNumber              String   @map("cr_number")
+  isVatRegistered       Boolean  @map("is_vat_registered")
+  vatNumber             String?  @map("vat_number")
+  addressSnapshot       Json     @map("address_snapshot")
+  createdByAdminUserId  String   @map("created_by_admin_user_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("platform_billing_profile_versions")
+}
+
+// ============================================================================
+// Phase 7D — Fulfillment, Shipping, Delivery
+// ============================================================================
+
+enum CarrierEventType {
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  DELIVERY_FAILED
+  EXCEPTION
+}
+
+enum CarrierEventOutcome {
+  RECORDED
+  DELIVERED
+  IGNORED_ALREADY_DELIVERED
+  IGNORED_OUT_OF_ORDER
+}
+
+enum DeliveryConfirmationSource {
+  CARRIER_WEBHOOK
+  TRADER_CONFIRMATION
+  ADMIN_DECISION
+}
+
+// -----------------------------------------------------------------------
+// shipment_tracking — 1:1 with OrderAllocation, created exactly once when
+// SHIPPED. No address/phone here — already frozen on
+// CheckoutLocationAllocation from 7B.
+// -----------------------------------------------------------------------
+model ShipmentTracking {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderAllocationId String   @unique @map("order_allocation_id") @db.Uuid
+  carrierCode       String   @map("carrier_code")
+  trackingNumber    String   @map("tracking_number")
+  shippedByUserId   String   @map("shipped_by_user_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  orderAllocation OrderAllocation @relation(fields: [orderAllocationId], references: [id], onDelete: Restrict)
+  trackingEvents  CarrierTrackingEvent[]
+
+  @@unique([carrierCode, trackingNumber])
+  @@map("shipment_tracking")
+}
+
+// -----------------------------------------------------------------------
+// carrier_tracking_events — Immutable, inserted once with its final
+// resolved outcome. Same pattern as provider_payment_events from 7C.
+// -----------------------------------------------------------------------
+model CarrierTrackingEvent {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shipmentTrackingId     String               @map("shipment_tracking_id") @db.Uuid
+  carrierCode            String               @map("carrier_code")
+  carrierEventId         String               @map("carrier_event_id")
+  eventType              CarrierEventType     @map("event_type")
+  eventOccurredAt        DateTime             @map("event_occurred_at") @db.Timestamptz(3)
+  processingOutcome      CarrierEventOutcome  @map("processing_outcome")
+  payloadHash            String               @map("payload_hash")
+  payloadMetadataRedacted Json                @map("payload_metadata_redacted")
+  receivedAt             DateTime             @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  shipmentTracking ShipmentTracking @relation(fields: [shipmentTrackingId], references: [id], onDelete: Restrict)
+  deliveryConfirmation DeliveryConfirmation?
+
+  @@unique([carrierCode, carrierEventId])
+  @@index([shipmentTrackingId])
+  @@map("carrier_tracking_events")
+}
+
+// -----------------------------------------------------------------------
+// delivery_confirmations — 1:1 with OrderAllocation, Immutable, records
+// exactly which of the three sources confirmed delivery.
+// -----------------------------------------------------------------------
+model DeliveryConfirmation {
+  id                     String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderAllocationId      String                     @unique @map("order_allocation_id") @db.Uuid
+  confirmedBySource      DeliveryConfirmationSource @map("confirmed_by_source")
+  confirmedAt            DateTime                   @map("confirmed_at") @db.Timestamptz(3)
+  confirmedByUserId      String?                    @map("confirmed_by_user_id") @db.Uuid
+  carrierTrackingEventId String?                    @unique @map("carrier_tracking_event_id") @db.Uuid
+  adminReasonNote        String?                    @map("admin_reason_note")
+  createdAt              DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  orderAllocation OrderAllocation @relation(fields: [orderAllocationId], references: [id], onDelete: Restrict)
+  carrierTrackingEvent CarrierTrackingEvent? @relation(fields: [carrierTrackingEventId], references: [id], onDelete: Restrict)
+
+  @@map("delivery_confirmations")
+}
+
+// ============================================================================
+// Phase 7E — Disputes, Refunds, Replacement, Settlement, Invoicing
+// ============================================================================
+
+// -----------------------------------------------------------------------
+// order_allocation_financial_snapshots — 1:1 with OrderAllocation,
+// immutable, the SOLE source of truth for every financial calculation
+// touching an allocation from this point forward (dispute refund math,
+// commission reversal, supplier payout, invoicing). NEVER re-derived
+// from MasterOrder/QuoteSnapshot after creation.
+//
+// allocationShareBasisPoints is DISPLAY_ONLY — NOT used in any
+// financial calculation. All monetary fields below are computed
+// directly from exact quantities, independently rounded, with a
+// separate rounding remainder per component.
+// -----------------------------------------------------------------------
+model OrderAllocationFinancialSnapshot {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderAllocationId     String   @unique @map("order_allocation_id") @db.Uuid
+
+  productAmountExclTax  Decimal  @map("product_amount_excl_tax") @db.Decimal(14, 2)
+  productTaxAmount      Decimal  @map("product_tax_amount") @db.Decimal(14, 2)
+  productAmountInclTax  Decimal  @map("product_amount_incl_tax") @db.Decimal(14, 2)
+
+  allocationShareBasisPoints Int  @map("allocation_share_basis_points") // DISPLAY_ONLY
+
+  commissionShareAmount     Decimal @map("commission_share_amount") @db.Decimal(14, 2)
+  commissionShareTaxAmount  Decimal @map("commission_share_tax_amount") @db.Decimal(14, 2)
+  supplierPayableShareAmount Decimal @map("supplier_payable_share_amount") @db.Decimal(14, 2)
+  shippingFeeAmount         Decimal @map("shipping_fee_amount") @db.Decimal(12, 2)
+
+  // Independent rounding remainder per component — the last branch
+  // (by checkoutLocationAllocation.createdAt ASC, id ASC) absorbs each
+  // component's leftover fraction independently.
+  productAmountRoundingRemainder         Decimal @default(0) @map("product_amount_rounding_remainder") @db.Decimal(14, 2)
+  commissionShareRoundingRemainder       Decimal @default(0) @map("commission_share_rounding_remainder") @db.Decimal(14, 2)
+  commissionShareTaxRoundingRemainder    Decimal @default(0) @map("commission_share_tax_rounding_remainder") @db.Decimal(14, 2)
+  supplierPayableShareRoundingRemainder  Decimal @default(0) @map("supplier_payable_share_rounding_remainder") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  orderAllocation OrderAllocation @relation(fields: [orderAllocationId], references: [id], onDelete: Restrict)
+
+  @@map("order_allocation_financial_snapshots")
+}
+
+enum DisputeReasonCode {
+  ITEM_NOT_RECEIVED
+  ITEM_DAMAGED
+  ITEM_INCORRECT
+  QUANTITY_SHORTAGE
+  QUALITY_ISSUE
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  SUPPLIER_RESPONDED
+  AWAITING_REPLACEMENT
+  RESOLVED_ACCEPTED
+  RESOLVED_PARTIAL
+  RESOLVED_REJECTED
+  RESOLVED_REPLACED
+}
+
+// -----------------------------------------------------------------------
+// disputes — ONE dispute per OrderAllocation for its entire lifetime
+// (UNIQUE, not partial). The trader consolidates every issue and every
+// -----------------------------------------------------------------------
+// evidence_uploads — tracks who uploaded a file, its verified
+// type/size, and whether it's already tied to a dispute. Prevents
+// DisputeService from trusting an arbitrary caller-supplied
+// storageObjectKey.
+// -----------------------------------------------------------------------
+model EvidenceUpload {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storageObjectKey   String   @unique @map("storage_object_key")
+  uploadedByUserId   String   @map("uploaded_by_user_id") @db.Uuid
+  contentType        String   @map("content_type")
+  sizeBytes          Int      @map("size_bytes")
+  usedInDisputeId    String?  @map("used_in_dispute_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  usedInDispute Dispute? @relation(fields: [usedInDisputeId], references: [id], onDelete: Restrict)
+
+  @@map("evidence_uploads")
+}
+
+// -----------------------------------------------------------------------
+// piece of evidence into this single dispute.
+// -----------------------------------------------------------------------
+model Dispute {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderAllocationId     String            @unique @map("order_allocation_id") @db.Uuid
+  openedByUserId        String            @map("opened_by_user_id") @db.Uuid
+  reasonCode            DisputeReasonCode @map("reason_code")
+  description           String
+  status                DisputeStatus     @default(OPEN)
+  supplierResponseDueAt DateTime          @map("supplier_response_due_at") @db.Timestamptz(3)
+  openedAt              DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
+
+  orderAllocation OrderAllocation @relation(fields: [orderAllocationId], references: [id], onDelete: Restrict)
+  evidence        DisputeEvidence[]
+  supplierResponse DisputeSupplierResponse?
+  decisions       DisputeDecision[]
+  evidenceUploads EvidenceUpload[]
+
+  @@map("disputes")
+}
+
+// -----------------------------------------------------------------------
+// dispute_evidence — Append-only. Insertion allowed by the service ONLY
+// while dispute.status = OPEN, no DisputeSupplierResponse exists yet,
+// and now() <= supplierResponseDueAt. The Dispute row is locked
+// (SELECT ... FOR UPDATE) before every evidence insert AND before every
+// supplier response insert, to serialize the race between the two.
+// -----------------------------------------------------------------------
+model DisputeEvidence {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeId      String   @map("dispute_id") @db.Uuid
+  storageObjectKey String @map("storage_object_key")
+  uploadedByUserId String @map("uploaded_by_user_id") @db.Uuid
+  uploadedAt     DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+
+  @@index([disputeId])
+  @@map("dispute_evidence")
+}
+
+enum DisputeSupplierResponseType {
+  ACCEPT
+  REJECT
+  PARTIAL_ACCEPT
+  REPLACEMENT_OFFER
+}
+
+// -----------------------------------------------------------------------
+// dispute_supplier_responses — ONE final response per dispute (UNIQUE).
+// -----------------------------------------------------------------------
+model DisputeSupplierResponse {
+  id             String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeId      String                       @unique @map("dispute_id") @db.Uuid
+  responseType   DisputeSupplierResponseType   @map("response_type")
+  description    String
+  respondedByUserId String                     @map("responded_by_user_id") @db.Uuid
+  respondedAt    DateTime                      @default(now()) @map("responded_at") @db.Timestamptz(3)
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+
+  @@map("dispute_supplier_responses")
+}
+
+enum DisputeDecisionType {
+  FULL_REFUND
+  PARTIAL_REFUND
+  REJECTED
+  REPLACEMENT
+}
+
+// -----------------------------------------------------------------------
+// dispute_decisions — sequenceNumber IN (1,2). A second decision is only
+// ever created by the service after verifying (inside the same locked
+// transaction) that decision #1 was REPLACEMENT and its
+// ReplacementObligation is FAILED; decision #2 must be a refund type.
+// No cross-table CHECK exists for this (not expressible in plain SQL) —
+// enforced by the service under an explicit Dispute row lock, backed by
+// the simple same-table CHECK (sequence_number IN (1,2)).
+// -----------------------------------------------------------------------
+model DisputeDecision {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeId          String              @map("dispute_id") @db.Uuid
+  sequenceNumber     Int                 @map("sequence_number")
+  decisionType       DisputeDecisionType @map("decision_type")
+  productRefundAmountInclTax Decimal?    @map("product_refund_amount_incl_tax") @db.Decimal(14, 2)
+  shippingRefundAmount       Decimal?    @map("shipping_refund_amount") @db.Decimal(14, 2)
+  reasonNote         String              @map("reason_note")
+  decidedByAdminUserId String            @map("decided_by_admin_user_id") @db.Uuid
+  decidedAt          DateTime            @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  refundObligation RefundObligation?
+  replacementObligation ReplacementObligation?
+
+  @@unique([disputeId, sequenceNumber])
+  @@map("dispute_decisions")
+}
+
+enum ReplacementObligationStatus {
+  AWAITING_PREPARATION
+  PREPARING
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+  FAILED
+}
+
+// -----------------------------------------------------------------------
+// replacement_obligations — a real operational entity, not a financial
+// one. No new payment, no automatic Ledger entry. Uses its OWN
+// shipment/tracking/delivery tables (below) — 7D's original tables are
+// never touched or made polymorphic.
+// -----------------------------------------------------------------------
+model ReplacementObligation {
+  id                      String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeDecisionId       String                       @unique @map("dispute_decision_id") @db.Uuid
+  originalOrderAllocationId String                     @map("original_order_allocation_id") @db.Uuid
+  replacementQuantity     Int                          @map("replacement_quantity")
+  status                  ReplacementObligationStatus  @default(AWAITING_PREPARATION)
+  preparationStartedAt    DateTime?                    @map("preparation_started_at") @db.Timestamptz(3)
+  readyToShipAt           DateTime?                    @map("ready_to_ship_at") @db.Timestamptz(3)
+  shippedAt               DateTime?                    @map("shipped_at") @db.Timestamptz(3)
+  deliveredAt             DateTime?                    @map("delivered_at") @db.Timestamptz(3)
+  failedAt                DateTime?                    @map("failed_at") @db.Timestamptz(3)
+  createdAt               DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  disputeDecision   DisputeDecision @relation(fields: [disputeDecisionId], references: [id], onDelete: Restrict)
+  originalOrderAllocation OrderAllocation @relation(fields: [originalOrderAllocationId], references: [id], onDelete: Restrict)
+  shipmentTracking  ReplacementShipmentTracking?
+  deliveryConfirmation ReplacementDeliveryConfirmation?
+
+  @@map("replacement_obligations")
+}
+
+model ReplacementShipmentTracking {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  replacementObligationId  String   @unique @map("replacement_obligation_id") @db.Uuid
+  carrierCode              String   @map("carrier_code")
+  trackingNumber           String   @map("tracking_number")
+  shippedByUserId          String   @map("shipped_by_user_id") @db.Uuid
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  replacementObligation ReplacementObligation @relation(fields: [replacementObligationId], references: [id], onDelete: Restrict)
+  trackingEvents ReplacementCarrierTrackingEvent[]
+
+  @@unique([carrierCode, trackingNumber])
+  @@map("replacement_shipment_tracking")
+}
+
+model ReplacementCarrierTrackingEvent {
+  id                          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  replacementShipmentTrackingId String             @map("replacement_shipment_tracking_id") @db.Uuid
+  carrierCode                 String               @map("carrier_code")
+  carrierEventId               String              @map("carrier_event_id")
+  eventType                   CarrierEventType     @map("event_type")
+  eventOccurredAt             DateTime             @map("event_occurred_at") @db.Timestamptz(3)
+  processingOutcome           CarrierEventOutcome  @map("processing_outcome")
+  payloadHash                 String               @map("payload_hash")
+  payloadMetadataRedacted     Json                 @map("payload_metadata_redacted")
+  receivedAt                  DateTime             @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  replacementShipmentTracking ReplacementShipmentTracking @relation(fields: [replacementShipmentTrackingId], references: [id], onDelete: Restrict)
+  deliveryConfirmation ReplacementDeliveryConfirmation?
+
+  @@unique([carrierCode, carrierEventId])
+  @@index([replacementShipmentTrackingId])
+  @@map("replacement_carrier_tracking_events")
+}
+
+enum ReplacementDeliveryConfirmationSource {
+  CARRIER_WEBHOOK
+  TRADER_CONFIRMATION
+  ADMIN_DECISION
+}
+
+model ReplacementDeliveryConfirmation {
+  id                          String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  replacementObligationId     String                                 @unique @map("replacement_obligation_id") @db.Uuid
+  confirmedBySource           ReplacementDeliveryConfirmationSource  @map("confirmed_by_source")
+  confirmedAt                 DateTime                               @map("confirmed_at") @db.Timestamptz(3)
+  confirmedByUserId           String?                                @map("confirmed_by_user_id") @db.Uuid
+  replacementCarrierTrackingEventId String?                          @unique @map("replacement_carrier_tracking_event_id") @db.Uuid
+  adminReasonNote              String?                               @map("admin_reason_note")
+  createdAt                   DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  replacementObligation ReplacementObligation @relation(fields: [replacementObligationId], references: [id], onDelete: Restrict)
+  replacementCarrierTrackingEvent ReplacementCarrierTrackingEvent? @relation(fields: [replacementCarrierTrackingEventId], references: [id], onDelete: Restrict)
+
+  @@map("replacement_delivery_confirmations")
+}
+
+// -----------------------------------------------------------------------
+// supplier_payouts — settlement, one per OrderAllocation (UNIQUE).
+// -----------------------------------------------------------------------
+enum SupplierPayoutOutcome {
+  EXECUTED
+  ZERO_BALANCE
+}
+
+model SupplierPayout {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderAllocationId        String   @unique @map("order_allocation_id") @db.Uuid
+  outcome                  SupplierPayoutOutcome @map("outcome")
+  externalTransferReference String? @unique @map("external_transfer_reference")
+  netAmount                Decimal  @map("net_amount") @db.Decimal(14, 2)
+  supplierBankAccountId    String   @map("supplier_bank_account_id") @db.Uuid
+  executedByAdminUserId    String   @map("executed_by_admin_user_id") @db.Uuid
+  executedAt               DateTime @default(now()) @map("executed_at") @db.Timestamptz(3)
+
+  orderAllocation OrderAllocation @relation(fields: [orderAllocationId], references: [id], onDelete: Restrict)
+  supplierBankAccount SupplierBankAccount @relation(fields: [supplierBankAccountId], references: [id], onDelete: Restrict)
+
+  @@map("supplier_payouts")
+}
+
+enum InvoiceDocumentType {
+  INTERNAL_PRODUCT_DRAFT
+  INTERNAL_COMMISSION_DRAFT
+  INTERNAL_ADJUSTMENT_DRAFT
+}
+
+// -----------------------------------------------------------------------
+// invoice_documents — unified, immutable, internal-drafts ONLY. NOT a
+// legal tax invoice: no ZATCA clearance/reporting, no QR, no
+// taxInvoiceNumber. INTERNAL_ADJUSTMENT_DRAFT rows point back to the
+// original draft they adjust via relatedInvoiceDocumentId; no
+// polymorphic type+id pair is used anywhere.
+// -----------------------------------------------------------------------
+model InvoiceDocument {
+  id                       String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentType             InvoiceDocumentType @map("document_type")
+  masterOrderId             String             @map("master_order_id") @db.Uuid
+  relatedInvoiceDocumentId String?             @map("related_invoice_document_id") @db.Uuid
+  amount                   Decimal             @db.Decimal(14, 2)
+  currency                 String              @default("SAR")
+  issuedAt                 DateTime            @default(now()) @map("issued_at") @db.Timestamptz(3)
+  internalDocumentReference String             @unique @map("internal_document_reference")
+  snapshotData             Json                @map("snapshot_data")
+  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  masterOrder MasterOrder @relation(fields: [masterOrderId], references: [id])
+  relatedInvoiceDocument InvoiceDocument? @relation("AdjustmentCorrection", fields: [relatedInvoiceDocumentId], references: [id], onDelete: Restrict)
+  correctingAdjustments InvoiceDocument[] @relation("AdjustmentCorrection")
+
+  @@map("invoice_documents")
+}
+
+// -----------------------------------------------------------------------
+// shipping_documents — carrier reference only, NEVER a tax invoice
+// issued in FORSA's name.
+// -----------------------------------------------------------------------
+model ShippingDocument {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderAllocationId String   @unique @map("order_allocation_id") @db.Uuid
+  carrierReference  String   @map("carrier_reference")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  orderAllocation OrderAllocation @relation(fields: [orderAllocationId], references: [id], onDelete: Restrict)
+
+  @@map("shipping_documents")
+}
+
+// -----------------------------------------------------------------------
+// trader_tax_profiles — self-service, no routine admin review, mirrors
+// SupplierTaxProfile's shape.
+// -----------------------------------------------------------------------
+model TraderTaxProfile {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String   @unique @map("company_id") @db.Uuid
+  isVatRegistered    Boolean  @map("is_vat_registered")
+  vatNumber          String?  @map("vat_number")
+  billingLegalName   String   @map("billing_legal_name")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("trader_tax_profiles")
+}
+
+// -----------------------------------------------------------------------
+// master_order_buyer_billing_overrides — Immutable, admin-created only,
+// covers legacy MasterOrders that predate TraderTaxProfile and lack a
+// frozen buyer billing snapshot.
+// -----------------------------------------------------------------------
+model MasterOrderBuyerBillingOverride {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  masterOrderId                   String   @unique @map("master_order_id") @db.Uuid
+  traderTaxProfileSnapshotOverride Json    @map("trader_tax_profile_snapshot_override")
+  createdByAdminUserId            String   @map("created_by_admin_user_id") @db.Uuid
+  reasonNote                      String   @map("reason_note")
+  createdAt                       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  masterOrder MasterOrder @relation(fields: [masterOrderId], references: [id])
+
+  @@map("master_order_buyer_billing_overrides")
+}

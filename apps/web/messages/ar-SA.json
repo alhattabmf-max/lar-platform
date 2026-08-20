@@ -1,0 +1,13 @@
+{
+  "common": {
+    "projectPlaceholderName": "PROJECT_NAME",
+    "tagline": "منصة B2B — الأساس (Phase 1)"
+  },
+  "home": {
+    "title": "الصفحة الرئيسية",
+    "description": "هذه واجهة تأسيسية لمرحلة Phase 1. لا يوجد منطق عمل بعد.",
+    "localeLabel": "اللغة الحالية",
+    "directionLabel": "اتجاه الصفحة",
+    "switchLanguage": "English"
+  }
+}

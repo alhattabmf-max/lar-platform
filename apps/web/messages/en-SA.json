@@ -1,0 +1,13 @@
+{
+  "common": {
+    "projectPlaceholderName": "PROJECT_NAME",
+    "tagline": "B2B Platform — Foundation (Phase 1)"
+  },
+  "home": {
+    "title": "Home",
+    "description": "This is the Phase 1 foundation shell. No business logic yet.",
+    "localeLabel": "Current locale",
+    "directionLabel": "Page direction",
+    "switchLanguage": "العربية"
+  }
+}

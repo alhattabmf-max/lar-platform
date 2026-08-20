@@ -1,0 +1,19 @@
+{
+  "name": "@platform/types",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "node ../../scripts/build/clean-build-artifacts.mjs",
+    "prebuild": "pnpm run clean",
+    "build": "tsc -p tsconfig.json",
+    "postbuild": "node ../../scripts/build/verify-build-output.mjs dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "echo \"no tests in @platform/types\" && exit 0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

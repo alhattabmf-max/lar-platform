@@ -1,0 +1,67 @@
+# ============================================================
+# Secrets — NEVER commit real environment values.
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Dependencies
+# ============================================================
+node_modules/
+
+# ============================================================
+# Build output
+# ============================================================
+dist/
+.next/
+# Anchored to the repo root on purpose: an unanchored `build/` also
+# matches nested source directories — it silently excluded the whole
+# of scripts/build/ (the cross-platform build tooling) from the index.
+/build/
+
+# ============================================================
+# Test coverage
+# ============================================================
+coverage/
+
+# ============================================================
+# Logs
+# ============================================================
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ============================================================
+# Database backups / dumps / temporary databases — never
+# archived, never committed. See scripts/db/README.md.
+# ============================================================
+backups/
+*.dump
+*.sql.gz
+*.db-dump
+
+# ============================================================
+# TypeScript incremental build cache — a stale one has been
+# observed to silently corrupt `nest build` output (emitting
+# only .d.ts, zero .js). Never commit, always start clean.
+# ============================================================
+*.tsbuildinfo
+
+# ============================================================
+# OS / editor noise
+# ============================================================
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# ============================================================
+# Prisma generated client (regenerated via `prisma generate`)
+# ============================================================
+generated/
+
+# ============================================================
+# NOTE: pnpm-lock.yaml is intentionally NOT ignored — it is
+# committed to guarantee reproducible installs.
+# ============================================================

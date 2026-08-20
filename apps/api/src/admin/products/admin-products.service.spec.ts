@@ -1,0 +1,187 @@
+import { NotFoundException } from "@nestjs/common";
+import { AdminProductsService } from "./admin-products.service";
+
+function fakePrisma(overrides: Record<string, unknown> = {}) {
+  return {
+    ...overrides,
+    product: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      ...(overrides.product as Record<string, unknown> | undefined),
+    },
+    $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(overrides.tx ?? {})),
+  } as never;
+}
+
+const ctx = { requestId: "req-1" };
+
+const DEFAULT_PRODUCT_ROW = {
+  id: "p1",
+  companyId: "c1",
+  approvalStatus: "APPROVED",
+  nameAr: "a",
+  nameEn: "a",
+  descriptionAr: null,
+  descriptionEn: null,
+  taxonomyNodeId: "node-1",
+  salesUnitNameAr: "a",
+  salesUnitNameEn: "a",
+  packageContentQuantity: null,
+  packageContentUnitNameAr: null,
+  packageContentUnitNameEn: null,
+  weightPerUnit: { toString: () => "1" },
+  lengthCm: { toString: () => "1" },
+  widthCm: { toString: () => "1" },
+  heightCm: { toString: () => "1" },
+};
+
+function buildTx(queryRawResults: unknown[][], productRow: Record<string, unknown> = DEFAULT_PRODUCT_ROW) {
+  let call = 0;
+  const queryRaw = jest.fn(async () => queryRawResults[call++] ?? []);
+  return {
+    $queryRaw: queryRaw,
+    product: {
+      findUnique: jest.fn().mockResolvedValue(productRow),
+      findUniqueOrThrow: jest.fn().mockResolvedValue(productRow),
+    },
+    productMedia: { findMany: jest.fn().mockResolvedValue([]) },
+    productApprovalSnapshot: { create: jest.fn() },
+    auditLog: { create: jest.fn() },
+    outboxEvent: { create: jest.fn() },
+  };
+}
+
+describe("AdminProductsService — suspend/close/reactivate (atomic claim + cascade)", () => {
+  describe("suspend", () => {
+    it("rejects when the atomic claim matches nothing (not APPROVED)", async () => {
+      const tx = buildTx([[]], { id: "p1", companyId: "c1", approvalStatus: "SUSPENDED" });
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await expect(service.suspend("p1", "report confirmed", "admin-1", ctx)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: "CONFLICT" }),
+      });
+      expect(tx.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundException when the product truly does not exist", async () => {
+      const tx = buildTx([[]]);
+      tx.product.findUnique = jest.fn().mockResolvedValue(null);
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await expect(service.suspend("missing", "x", "admin-1", ctx)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("claims APPROVED->SUSPENDED, writes product audit+outbox, then cascades SCHEDULED->ACTION_REQUIRED and ACTIVE->PAUSED atomically", async () => {
+      const tx = buildTx([
+        [{ id: "p1", company_id: "c1" }],
+        [{ id: "opp-scheduled", company_id: "c1" }],
+        [{ id: "opp-active", company_id: "c1" }],
+      ]);
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await service.suspend("p1", "report confirmed", "admin-1", ctx);
+
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ action: "PRODUCT_SUSPENDED" }) })
+      );
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ action: "OPPORTUNITY_ACTION_REQUIRED_PRODUCT_CASCADE", entityId: "opp-scheduled" }),
+        })
+      );
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ action: "OPPORTUNITY_PAUSED_PRODUCT_CASCADE", entityId: "opp-active" }),
+        })
+      );
+      expect(tx.outboxEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ eventType: "PRODUCT_SUSPENDED" }) })
+      );
+    });
+  });
+
+  describe("close", () => {
+    it("rejects from DRAFT (not APPROVED or SUSPENDED)", async () => {
+      const tx = buildTx([[]], { id: "p1", companyId: "c1", approvalStatus: "DRAFT" });
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await expect(service.close("p1", "violation", "admin-1", ctx)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: "CONFLICT" }),
+      });
+    });
+
+    it("claims APPROVED->CLOSED and cascades SCHEDULED/ACTIVE/PAUSED -> CANCELLED, but never touches ACTION_REQUIRED (no such edge in the transitions table)", async () => {
+      const tx = buildTx([
+        [{ id: "p1", company_id: "c1" }],
+        [
+          { id: "opp-1", company_id: "c1" },
+          { id: "opp-2", company_id: "c1" },
+        ],
+      ]);
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await service.close("p1", "safety violation", "admin-1", ctx);
+
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ action: "PRODUCT_CLOSED" }) })
+      );
+      const cascadeCalls = (tx.auditLog.create as jest.Mock).mock.calls.filter(
+        (c) => c[0].data.action === "OPPORTUNITY_CANCELLED_PRODUCT_CASCADE"
+      );
+      expect(cascadeCalls).toHaveLength(2);
+
+      const cascadeQueryCall = (tx.$queryRaw as jest.Mock).mock.calls[1];
+      const sqlText = cascadeQueryCall[0].join("");
+      expect(sqlText).not.toContain("ACTION_REQUIRED");
+    });
+
+    it("claims SUSPENDED->CLOSED too", async () => {
+      const tx = buildTx([[{ id: "p1", company_id: "c1" }], []], {
+        id: "p1",
+        companyId: "c1",
+        approvalStatus: "SUSPENDED",
+      });
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await service.close("p1", "escalated", "admin-1", ctx);
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ action: "PRODUCT_CLOSED" }) })
+      );
+    });
+  });
+
+  describe("reactivate", () => {
+    it("rejects from CLOSED — permanent, never reactivated", async () => {
+      const tx = buildTx([[]], { id: "p1", companyId: "c1", approvalStatus: "CLOSED" });
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await expect(service.reactivate("p1", "admin-1", ctx)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: "CONFLICT" }),
+      });
+    });
+
+    it("claims SUSPENDED->APPROVED, creates a new ADMIN-sourced snapshot, does NOT touch any opportunity", async () => {
+      const tx = buildTx([[{ id: "p1" }]], { ...DEFAULT_PRODUCT_ROW, approvalStatus: "SUSPENDED" });
+      const prisma = fakePrisma({ tx });
+      const service = new AdminProductsService(prisma, { log: jest.fn() } as never);
+
+      await service.reactivate("p1", "admin-1", ctx);
+
+      expect(tx.productApprovalSnapshot.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ approvalSource: "ADMIN", approvedByAdminId: "admin-1" }),
+        })
+      );
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ action: "PRODUCT_REACTIVATED" }) })
+      );
+      expect((tx.$queryRaw as jest.Mock).mock.calls.length).toBe(1);
+    });
+  });
+});

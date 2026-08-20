@@ -1,0 +1,33 @@
+{
+  "name": "worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "clean": "node ../../scripts/build/clean-build-artifacts.mjs",
+    "prebuild": "pnpm run clean",
+    "build": "tsc -p tsconfig.json",
+    "postbuild": "node ../../scripts/build/verify-build-output.mjs dist/main.js",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node-dev --respawn src/main.ts",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest --config jest.config.js",
+    "test:integration": "jest --config jest-integration.config.js"
+  },
+  "dependencies": {
+    "@platform/config": "workspace:*",
+    "@platform/opportunity-lifecycle": "workspace:*",
+    "@prisma/client": "^5.22.0",
+    "bullmq": "^5.34.5",
+    "ioredis": "^5.4.2",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.2"
+  }
+}
