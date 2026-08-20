@@ -1,13 +1,66 @@
 {
-  "common": {
-    "projectPlaceholderName": "PROJECT_NAME",
-    "tagline": "منصة B2B — الأساس (Phase 1)"
+  "shell": {
+    "brandFallback": "المنصة",
+    "skipToContent": "تخطَّ إلى المحتوى الرئيسي",
+    "primaryNavLabel": "التنقل الرئيسي",
+    "switchLanguage": "English",
+    "footerNote": "منصة أعمال بين الشركات."
   },
   "home": {
-    "title": "الصفحة الرئيسية",
-    "description": "هذه واجهة تأسيسية لمرحلة Phase 1. لا يوجد منطق عمل بعد.",
+    "title": "أساس واجهة المنصة",
+    "description": "تم إرساء أساس الواجهة: نظام التصميم، وطبقة الاتصال بالـAPI، وأساس الجلسة. الشاشات تصل في المراحل التالية.",
     "localeLabel": "اللغة الحالية",
-    "directionLabel": "اتجاه الصفحة",
-    "switchLanguage": "English"
+    "directionLabel": "اتجاه الصفحة"
+  },
+  "common": {
+    "loading": "جارٍ التحميل…",
+    "required": "(مطلوب)",
+    "close": "إغلاق",
+    "retry": "إعادة المحاولة",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "save": "حفظ"
+  },
+  "pagination": {
+    "navLabel": "تنقل بين الصفحات",
+    "previous": "السابق",
+    "next": "التالي",
+    "status": "صفحة {page} من {lastPage}"
+  },
+  "states": {
+    "emptyTitle": "لا توجد عناصر",
+    "emptyDescription": "لم يُضَف أي عنصر بعد.",
+    "errorTitle": "تعذّر إتمام الطلب",
+    "errorDescription": "حدث خطأ غير متوقع. حاول مرة أخرى.",
+    "requestIdLabel": "رقم المرجع"
+  },
+  "errors": {
+    "requestIdLabel": "رقم المرجع",
+    "network": "تعذّر الوصول إلى الخادم. تحقق من اتصالك ثم أعد المحاولة.",
+    "unknown": "حدث خطأ غير متوقع.",
+    "codes": {
+      "VALIDATION_FAILED": "البيانات المُدخلة غير صحيحة.",
+      "NOT_FOUND": "العنصر المطلوب غير موجود.",
+      "UNAUTHORIZED": "يلزم تسجيل الدخول للمتابعة.",
+      "FORBIDDEN": "لا تملك صلاحية الوصول إلى هذا العنصر.",
+      "CONFLICT": "تعارض مع الحالة الحالية للعنصر.",
+      "RATE_LIMITED": "عدد المحاولات كبير. انتظر قليلًا ثم أعد المحاولة.",
+      "SERVICE_UNAVAILABLE": "الخدمة غير متاحة حاليًا.",
+      "INTERNAL_ERROR": "حدث خطأ داخلي.",
+      "INVALID_CREDENTIALS": "رقم السجل التجاري أو كلمة المرور غير صحيحة.",
+      "EMAIL_VERIFICATION_REQUIRED": "يلزم تفعيل البريد الإلكتروني أولًا.",
+      "POLICY_REACCEPTANCE_REQUIRED": "يلزم قبول السياسات المحدَّثة.",
+      "REGISTRATION_UNAVAILABLE": "التسجيل غير متاح حاليًا.",
+      "CR_ALREADY_REGISTERED": "رقم السجل التجاري مسجَّل مسبقًا.",
+      "EMAIL_ALREADY_REGISTERED": "البريد الإلكتروني مسجَّل مسبقًا.",
+      "SUPPLIER_NOT_VERIFIED": "حساب المورد غير موثَّق بعد.",
+      "TAXONOMY_CYCLE_DETECTED": "لا يمكن إنشاء تصنيف دائري.",
+      "SHIPPING_TARIFF_NOT_CONFIGURED": "تعرفة الشحن غير مُعدَّة.",
+      "COMMISSION_TAX_NOT_CONFIGURED": "ضريبة العمولة غير مُعدَّة.",
+      "PAYMENT_ATTEMPT_ALREADY_ACTIVE": "توجد محاولة دفع نشطة بالفعل.",
+      "INVALID_WEBHOOK_SIGNATURE": "توقيع غير صالح.",
+      "INVALID_FULFILLMENT_TRANSITION": "انتقال غير مسموح في حالة التنفيذ.",
+      "UNKNOWN_CARRIER": "شركة الشحن غير معروفة."
+    }
   }
 }

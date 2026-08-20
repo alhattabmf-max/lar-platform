@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Design tokens — the SINGLE place any colour is written as a hex value.
+ *
+ * Components must reference these via Tailwind's semantic class names
+ * (bg-primary, text-muted, border-strong, ...), never a raw hex. A test
+ * enforces that: __tests__/design-tokens.test.ts scans every component
+ * for hex literals.
+ *
+ * Palette and the three measured WCAG resolutions are recorded in
+ * docs/PHASE_8_IMPLEMENTATION_PLAN.md §14. Light mode only — dark mode
+ * is out of Phase 8, so no prefers-color-scheme block exists here.
+ */
+:root {
+  /* --- Approved palette (§14.1) --- */
+  --color-primary: #0b1f33;
+  --color-secondary: #0f766e;
+  --color-accent: #f59e0b;
+  --color-accent-interactive: #b45309;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-border: #e2e8f0;
+  --color-success: #15803d;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+
+  /* --- Derived tokens (§14.5) --- */
+
+  /* F3: #E2E8F0 on white is 1.23:1 — fine for decorative dividers, not
+     for a form control whose border is its only boundary. #64748B is
+     4.76:1 and clears the 3:1 non-text requirement. */
+  --color-border-strong: #64748b;
+
+  /* F2: white on #D97706 is 3.19:1 and fails AA. Warning text on a light
+     surface uses #B45309 (4.84:1 on #FFFBEB) instead. */
+  --color-warning-text: #b45309;
+  --color-warning-surface: #fffbeb;
+
+  --color-focus-ring: #0b1f33;
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+
+  /* F1: white on gold is 2.15:1. Gold carries dark text only (8.31:1). */
+  --color-on-accent: #0f172a;
+  --color-on-accent-interactive: #ffffff;
+  --color-on-success: #ffffff;
+  --color-on-danger: #ffffff;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-md: 0 2px 8px -2px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 8px 24px -6px rgb(15 23 42 / 0.12);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-background);
+    color: var(--color-text);
+  }
+
+  body {
+    min-block-size: 100vh;
+  }
+
+  /* A single, always-visible focus treatment. Never removed anywhere —
+     :focus-visible keeps it off mouse clicks without hiding it from
+     keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Logical properties only: this works unchanged in RTL and LTR. */
+  [dir="rtl"] {
+    text-align: start;
+  }
+}

@@ -1,13 +1,66 @@
 {
-  "common": {
-    "projectPlaceholderName": "PROJECT_NAME",
-    "tagline": "B2B Platform — Foundation (Phase 1)"
+  "shell": {
+    "brandFallback": "The Platform",
+    "skipToContent": "Skip to main content",
+    "primaryNavLabel": "Primary navigation",
+    "switchLanguage": "العربية",
+    "footerNote": "A business-to-business platform."
   },
   "home": {
-    "title": "Home",
-    "description": "This is the Phase 1 foundation shell. No business logic yet.",
+    "title": "Web foundation",
+    "description": "The web foundation is in place: design system, API client layer, and session foundation. Screens arrive in the following batches.",
     "localeLabel": "Current locale",
-    "directionLabel": "Page direction",
-    "switchLanguage": "العربية"
+    "directionLabel": "Page direction"
+  },
+  "common": {
+    "loading": "Loading…",
+    "required": "(required)",
+    "close": "Close",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save"
+  },
+  "pagination": {
+    "navLabel": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "status": "Page {page} of {lastPage}"
+  },
+  "states": {
+    "emptyTitle": "Nothing here yet",
+    "emptyDescription": "No items have been added.",
+    "errorTitle": "Something went wrong",
+    "errorDescription": "An unexpected error occurred. Please try again.",
+    "requestIdLabel": "Reference"
+  },
+  "errors": {
+    "requestIdLabel": "Reference",
+    "network": "Could not reach the server. Check your connection and try again.",
+    "unknown": "An unexpected error occurred.",
+    "codes": {
+      "VALIDATION_FAILED": "The submitted data is not valid.",
+      "NOT_FOUND": "The requested item was not found.",
+      "UNAUTHORIZED": "Please sign in to continue.",
+      "FORBIDDEN": "You do not have access to this item.",
+      "CONFLICT": "This conflicts with the item's current state.",
+      "RATE_LIMITED": "Too many attempts. Please wait and try again.",
+      "SERVICE_UNAVAILABLE": "The service is currently unavailable.",
+      "INTERNAL_ERROR": "An internal error occurred.",
+      "INVALID_CREDENTIALS": "The commercial registration number or password is incorrect.",
+      "EMAIL_VERIFICATION_REQUIRED": "Please verify your email address first.",
+      "POLICY_REACCEPTANCE_REQUIRED": "Updated policies must be accepted.",
+      "REGISTRATION_UNAVAILABLE": "Registration is currently unavailable.",
+      "CR_ALREADY_REGISTERED": "This commercial registration number is already registered.",
+      "EMAIL_ALREADY_REGISTERED": "This email address is already registered.",
+      "SUPPLIER_NOT_VERIFIED": "The supplier account is not verified yet.",
+      "TAXONOMY_CYCLE_DETECTED": "A circular taxonomy cannot be created.",
+      "SHIPPING_TARIFF_NOT_CONFIGURED": "The shipping tariff is not configured.",
+      "COMMISSION_TAX_NOT_CONFIGURED": "Commission tax is not configured.",
+      "PAYMENT_ATTEMPT_ALREADY_ACTIVE": "A payment attempt is already active.",
+      "INVALID_WEBHOOK_SIGNATURE": "Invalid signature.",
+      "INVALID_FULFILLMENT_TRANSITION": "That fulfilment transition is not allowed.",
+      "UNKNOWN_CARRIER": "Unknown carrier."
+    }
   }
 }

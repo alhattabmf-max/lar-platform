@@ -48,6 +48,7 @@ import { AdminGeographyModule } from "./admin/geography/admin-geography.module";
 import { TaxModule } from "./tax/tax.module";
 import { OpportunitiesModule } from "./opportunities/opportunities.module";
 import { AdminOpportunitiesModule } from "./admin/opportunities/admin-opportunities.module";
+import { BrandingModule } from "./branding/branding.module";
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { AdminOpportunitiesModule } from "./admin/opportunities/admin-opportunit
     TaxModule,
     OpportunitiesModule,
     AdminOpportunitiesModule,
+    BrandingModule,
   ],
   providers: [
     {

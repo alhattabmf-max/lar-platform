@@ -11,7 +11,7 @@
     "postbuild": "node ../../scripts/build/verify-build-output.mjs dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "echo \"no tests in @platform/types\" && exit 0"
+    "test": "node --test \"__tests__/*.test.mjs\""
   },
   "devDependencies": {
     "typescript": "^5.7.2"
