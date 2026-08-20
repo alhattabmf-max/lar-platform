@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   ACCOUNT_TYPES,
+  DEFAULT_BRAND_THEME,
   BRANDING_PUBLIC_KEYS,
   DEFAULT_PAGE_SIZE,
   EMPTY_BRANDING_PUBLIC,
@@ -27,13 +28,19 @@ describe("shared contracts are importable from @platform/types", () => {
         "nameEn",
         "shortDescriptionAr",
         "shortDescriptionEn",
+        "theme",
       ].sort()
     );
   });
 
-  it("the empty branding fallback covers every key and is all-null", () => {
+  it("the empty branding fallback covers every key, with the default theme", () => {
     expect(Object.keys(EMPTY_BRANDING_PUBLIC).sort()).toEqual([...BRANDING_PUBLIC_KEYS].sort());
-    expect(Object.values(EMPTY_BRANDING_PUBLIC).every((v) => v === null)).toBe(true);
+
+    // Text and asset fields are null when unconfigured; the theme never
+    // is, because an unreadable theme would leave the UI unusable.
+    const { theme, ...rest } = EMPTY_BRANDING_PUBLIC;
+    expect(Object.values(rest).every((v) => v === null)).toBe(true);
+    expect(theme.colors).toEqual(DEFAULT_BRAND_THEME);
   });
 
   it("pagination bounds are shared, not restated per screen", () => {

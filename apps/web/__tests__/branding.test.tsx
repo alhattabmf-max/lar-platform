@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+﻿import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { EMPTY_BRANDING_PUBLIC, type BrandingPublic } from "@platform/types";
+import { DEFAULT_BRAND_THEME, EMPTY_BRANDING_PUBLIC, type BrandingPublic } from "@platform/types";
 import { BrandMark } from "@/components/shell/brand-mark";
 
 vi.mock("react", async () => {
@@ -11,13 +11,14 @@ vi.mock("react", async () => {
 const { getBranding, brandDescription, brandName } = await import("@/lib/branding");
 
 const CONFIGURED: BrandingPublic = {
-  nameAr: "منصة فرصة",
+  nameAr: "ظ…ظ†طµط© ظپط±طµط©",
   nameEn: "FORSA Platform",
-  shortDescriptionAr: "منصة أعمال",
+  shortDescriptionAr: "ظ…ظ†طµط© ط£ط¹ظ…ط§ظ„",
   shortDescriptionEn: "A business platform",
   logoMainUrl: "https://cdn.example.com/main.png",
   logoSmallUrl: "https://cdn.example.com/small.png",
   faviconUrl: "https://cdn.example.com/fav.ico",
+  theme: { colors: DEFAULT_BRAND_THEME },
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -28,7 +29,7 @@ beforeEach(() => {
 });
 
 describe("getBranding", () => {
-  it("requests the public endpoint with an explicit revalidate window", async () => {
+  it("requests the public endpoint with no-store so a publish is visible immediately", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify(CONFIGURED), {
         status: 200,
@@ -38,7 +39,7 @@ describe("getBranding", () => {
 
     await expect(getBranding()).resolves.toEqual(CONFIGURED);
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/branding");
-    expect(fetchMock.mock.calls[0][1].next).toEqual({ revalidate: 60 });
+    expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
   });
 
   it("degrades to the all-null fallback instead of throwing when the API fails", async () => {
@@ -56,9 +57,9 @@ describe("getBranding", () => {
 
 describe("locale selection", () => {
   it("picks the Arabic fields for ar-SA and the English ones for en-SA", () => {
-    expect(brandName(CONFIGURED, "ar-SA")).toBe("منصة فرصة");
+    expect(brandName(CONFIGURED, "ar-SA")).toBe("ظ…ظ†طµط© ظپط±طµط©");
     expect(brandName(CONFIGURED, "en-SA")).toBe("FORSA Platform");
-    expect(brandDescription(CONFIGURED, "ar-SA")).toBe("منصة أعمال");
+    expect(brandDescription(CONFIGURED, "ar-SA")).toBe("ظ…ظ†طµط© ط£ط¹ظ…ط§ظ„");
     expect(brandDescription(CONFIGURED, "en-SA")).toBe("A business platform");
   });
 
@@ -70,19 +71,19 @@ describe("locale selection", () => {
 
 describe("BrandMark", () => {
   it("renders the dynamic name and logo from the API", () => {
-    render(<BrandMark branding={CONFIGURED} locale="ar-SA" fallbackName="المنصة" />);
+    render(<BrandMark branding={CONFIGURED} locale="ar-SA" fallbackName="ط§ظ„ظ…ظ†طµط©" />);
 
-    expect(screen.getByText("منصة فرصة")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "منصة فرصة" })).toHaveAttribute(
+    expect(screen.getByText("ظ…ظ†طµط© ظپط±طµط©")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "ظ…ظ†طµط© ظپط±طµط©" })).toHaveAttribute(
       "src",
       "https://cdn.example.com/main.png"
     );
   });
 
   it("uses the translated fallback and renders no image when unconfigured", () => {
-    render(<BrandMark branding={EMPTY_BRANDING_PUBLIC} locale="ar-SA" fallbackName="المنصة" />);
+    render(<BrandMark branding={EMPTY_BRANDING_PUBLIC} locale="ar-SA" fallbackName="ط§ظ„ظ…ظ†طµط©" />);
 
-    expect(screen.getByText("المنصة")).toBeInTheDocument();
+    expect(screen.getByText("ط§ظ„ظ…ظ†طµط©")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 

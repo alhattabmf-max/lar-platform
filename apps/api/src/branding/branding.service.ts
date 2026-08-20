@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EMPTY_BRANDING_PUBLIC, type BrandingPublic } from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
+import { BrandThemeService } from "./brand-theme.service";
 
 /**
  * Public read of BrandingSettings — the only path by which branding data
@@ -21,9 +22,18 @@ import { PrismaService } from "../database/prisma.service";
  */
 @Injectable()
 export class BrandingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly theme: BrandThemeService
+  ) {}
 
   async getPublic(): Promise<BrandingPublic> {
+    // The ACTIVE theme only — never the draft, never validation detail.
+    // BrandThemeService.getActive() is fail-safe, so a missing or
+    // corrupt theme row degrades to the defaults rather than failing
+    // the whole branding read.
+    const themeColors = await this.theme.getActive();
+
     const row = await this.prisma.brandingSettings.findUnique({
       where: { singletonKey: "default" },
       select: {
@@ -40,7 +50,7 @@ export class BrandingService {
     // No branding configured yet is a normal state, not an error: the
     // web app renders a translated placeholder rather than any
     // hardcoded brand string.
-    if (!row) return { ...EMPTY_BRANDING_PUBLIC };
+    if (!row) return { ...EMPTY_BRANDING_PUBLIC, theme: { colors: themeColors } };
 
     return {
       nameAr: row.nameAr,
@@ -50,6 +60,7 @@ export class BrandingService {
       logoMainUrl: row.logoMainUrl,
       logoSmallUrl: row.logoSmallUrl,
       faviconUrl: row.faviconUrl,
+      theme: { colors: themeColors },
     };
   }
 }

@@ -1,3 +1,5 @@
+import { DEFAULT_BRAND_THEME, type BrandThemePublic } from "./brand-theme";
+
 /**
  * Public branding contract — served by `GET /api/v1/branding` without a
  * session, and consumed by the web app's shell (header/footer).
@@ -16,6 +18,11 @@ export interface BrandingPublic {
   logoMainUrl: string | null;
   logoSmallUrl: string | null;
   faviconUrl: string | null;
+  /**
+   * The ACTIVE published theme only. Never the draft, never validation
+   * detail, never admin metadata (§14.5).
+   */
+  theme: BrandThemePublic;
 }
 
 /**
@@ -34,12 +41,16 @@ export const BRANDING_PUBLIC_KEYS = [
   "logoMainUrl",
   "logoSmallUrl",
   "faviconUrl",
+  "theme",
 ] as const satisfies readonly (keyof BrandingPublic)[];
 
 /**
- * Safe fallback when no branding row has been saved yet. Every field is
- * null; the web app renders a translated placeholder name rather than
- * any hardcoded brand string.
+ * Safe fallback when no branding row has been saved yet: every text and
+ * asset field is null, and the theme falls back to the FORSA defaults.
+ *
+ * The web app renders a translated placeholder name rather than any
+ * hardcoded brand string, and the default theme keeps the interface
+ * fully usable and accessible even with no branding configured at all.
  */
 export const EMPTY_BRANDING_PUBLIC: BrandingPublic = {
   nameAr: null,
@@ -49,4 +60,5 @@ export const EMPTY_BRANDING_PUBLIC: BrandingPublic = {
   logoMainUrl: null,
   logoSmallUrl: null,
   faviconUrl: null,
+  theme: { colors: DEFAULT_BRAND_THEME },
 };

@@ -3,21 +3,25 @@ import { EMPTY_BRANDING_PUBLIC, type BrandingPublic } from "@platform/types";
 import { apiClient } from "./api-client";
 
 /**
- * Public branding for the shell.
+ * Public branding for the shell, including the ACTIVE brand theme.
  *
- * This is one of the few genuinely cacheable reads in the app: it holds
- * no personal data and changes rarely, so it opts in to a short
- * revalidate window rather than the client's `no-store` default.
+ * Deliberately `cache: "no-store"` for now, not a revalidate window.
+ *
+ * Branding now carries the theme, so a stale cache would mean an admin
+ * publishes new brand colours and nothing changes until the window
+ * elapses — with no way to tell whether the publish worked. Correct
+ * cache invalidation on publish is real infrastructure (tag-based
+ * revalidation wired through the API), and building it here would be
+ * 8G's work brought forward for no benefit. Until 8G revisits caching
+ * as a whole, the shell reads fresh.
  *
  * A failure here must never break the page — the shell falls back to the
- * all-null contract and renders a translated placeholder name. A brand
- * logo is not worth a 500.
+ * all-null contract, which carries the DEFAULT theme, and renders a
+ * translated placeholder name. A brand logo is not worth a 500.
  */
-const REVALIDATE_SECONDS = 60;
-
 export const getBranding = cache(async (): Promise<BrandingPublic> => {
   try {
-    return await apiClient.get<BrandingPublic>("/branding", { revalidate: REVALIDATE_SECONDS });
+    return await apiClient.get<BrandingPublic>("/branding", { cache: "no-store" });
   } catch {
     return { ...EMPTY_BRANDING_PUBLIC };
   }

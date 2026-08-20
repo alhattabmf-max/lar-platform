@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import { getBranding } from "@/lib/branding";
+import { themeStyle } from "@/lib/theme";
 import type { AppLocale } from "@/i18n/routing";
 import { SkipLink } from "@/components/ui/skip-link";
 import { Header } from "./header";
@@ -30,7 +31,14 @@ export async function AppShell({ locale, children }: AppShellProps) {
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div
+      // The active theme's four identity colours arrive as CSS custom
+      // properties on this wrapper, overriding the :root defaults for
+      // everything inside. A style OBJECT, never a CSS string — see
+      // lib/theme.ts for why that distinction is the safety boundary.
+      style={themeStyle(branding.theme?.colors)}
+      className="flex min-h-screen flex-col bg-background"
+    >
       <SkipLink label={t("skipToContent")} />
       <Header locale={locale} branding={branding} />
       <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
