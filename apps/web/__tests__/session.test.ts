@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { MeResponse } from "@platform/types";
 
 const cookiesMock = vi.fn();

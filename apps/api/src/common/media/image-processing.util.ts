@@ -1,5 +1,4 @@
 import sharp from "sharp";
-import type { MediaPolicyConfig } from "../../settings/media-policy.service";
 
 export class InvalidImageError extends Error {}
 
@@ -21,7 +20,21 @@ const MAIN_MAX_DIMENSION = 2000;
 const THUMBNAIL_MAX_DIMENSION = 400;
 
 /**
- * Validates and processes an uploaded product image.
+ * The only policy fields this processor reads. Declared structurally so
+ * a caller with a different policy shape — promotional banners have no
+ * `maxImagesPerProduct` — can reuse this function without a second
+ * implementation. Forking it would fork a security-critical decode path.
+ *
+ * `MediaPolicyConfig` satisfies this structurally, so product uploads
+ * are unaffected.
+ */
+export interface ImageProcessingPolicy {
+  allowedTypes: string[];
+  maxPixels: number;
+}
+
+/**
+ * Validates and processes an uploaded image.
  *
  * Trust boundary: `buffer` is the only thing trusted here — the
  * client-supplied filename and Content-Type header are never
@@ -29,10 +42,14 @@ const THUMBNAIL_MAX_DIMENSION = 400;
  * actually decoding the file signature/header, and a corrupt or
  * mislabeled file fails at that decode step rather than at a
  * filename/extension check.
+ *
+ * Both variants are emitted in the SAME format, so they share one
+ * content type — but they are different bytes (different resize,
+ * different quality), so each needs its own ETag.
  */
-export async function processProductImage(
+export async function processImage(
   buffer: Buffer,
-  policy: MediaPolicyConfig
+  policy: ImageProcessingPolicy
 ): Promise<ProcessedImage> {
   let metadata: sharp.Metadata;
   try {

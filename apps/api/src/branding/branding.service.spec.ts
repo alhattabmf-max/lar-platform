@@ -1,11 +1,11 @@
-﻿import { BRANDING_PUBLIC_KEYS, DEFAULT_BRAND_THEME, EMPTY_BRANDING_PUBLIC } from "@platform/types";
+import { BRANDING_PUBLIC_KEYS, DEFAULT_BRAND_THEME, EMPTY_BRANDING_PUBLIC } from "@platform/types";
 import { BrandingService } from "./branding.service";
 import type { BrandThemeService } from "./brand-theme.service";
 import type { PrismaService } from "../database/prisma.service";
 
 /**
  * Runs without a database: the point of these tests is the SHAPE of what
- * leaves the service and the SHAPE of what it asks Prisma for â€” both of
+ * leaves the service and the SHAPE of what it asks Prisma for — both of
  * which are the actual security boundary. The HTTP-level behaviour is
  * covered by test/branding-public.e2e-spec.ts.
  */
@@ -61,9 +61,9 @@ function makeService(row: unknown) {
 describe("BrandingService.getPublic", () => {
   it("returns exactly the public contract keys, no more and no fewer", async () => {
     const { service } = makeService({
-      nameAr: "ط§ط³ظ…",
+      nameAr: "اسم",
       nameEn: "Name",
-      shortDescriptionAr: "ظˆطµظپ",
+      shortDescriptionAr: "وصف",
       shortDescriptionEn: "Description",
       logoMainUrl: "https://cdn.example.com/main.png",
       logoSmallUrl: "https://cdn.example.com/small.png",
@@ -80,7 +80,7 @@ describe("BrandingService.getPublic", () => {
     // query) returning more columns than intended. The explicit mapping
     // must still drop them.
     const { service } = makeService({
-      nameAr: "ط§ط³ظ…",
+      nameAr: "اسم",
       nameEn: "Name",
       shortDescriptionAr: null,
       shortDescriptionEn: null,

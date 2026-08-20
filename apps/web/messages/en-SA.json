@@ -4,13 +4,189 @@
     "skipToContent": "Skip to main content",
     "primaryNavLabel": "Primary navigation",
     "switchLanguage": "العربية",
-    "footerNote": "A business-to-business platform."
+    "footerNote": "A business-to-business platform.",
+    "navOpportunities": "Opportunities",
+    "navPolicies": "Policies",
+    "footerNavLabel": "Site links"
   },
   "home": {
-    "title": "Web foundation",
-    "description": "The web foundation is in place: design system, API client layer, and session foundation. Screens arrive in the following batches.",
-    "localeLabel": "Current locale",
-    "directionLabel": "Page direction"
+    "title": "Wholesale buying opportunities",
+    "description": "Browse the opportunities on offer and see the product, the fulfilment city and the closing date. Commercial terms appear once you sign in with a trader account.",
+    "browseOpportunities": "Browse opportunities",
+    "bannersLabel": "Announcements",
+    "featuredTitle": "Closing soonest",
+    "viewAll": "View all opportunities",
+    "policiesTitle": "Policies and terms",
+    "policiesDescription": "Read the published policies before creating an account.",
+    "readPolicies": "Read the policies"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "description": "Use your commercial registration number and password.",
+      "crNumber": "Commercial registration number",
+      "password": "Password",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "Do not have an account? Register"
+    },
+    "forgotPassword": {
+      "title": "Recover access",
+      "description": "Enter your email address and we will send recovery instructions.",
+      "email": "Email address",
+      "submit": "Send recovery instructions",
+      "sent": "If that address belongs to an account, recovery instructions are on their way.",
+      "sentDetail": "Check your inbox, and your spam folder if it does not arrive.",
+      "backToLogin": "Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Set a new password",
+      "description": "Choose a new password for your account.",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "submit": "Save new password",
+      "tooShort": "Use at least {min} characters.",
+      "mismatch": "The two passwords do not match.",
+      "missingToken": "This page needs a recovery link. Request a new one to continue.",
+      "linkUnusable": "This recovery link is no longer usable. Request a new one to continue.",
+      "requestNewLink": "Request a new recovery link",
+      "backToLogin": "Back to sign in"
+    },
+    "verifyEmail": {
+      "title": "Verify your email address",
+      "verifying": "Verifying your email address…",
+      "verified": "Your email address is verified.",
+      "verifiedDetail": "You can now sign in with your commercial registration number.",
+      "goToLogin": "Go to sign in",
+      "missingToken": "This page needs a verification link.",
+      "linkUnusable": "This verification link is no longer usable.",
+      "signInToResend": "Sign in",
+      "resendHint": "Once signed in you can request a new verification email."
+    }
+  },
+  "register": {
+    "titleTrader": "Register as a trader",
+    "titleSupplier": "Register as a supplier",
+    "description": "Create your company account. You will sign in afterwards with your commercial registration number.",
+    "crNumber": "Commercial registration number",
+    "legalName": "Legal company name",
+    "email": "Email address",
+    "password": "Password",
+    "mobile1": "Primary mobile",
+    "mobile2": "Secondary mobile",
+    "city": "City",
+    "cityPlaceholder": "Select a city",
+    "shortAddress": "Short address",
+    "submit": "Create account",
+    "haveAccount": "Already have an account? Sign in",
+    "conflict": {
+      "signIn": "Sign in instead",
+      "recoverAccess": "Recover access"
+    },
+    "policies": {
+      "legend": "Policies",
+      "unavailable": "Policies could not be loaded. Registration cannot be completed right now.",
+      "readFull": "Read the full policy text"
+    },
+    "location": {
+      "legend": "Company location",
+      "description": "We need your company's coordinates to plan fulfilment.",
+      "useMyLocation": "Use my current location",
+      "captured": "Location captured.",
+      "accuracy": "accurate to about {metres} m",
+      "requiredNotice": "A location is required before you can create the account.",
+      "errors": {
+        "unsupported": "This browser cannot provide your location. Enter the coordinates manually below.",
+        "insecureContext": "Location is only available over a secure connection. Enter the coordinates manually below.",
+        "permissionDenied": "Location access was blocked. You can allow it in your browser settings, or enter the coordinates manually below.",
+        "positionUnavailable": "Your location could not be determined. Try again, or enter the coordinates manually below.",
+        "timeout": "Finding your location took too long. Try again, or enter the coordinates manually below.",
+        "unknown": "Your location could not be retrieved. Enter the coordinates manually below."
+      },
+      "manual": {
+        "show": "Enter coordinates manually",
+        "hide": "Hide manual entry",
+        "description": "Enter the latitude and longitude of your company's location.",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "invalid": "Enter a latitude between -90 and 90 and a longitude between -180 and 180."
+      }
+    }
+  },
+  "marketplace": {
+    "title": "Opportunities",
+    "description": "Every opportunity on offer right now. Filters and sorting apply to the whole list, not only to the page you are looking at.",
+    "bannersLabel": "Announcements",
+    "resultCount": "{count, plural, =0 {No matching opportunities} one {# opportunity} other {# opportunities}}",
+    "filters": {
+      "regionLabel": "Filter opportunities",
+      "city": "Fulfilment city",
+      "anyCity": "All cities",
+      "category": "Category",
+      "anyCategory": "All categories",
+      "categoryExactMatchHint": "The category is matched exactly: choosing a parent category does not include its subcategories.",
+      "sort": "Sort",
+      "apply": "Apply",
+      "clear": "Clear filters"
+    },
+    "sort": {
+      "newest": "Newest",
+      "endingSoon": "Ending soonest"
+    },
+    "card": {
+      "city": "Fulfilment city",
+      "unit": "Sales unit",
+      "closes": "Closes",
+      "closesInDays": "{days, plural, one {Closes in # day} other {Closes in # days}}",
+      "closingSoon": "Closing soon",
+      "scheduled": "Scheduled",
+      "noImage": "No image available",
+      "viewDetails": "View details"
+    },
+    "empty": {
+      "title": "No opportunities are on offer",
+      "description": "Nothing has been published yet. Check back later."
+    },
+    "emptyFiltered": {
+      "title": "No matching opportunities",
+      "description": "Nothing matches the selected filters. Try widening or clearing them."
+    },
+    "detail": {
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to opportunities",
+      "region": "Region",
+      "opens": "Opens",
+      "noDescription": "No description was provided for this product.",
+      "closed": "This opportunity's window has closed."
+    },
+    "traderTerms": {
+      "title": "Commercial terms",
+      "description": "Price, quantities and share size are available to trader accounts after signing in. They are not shown to visitors.",
+      "signIn": "Sign in",
+      "register": "Create an account"
+    }
+  },
+  "policies": {
+    "title": "Policies and terms",
+    "description": "The versions currently published. Unpublished text never appears here.",
+    "contentsLabel": "Contents",
+    "version": "Version {label}",
+    "published": "Published",
+    "mandatory": "Mandatory",
+    "documents": {
+      "terms_of_service": "Terms of Service",
+      "privacy_policy": "Privacy Policy"
+    },
+    "empty": {
+      "title": "No policy has been published yet",
+      "description": "No text has been published so far."
+    }
+  },
+  "unauthorized": {
+    "title": "Access not available",
+    "description": "Your account cannot open this page.",
+    "goHome": "Go to the home page",
+    "signInAsAnother": "Sign in with another account"
   },
   "common": {
     "loading": "Loading…",
@@ -51,8 +227,7 @@
       "EMAIL_VERIFICATION_REQUIRED": "Please verify your email address first.",
       "POLICY_REACCEPTANCE_REQUIRED": "Updated policies must be accepted.",
       "REGISTRATION_UNAVAILABLE": "Registration is currently unavailable.",
-      "CR_ALREADY_REGISTERED": "This commercial registration number is already registered.",
-      "EMAIL_ALREADY_REGISTERED": "This email address is already registered.",
+      "REGISTRATION_CONFLICT": "Registration could not be completed with these details. If you already have an account, try signing in or recovering access.",
       "SUPPLIER_NOT_VERIFIED": "The supplier account is not verified yet.",
       "TAXONOMY_CYCLE_DETECTED": "A circular taxonomy cannot be created.",
       "SHIPPING_TARIFF_NOT_CONFIGURED": "The shipping tariff is not configured.",

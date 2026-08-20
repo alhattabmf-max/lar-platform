@@ -37,8 +37,27 @@ export const ERROR_CODES = {
   EMAIL_VERIFICATION_REQUIRED: "EMAIL_VERIFICATION_REQUIRED",
   POLICY_REACCEPTANCE_REQUIRED: "POLICY_REACCEPTANCE_REQUIRED",
   REGISTRATION_UNAVAILABLE: "REGISTRATION_UNAVAILABLE",
-  CR_ALREADY_REGISTERED: "CR_ALREADY_REGISTERED",
-  EMAIL_ALREADY_REGISTERED: "EMAIL_ALREADY_REGISTERED",
+  /**
+   * The single, neutral response to ANY registration identity conflict
+   * — commercial registration number, email address, or any future
+   * login identifier.
+   *
+   * Deliberately one code rather than several. A per-field code is an
+   * enumeration oracle: an attacker submits a registration and learns
+   * from the response whether a given CR number or email is already on
+   * the platform. Collapsing them means a caller learns only that these
+   * details cannot be used, which is all a legitimate user needs to
+   * decide to sign in or recover access instead.
+   *
+   * The per-field codes that used to exist here were REMOVED rather
+   * than deprecated: a code absent from this catalogue cannot be
+   * returned, which makes the boundary structural instead of a
+   * convention someone has to remember.
+   *
+   * The precise reason is still recorded server-side (see
+   * AuthService.register) — never in the response.
+   */
+  REGISTRATION_CONFLICT: "REGISTRATION_CONFLICT",
   // Phase 4 — Taxonomy & Catalog
   SUPPLIER_NOT_VERIFIED: "SUPPLIER_NOT_VERIFIED",
   TAXONOMY_CYCLE_DETECTED: "TAXONOMY_CYCLE_DETECTED",

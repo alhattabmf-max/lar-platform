@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   AccountType,
   AuditActorType,
@@ -33,6 +33,8 @@ const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -150,27 +152,37 @@ export class AuthService {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        // EVERY identity conflict — commercial registration number,
+        // email, or any future login identifier — produces one
+        // identical response: same status, same code, same body, same
+        // message.
+        //
+        // Distinguishing them would be an enumeration oracle: an
+        // attacker could submit registrations and read back which CR
+        // numbers and email addresses already exist on the platform.
+        // The same reasoning already governs /auth/password/forgot,
+        // which answers identically whether or not the address is
+        // known.
+        //
+        // This is also the ONLY conflict path. There is deliberately no
+        // pre-check that looks up the CR or email first: a pre-check
+        // would be a second, racier oracle answering the same question.
+        // The unique constraint decides, and two concurrent requests
+        // for the same identity both land here.
+        //
+        // The precise column is recorded server-side only. Prisma's
+        // `meta.target` names COLUMNS, never values, so no email
+        // address or CR number reaches the log.
         const target = err.meta?.target;
-        const targetStr = Array.isArray(target) ? target.join(",") : String(target ?? "");
+        const conflictedColumns = Array.isArray(target) ? target.join(",") : String(target ?? "");
+        this.logger.warn(
+          `Registration conflict on unique constraint [${conflictedColumns}] — responding with the neutral REGISTRATION_CONFLICT`
+        );
 
-        if (targetStr.includes("cr_number")) {
-          throw new BusinessException(
-            409,
-            ERROR_CODES.CR_ALREADY_REGISTERED,
-            "This commercial registration number is already registered"
-          );
-        }
-        if (targetStr.includes("email")) {
-          throw new BusinessException(
-            409,
-            ERROR_CODES.EMAIL_ALREADY_REGISTERED,
-            "This email address is already registered"
-          );
-        }
         throw new BusinessException(
           409,
-          ERROR_CODES.CONFLICT,
-          "This registration conflicts with an existing record"
+          ERROR_CODES.REGISTRATION_CONFLICT,
+          "Registration could not be completed with these details"
         );
       }
       throw err;

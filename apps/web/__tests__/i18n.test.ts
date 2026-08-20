@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createTranslator } from "next-intl";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ERROR_CODES } from "@platform/types";
@@ -77,6 +78,69 @@ describe("message catalogues", () => {
         }
       };
       walk(messages, "");
+    }
+  });
+
+  it("formats every ICU plural message in both locales", () => {
+    // A malformed ICU pattern or a missing plural category throws only
+    // when the message is actually formatted — which, for the
+    // marketplace, means in production. Formatting them here moves that
+    // failure into the test run.
+    //
+    // Arabic needs six categories (zero/one/two/few/many/other); English
+    // needs two. Feeding the counts that select each one is the only way
+    // to prove none of them is missing.
+    const COUNTS = [0, 1, 2, 3, 11, 100];
+
+    for (const locale of ["ar-SA", "en-SA"] as const) {
+      const t = createTranslator({
+        locale,
+        messages: locale === "ar-SA" ? ar : en,
+        namespace: "marketplace",
+        onError: (error) => {
+          throw error;
+        },
+      });
+
+      for (const count of COUNTS) {
+        expect(t("resultCount", { count })).toBeTruthy();
+        expect(t("card.closesInDays", { days: count })).toBeTruthy();
+      }
+    }
+  });
+
+  it("formats every message that takes a named argument", () => {
+    const cases = [
+      { namespace: "pagination", key: "status", values: { page: 2, lastPage: 7 } },
+      { namespace: "policies", key: "version", values: { label: "v1.0" } },
+      { namespace: "auth.resetPassword", key: "tooShort", values: { min: 8 } },
+      { namespace: "register", key: "location.accuracy", values: { metres: 25 } },
+    ] as const;
+
+    for (const locale of ["ar-SA", "en-SA"] as const) {
+      for (const { namespace, key, values } of cases) {
+        const t = createTranslator({
+          locale,
+          messages: locale === "ar-SA" ? ar : en,
+          namespace,
+          onError: (error) => {
+            throw error;
+          },
+        });
+
+        const formatted = t(key, values);
+        expect(formatted, `${locale}:${namespace}.${key}`).toBeTruthy();
+        // An unsubstituted placeholder means the catalogue and the call
+        // site disagree about the argument's name.
+        expect(formatted, `${locale}:${namespace}.${key}`).not.toMatch(/\{[a-zA-Z]+\}/);
+      }
+    }
+  });
+
+  it("covers every namespace the Batch 8 public surfaces need", () => {
+    for (const namespace of ["home", "marketplace", "policies"]) {
+      expect(ar).toHaveProperty(namespace);
+      expect(en).toHaveProperty(namespace);
     }
   });
 

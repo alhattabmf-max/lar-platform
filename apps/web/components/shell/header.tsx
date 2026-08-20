@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { BrandingPublic } from "@platform/types";
 import { routing, type AppLocale } from "@/i18n/routing";
@@ -25,7 +26,23 @@ export async function Header({ locale, branding }: HeaderProps) {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <BrandMark branding={branding} locale={locale} fallbackName={t("brandFallback")} />
 
-        <nav aria-label={t("primaryNavLabel")}>
+        <nav aria-label={t("primaryNavLabel")} className="flex items-center gap-1">
+          <Link
+            href={`/${locale}/opportunities`}
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            {t("navOpportunities")}
+          </Link>
+          <Link
+            href={`/${locale}/policies`}
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            {t("navPolicies")}
+          </Link>
+
+          {/* A plain <a>, not next/link: switching locale must reload
+              the document so `lang` and `dir` on <html> are re-rendered
+              by the root layout rather than patched client-side. */}
           <a
             href={`/${otherLocale}`}
             lang={otherLocale}

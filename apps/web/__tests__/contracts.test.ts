@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   ACCOUNT_TYPES,
   DEFAULT_BRAND_THEME,
@@ -7,9 +7,20 @@ import {
   EMPTY_BRANDING_PUBLIC,
   ERROR_CODES,
   MAX_PAGE_SIZE,
+  CITY_ITEM_KEYS,
+  DEFAULT_OPPORTUNITY_SORT,
+  OPPORTUNITY_SORTS,
+  PUBLIC_OPPORTUNITY_DETAIL_KEYS,
+  PUBLIC_OPPORTUNITY_ITEM_KEYS,
+  PUBLIC_OPPORTUNITY_STATUSES,
+  PUBLIC_POLICY_VERSION_KEYS,
+  TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS,
+  TAXONOMY_FILTER_INCLUDES_DESCENDANTS,
+  TAXONOMY_NODE_ITEM_KEYS,
   type BrandingPublic,
   type MeResponse,
   type Paginated,
+  type TaxonomyNodeItem,
 } from "@platform/types";
 
 /**
@@ -79,5 +90,123 @@ describe("shared contracts are importable from @platform/types", () => {
     expect(branding.nameAr).toBeNull();
     expect(page.items).toEqual([]);
     expect(me.company.accountType).toBe("TRADER");
+  });
+});
+
+describe("the public opportunity contract keeps commercial terms out", () => {
+  it("lists exactly the keys an anonymous visitor receives", () => {
+    expect([...PUBLIC_OPPORTUNITY_ITEM_KEYS].sort()).toEqual(
+      [
+        "id",
+        "productNameAr",
+        "productNameEn",
+        "imageUrl",
+        "thumbnailUrl",
+        "fulfillmentCityNameAr",
+        "fulfillmentCityNameEn",
+        "salesUnitNameAr",
+        "salesUnitNameEn",
+        "endAt",
+        "status",
+      ].sort()
+    );
+  });
+
+  it.each([
+    "unitPriceInclTaxAmount",
+    "targetQuantity",
+    "fundedQuantity",
+    "unsoldQuantity",
+    "progressPercentage",
+    "shareQuantity",
+    "sharePercentage",
+    "currency",
+    "expectedPreparationDays",
+  ])("keeps %s off both the list item and the detail", (field) => {
+    expect(PUBLIC_OPPORTUNITY_ITEM_KEYS).not.toContain(field);
+    expect(PUBLIC_OPPORTUNITY_DETAIL_KEYS).not.toContain(field);
+  });
+
+  it("makes the detail a superset of the list item, so the two cannot diverge", () => {
+    for (const key of PUBLIC_OPPORTUNITY_ITEM_KEYS) {
+      expect(PUBLIC_OPPORTUNITY_DETAIL_KEYS).toContain(key);
+    }
+  });
+
+  it("adds only descriptive context on the detail", () => {
+    const added = PUBLIC_OPPORTUNITY_DETAIL_KEYS.filter(
+      (key) => !(PUBLIC_OPPORTUNITY_ITEM_KEYS as readonly string[]).includes(key)
+    );
+
+    expect([...added].sort()).toEqual(
+      [
+        "productDescriptionAr",
+        "productDescriptionEn",
+        "fulfillmentRegionNameAr",
+        "fulfillmentRegionNameEn",
+        "startAt",
+      ].sort()
+    );
+  });
+
+  it("exposes only the two statuses an anonymous visitor can observe", () => {
+    expect([...PUBLIC_OPPORTUNITY_STATUSES]).toEqual(["ACTIVE", "SCHEDULED"]);
+  });
+
+  it("closes the sort vocabulary and defaults the WIRE to NEWEST", () => {
+    expect([...OPPORTUNITY_SORTS]).toEqual(["NEWEST", "ENDING_SOON"]);
+    expect(DEFAULT_OPPORTUNITY_SORT).toBe("NEWEST");
+  });
+});
+
+describe("catalogue contracts describe the real endpoints", () => {
+  it("records that taxonomy filtering does NOT include descendants", () => {
+    // Verified against OpportunityDiscoveryService.buildQuery, which
+    // compares the snapshot's taxonomyNodeId with `equals`.
+    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(false);
+  });
+
+  it("records that products may be filed under a non-leaf node", () => {
+    expect(TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS).toBe(true);
+  });
+
+  it("keeps the taxonomy wire shape flat, carrying parentId", () => {
+    expect([...TAXONOMY_NODE_ITEM_KEYS].sort()).toEqual(
+      ["id", "parentId", "nameAr", "nameEn", "iconUrl", "sortOrder"].sort()
+    );
+
+    const node: TaxonomyNodeItem = {
+      id: "n",
+      parentId: null,
+      nameAr: "غذاء",
+      nameEn: "Food",
+      iconUrl: null,
+      sortOrder: 0,
+    };
+    expect(node.parentId).toBeNull();
+  });
+
+  it("carries a city's region inline and no coordinates", () => {
+    expect([...CITY_ITEM_KEYS].sort()).toEqual(["id", "nameAr", "nameEn", "region"].sort());
+    expect(CITY_ITEM_KEYS).not.toContain("latitude");
+    expect(CITY_ITEM_KEYS).not.toContain("longitude");
+  });
+
+  it("gives a policy version its document CODE, not an invented title", () => {
+    expect(PUBLIC_POLICY_VERSION_KEYS).toContain("documentCode");
+    expect(PUBLIC_POLICY_VERSION_KEYS).not.toContain("titleAr");
+    expect(PUBLIC_POLICY_VERSION_KEYS).not.toContain("titleEn");
+  });
+
+  it("withholds the internal policy mechanics from the public shape", () => {
+    for (const internal of [
+      "isPublished",
+      "requiresReacceptance",
+      "policyDocumentId",
+      "createdAt",
+      "updatedAt",
+    ]) {
+      expect(PUBLIC_POLICY_VERSION_KEYS).not.toContain(internal);
+    }
   });
 });

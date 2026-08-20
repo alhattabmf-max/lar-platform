@@ -6,7 +6,7 @@ import { AuditService } from "../audit/audit.service";
 import { StorageService } from "../storage/storage.service";
 import { MediaPolicyService } from "../settings/media-policy.service";
 import { ProductsService } from "./products.service";
-import { processProductImage, InvalidImageError } from "../common/media/image-processing.util";
+import { processImage, InvalidImageError } from "../common/media/image-processing.util";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 
@@ -58,7 +58,7 @@ export class ProductMediaService {
 
     let processed;
     try {
-      processed = await processProductImage(buffer, policy);
+      processed = await processImage(buffer, policy);
     } catch (err) {
       if (err instanceof InvalidImageError) {
         throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, err.message);

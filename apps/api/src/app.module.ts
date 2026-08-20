@@ -49,6 +49,8 @@ import { TaxModule } from "./tax/tax.module";
 import { OpportunitiesModule } from "./opportunities/opportunities.module";
 import { AdminOpportunitiesModule } from "./admin/opportunities/admin-opportunities.module";
 import { BrandingModule } from "./branding/branding.module";
+import { BannerModule } from "./banners/banner.module";
+import { AdminBannerModule } from "./admin/banners/admin-banner.module";
 
 @Module({
   imports: [
@@ -99,6 +101,8 @@ import { BrandingModule } from "./branding/branding.module";
     OpportunitiesModule,
     AdminOpportunitiesModule,
     BrandingModule,
+    BannerModule,
+    AdminBannerModule,
   ],
   providers: [
     {

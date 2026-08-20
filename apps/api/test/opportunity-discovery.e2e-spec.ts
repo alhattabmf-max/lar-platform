@@ -140,6 +140,8 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
   async function setupActiveOpportunity(overrides: {
     targetQuantity?: number;
     unitPriceAmount?: number;
+    /** Overrides the closing time — needed to exercise ENDING_SOON ordering. */
+    endAt?: string;
   } = {}) {
     const supplier = await registerCompany(app, "supplier", cityId);
     await prisma.company.updateMany({
@@ -192,7 +194,7 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
         targetQuantity: overrides.targetQuantity ?? 100,
         unitPriceAmount: overrides.unitPriceAmount ?? 11.5,
         startAt: new Date(Date.now() - 60_000).toISOString(),
-        endAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        endAt: overrides.endAt ?? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
         expectedPreparationDays: 3,
       });
     const opportunityId = createRes.body.id;
@@ -546,6 +548,174 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
 
     it("rejects a pageSize above the maximum via validation", async () => {
       const res = await request(app.getHttpServer()).get("/api/v1/opportunities/active?pageSize=1000");
+      expect(res.status).toBe(400);
+    });
+  });
+
+  /**
+   * Ordering against a REAL database.
+   *
+   * The unit tests assert the orderBy clause the service emits; only
+   * these can show what PostgreSQL actually returns — in particular
+   * that paging through a filtered list never repeats or skips a row,
+   * which is exactly the failure a non-unique sort column produces and
+   * which no mock can reproduce.
+   */
+  describe("Sorting", () => {
+    const HOUR = 60 * 60 * 1000;
+
+    async function threeWithStaggeredClosings() {
+      const far = await setupActiveOpportunity({
+        endAt: new Date(Date.now() + 30 * 24 * HOUR).toISOString(),
+      });
+      const near = await setupActiveOpportunity({
+        endAt: new Date(Date.now() + 2 * HOUR).toISOString(),
+      });
+      const middle = await setupActiveOpportunity({
+        endAt: new Date(Date.now() + 10 * 24 * HOUR).toISOString(),
+      });
+      return { far, near, middle };
+    }
+
+    it("defaults to NEWEST — the most recently created comes first", async () => {
+      await setupActiveOpportunity();
+      const second = await setupActiveOpportunity();
+
+      const res = await request(app.getHttpServer()).get("/api/v1/opportunities/active?pageSize=100");
+
+      expect(res.status).toBe(200);
+      expect(res.body.items[0].id).toBe(second.opportunityId);
+    });
+
+    it("returns the identical order for an omitted sort and an explicit NEWEST", async () => {
+      await setupActiveOpportunity();
+      await setupActiveOpportunity();
+
+      const implicit = await request(app.getHttpServer()).get("/api/v1/opportunities/active?pageSize=100");
+      const explicit = await request(app.getHttpServer()).get(
+        "/api/v1/opportunities/active?pageSize=100&sort=NEWEST"
+      );
+
+      expect(implicit.body.items.map((i: { id: string }) => i.id)).toEqual(
+        explicit.body.items.map((i: { id: string }) => i.id)
+      );
+    });
+
+    it("ENDING_SOON returns the soonest closing first", async () => {
+      const { near, middle, far } = await threeWithStaggeredClosings();
+
+      const res = await request(app.getHttpServer()).get(
+        "/api/v1/opportunities/active?pageSize=100&sort=ENDING_SOON"
+      );
+
+      const ids = res.body.items.map((i: { id: string }) => i.id);
+      expect(ids.indexOf(near.opportunityId)).toBeLessThan(ids.indexOf(middle.opportunityId));
+      expect(ids.indexOf(middle.opportunityId)).toBeLessThan(ids.indexOf(far.opportunityId));
+    });
+
+    it("ENDING_SOON emits endAt in non-decreasing order across the whole page", async () => {
+      await threeWithStaggeredClosings();
+
+      const res = await request(app.getHttpServer()).get(
+        "/api/v1/opportunities/active?pageSize=100&sort=ENDING_SOON"
+      );
+
+      const times = res.body.items.map((i: { endAt: string }) => new Date(i.endAt).getTime());
+      expect([...times].sort((a, b) => a - b)).toEqual(times);
+    });
+
+    it("orders the trader list by the same rule", async () => {
+      const { near, far } = await threeWithStaggeredClosings();
+      const { agent: traderAgent } = await registerVerifiedTrader();
+
+      const res = await traderAgent.get(
+        "/api/v1/trader/opportunities/active?pageSize=100&sort=ENDING_SOON"
+      );
+
+      const ids = res.body.items.map((i: { id: string }) => i.id);
+      expect(ids.indexOf(near.opportunityId)).toBeLessThan(ids.indexOf(far.opportunityId));
+    });
+
+    it.each(["NEWEST", "ENDING_SOON"])(
+      "%s pages through the whole list with no duplicate and no dropped row",
+      async (sort) => {
+        await setupActiveOpportunity();
+        await setupActiveOpportunity();
+        await setupActiveOpportunity();
+        await setupActiveOpportunity();
+        await setupActiveOpportunity();
+
+        const first = await request(app.getHttpServer()).get(
+          `/api/v1/opportunities/active?sort=${sort}&pageSize=2&page=1`
+        );
+        const total = first.body.total;
+        const lastPage = Math.ceil(total / 2);
+
+        const seen: string[] = [...first.body.items.map((i: { id: string }) => i.id)];
+        for (let page = 2; page <= lastPage; page++) {
+          const res = await request(app.getHttpServer()).get(
+            `/api/v1/opportunities/active?sort=${sort}&pageSize=2&page=${page}`
+          );
+          expect(res.status).toBe(200);
+          seen.push(...res.body.items.map((i: { id: string }) => i.id));
+        }
+
+        // Every row appears exactly once, and the walk covers the total
+        // the API itself reported.
+        expect(new Set(seen).size).toBe(seen.length);
+        expect(seen.length).toBe(total);
+      }
+    );
+
+    it.each(["NEWEST", "ENDING_SOON"])(
+      "%s returns the same page for the same request, run twice",
+      async (sort) => {
+        await setupActiveOpportunity();
+        await setupActiveOpportunity();
+        await setupActiveOpportunity();
+
+        const path = `/api/v1/opportunities/active?sort=${sort}&pageSize=2&page=2`;
+        const once = await request(app.getHttpServer()).get(path);
+        const twice = await request(app.getHttpServer()).get(path);
+
+        expect(once.body.items.map((i: { id: string }) => i.id)).toEqual(
+          twice.body.items.map((i: { id: string }) => i.id)
+        );
+      }
+    );
+
+    it("combines a city filter, a category filter and a sort in one request", async () => {
+      const { near } = await threeWithStaggeredClosings();
+
+      const res = await request(app.getHttpServer()).get(
+        `/api/v1/opportunities/active?cityId=${cityId}&taxonomyNodeId=${taxonomyNodeId}&sort=ENDING_SOON&pageSize=100`
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.items.map((i: { id: string }) => i.id)).toContain(near.opportunityId);
+
+      const times = res.body.items.map((i: { endAt: string }) => new Date(i.endAt).getTime());
+      expect([...times].sort((a, b) => a - b)).toEqual(times);
+    });
+
+    it.each([
+      ["an unknown value", "CHEAPEST"],
+      ["the wrong case", "newest"],
+      ["an empty value", ""],
+      ["a SQL fragment", "createdAt%20DESC"],
+    ])("rejects %s with a 400 rather than falling back to the default", async (_label, sort) => {
+      const res = await request(app.getHttpServer()).get(
+        `/api/v1/opportunities/active?sort=${sort}`
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects an unknown sort parameter name outright", async () => {
+      const res = await request(app.getHttpServer()).get(
+        "/api/v1/opportunities/active?sortBy=NEWEST"
+      );
+
       expect(res.status).toBe(400);
     });
   });

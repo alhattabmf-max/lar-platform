@@ -2123,3 +2123,71 @@ model MasterOrderBuyerBillingOverride {
 
   @@map("master_order_buyer_billing_overrides")
 }
+
+// ============================================================
+// Phase 8C — Promotional banners
+// ============================================================
+
+enum BannerPlacement {
+  PUBLIC_HOME
+  PUBLIC_OPPORTUNITIES
+}
+
+/// Public promotional banners.
+///
+/// There is deliberately NO status column: the lifecycle state
+/// (DRAFT / SCHEDULED / LIVE / EXPIRED) is DERIVED from is_active plus
+/// the schedule window, so a stored status can never drift out of
+/// agreement with the schedule that actually governs visibility.
+///
+/// Rows are never deleted — retiring a banner sets is_active = false.
+/// That keeps the audit trail intact and avoids orphaned storage
+/// objects that no row points at.
+///
+/// image_updated_at exists separately from updated_at on purpose:
+/// editing banner TEXT must not change the image's HTTP validators.
+model PromotionalBanner {
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  placement BannerPlacement
+
+  titleAr String  @map("title_ar")
+  titleEn String  @map("title_en")
+  bodyAr  String? @map("body_ar")
+  bodyEn  String? @map("body_en")
+
+  // Image columns are null together or non-null together, enforced by a
+  // CHECK constraint. main and thumb are DIFFERENT files (different
+  // resize and quality), so each carries its own ETag; they share one
+  // content type because the processor emits both in the same format.
+  imageObjectKey     String?   @map("image_object_key")
+  imageThumbnailKey  String?   @map("image_thumbnail_key")
+  imageContentType   String?   @map("image_content_type")
+  imageETag          String?   @map("image_etag")
+  imageThumbnailETag String?   @map("image_thumbnail_etag")
+  imageWidth         Int?      @map("image_width")
+  imageHeight        Int?      @map("image_height")
+  imageUpdatedAt     DateTime? @map("image_updated_at") @db.Timestamptz(3)
+
+  /// Internal path (`/...`) or an allowlisted https:// URL. Validated on
+  /// write; no other scheme is ever stored.
+  linkUrl String? @map("link_url")
+
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(false) @map("is_active")
+
+  /// Half-open window [startsAt, endsAt). NULL means unbounded on that
+  /// side. endsAt is EXCLUSIVE.
+  startsAt DateTime? @map("starts_at") @db.Timestamptz(3)
+  endsAt   DateTime? @map("ends_at") @db.Timestamptz(3)
+
+  /// No FK to admin_users, matching the existing convention for
+  /// admin actors (SupplierPayout.executed_by_admin_user_id,
+  /// AuditLog.actor_id).
+  createdByAdminUserId String @map("created_by_admin_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([placement, isActive, startsAt, endsAt, sortOrder])
+  @@map("promotional_banners")
+}

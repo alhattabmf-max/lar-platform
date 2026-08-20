@@ -4,7 +4,7 @@ import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { AuditActorType } from "@prisma/client";
 import { BusinessException } from "../common/errors/business-exception";
-import { ERROR_CODES } from "@platform/types";
+import { ERROR_CODES, type PublicPolicyVersion } from "@platform/types";
 
 interface AcceptContext {
   companyId: string;
@@ -22,11 +22,34 @@ export class PoliciesService {
     private readonly audit: AuditService
   ) {}
 
-  async getActivePolicyVersions(): Promise<PolicyVersion[]> {
-    return this.prisma.policyVersion.findMany({
+  /**
+   * Published policy versions, projected onto the public contract.
+   *
+   * The document `code` is joined in because it is the ONLY label a
+   * policy has — PolicyDocument carries a code, not a title — and both
+   * consumers (registration and the public viewer) need to say which
+   * document a checkbox or a section refers to.
+   *
+   * `isPublished`, `requiresReacceptance`, `policyDocumentId`,
+   * `createdAt` and `updatedAt` are deliberately not forwarded; see
+   * PublicPolicyVersion for why.
+   */
+  async getActivePolicyVersions(): Promise<PublicPolicyVersion[]> {
+    const rows = await this.prisma.policyVersion.findMany({
       where: { isPublished: true },
       orderBy: { publishedAt: "desc" },
+      include: { policyDocument: { select: { code: true } } },
     });
+
+    return rows.map((row) => ({
+      id: row.id,
+      documentCode: row.policyDocument.code,
+      versionLabel: row.versionLabel,
+      textAr: row.textAr,
+      textEn: row.textEn,
+      isMandatory: row.isMandatory,
+      publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
+    }));
   }
 
   async getMandatoryActivePolicyVersions(): Promise<PolicyVersion[]> {

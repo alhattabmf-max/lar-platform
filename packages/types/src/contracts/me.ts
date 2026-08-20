@@ -7,6 +7,17 @@ import type {
 } from "./enums";
 
 /**
+ * Minimum password length the API enforces.
+ *
+ * Shared so the client can refuse a too-short password before a round
+ * trip, while the server stays the authority. A contract test in
+ * apps/api asserts this matches the `@MinLength` on the auth DTOs — a
+ * client that validated to a DIFFERENT rule would either reject
+ * passwords the server accepts, or promise acceptance and then fail.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+
+/**
  * Contract for `GET /api/v1/me` — the web app's single source of truth
  * for who the caller is.
  *

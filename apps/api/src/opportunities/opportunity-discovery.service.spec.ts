@@ -1,6 +1,11 @@
 import { OpportunityStatus } from "@prisma/client";
 import { OpportunityDiscoveryService } from "./opportunity-discovery.service";
 
+/** Window close on the public view, added when the contract widened in 8C. */
+const PUBLIC_END_AT = new Date("2026-09-01T00:00:00.000Z");
+/** Window open — detail only. */
+const PUBLIC_START_AT = new Date("2026-08-01T00:00:00.000Z");
+
 const SNAPSHOT_JSON = {
   nameAr: "منتج",
   nameEn: "Product",
@@ -83,6 +88,12 @@ describe("OpportunityDiscoveryService", () => {
             id: "opp-1",
             fulfillmentCityNameAr: "الرياض",
             fulfillmentCityNameEn: "Riyadh",
+            salesUnitNameAr: null,
+            salesUnitNameEn: null,
+            fulfillmentRegionNameAr: "منطقة الرياض",
+            fulfillmentRegionNameEn: "Riyadh Region",
+            startAt: PUBLIC_START_AT,
+            endAt: PUBLIC_END_AT,
             status: OpportunityStatus.ACTIVE,
             productApprovalSnapshot: { snapshot: SNAPSHOT_JSON },
           }),
@@ -92,14 +103,31 @@ describe("OpportunityDiscoveryService", () => {
 
       const result = await service.getPublicDetail("opp-1");
 
+      // Widened in 8C: a nullable image ROUTE, the selling unit and the
+      // window close. Widened again in Batch 8 with the descriptive
+      // context a detail page needs — description, fulfilment region and
+      // the window open. Commercial terms stay absent — no price, no
+      // quantity, no share size, no purchase step, and no
+      // expectedPreparationDays, which is a supply commitment.
       expect(result).toEqual({
         id: "opp-1",
         productNameAr: "منتج",
         productNameEn: "Product",
+        productDescriptionAr: "وصف",
+        productDescriptionEn: "Description",
+        imageUrl: null,
+        thumbnailUrl: null,
         fulfillmentCityNameAr: "الرياض",
         fulfillmentCityNameEn: "Riyadh",
+        fulfillmentRegionNameAr: "منطقة الرياض",
+        fulfillmentRegionNameEn: "Riyadh Region",
+        salesUnitNameAr: null,
+        salesUnitNameEn: null,
+        startAt: PUBLIC_START_AT,
+        endAt: PUBLIC_END_AT,
         status: OpportunityStatus.ACTIVE,
       });
+      expect(result).not.toHaveProperty("expectedPreparationDays");
       expect(result).not.toHaveProperty("unitPriceAmount");
       expect(result).not.toHaveProperty("targetQuantity");
       expect(result).not.toHaveProperty("fundedQuantity");
