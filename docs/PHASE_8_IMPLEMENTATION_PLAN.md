@@ -1016,7 +1016,85 @@ the only indicator of the control. A second token is therefore required:
 - `--color-border-strong` = `#64748B` — input, select, checkbox, and radio borders
   (4.76:1 against white, passes 3:1). `#94A3B8` was measured at 2.56:1 and rejected.
 
-### 14.5 Derived tokens
+### 14.5 Dynamic brand theme (approved)
+
+Four identity colours are **admin-configurable globally**. Everything else
+is fixed and cannot be changed by branding settings.
+
+| Themeable (admin-controlled) | Default |
+|---|---|
+| Primary | `#0B1F33` |
+| Secondary | `#0F766E` |
+| Accent | `#F59E0B` |
+| Accent interactive | `#B45309` |
+
+| Fixed (never admin-controlled) | Value |
+|---|---|
+| Background | `#F8FAFC` |
+| Surface | `#FFFFFF` |
+| Primary text | `#0F172A` |
+| Muted text | `#475569` |
+| Border | `#E2E8F0` |
+| Success | `#15803D` |
+| Warning | `#D97706` |
+| Danger | `#DC2626` |
+
+Fixing the semantic and neutral colours is what keeps the accessibility
+guarantees in §14.3/§14.4 provable: contrast only has to be re-verified
+for the four identity colours against known-fixed counterparts, instead
+of re-verifying an unbounded matrix on every change.
+
+**The colour picker UI ships in 8F, not in 8B.1.** 8B.1 delivers the
+storage, contracts, validation, admin APIs, public exposure, and runtime
+application only.
+
+#### Storage model
+
+Three distinct states, no new table and no migration:
+
+| State | Where |
+|---|---|
+| Active published theme | `system_settings["brand_theme_active"]` |
+| Theme draft | `system_settings["brand_theme_draft"]` |
+| Default FORSA theme | a code constant in `@platform/types` |
+
+The default lives in code, not in a row, so it cannot be corrupted,
+deleted, or silently edited — it is the anchor every fallback resolves
+to.
+
+`SystemSetting` is a key→JSON registry with no version chain; the
+`*Version` tables (`CommissionPolicyVersion`, `ShareTierPolicyVersion`,
+`PlatformBillingProfileVersion`, …) exist for financial and legal
+policies where an immutable chain is required to audit money. A
+presentational theme does not carry that requirement. History is instead
+non-silent through `AuditLog`, which records before/after for every
+draft save, publish, and reset.
+
+#### Validation
+
+Accepted input is a full six-digit hex only, `^#[0-9A-Fa-f]{6}$`,
+normalised to uppercase. Rejected: CSS variables, `rgb()`/`hsl()`,
+colour names, alpha channels, `url()`, and any raw CSS or script.
+
+Required contrast before publish:
+
+| Pair | Minimum |
+|---|---|
+| Primary vs white text | 4.5:1 |
+| Secondary vs white text | 4.5:1 |
+| Accent vs fixed primary text `#0F172A` | 4.5:1 |
+| Accent interactive vs white text | 4.5:1 |
+| Focus indicator vs background and vs surface | 3:1 |
+
+**Draft versus publish policy.** A malformed hex is rejected on save —
+it is structurally invalid, no picker can produce it, and storing it
+would corrupt the row. Contrast failures *are* saved, so the 8F admin
+screen can show an admin exactly which pairs fail while they experiment.
+**Publish is refused outright on any issue, format or contrast.**
+
+---
+
+### 14.6 Derived tokens
 
 Beyond the twelve approved colours, only these derived values are permitted, and
 each is defined centrally:
