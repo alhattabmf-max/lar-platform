@@ -929,7 +929,111 @@ in use.
 
 ---
 
-## 14. Approval
+## 14. Visual identity (approved)
+
+Light mode only. Dark mode is out of Phase 8.
+
+### 14.1 Approved palette
+
+| Role | Token | Hex |
+|---|---|---|
+| Primary / Navy | `--color-primary` | `#0B1F33` |
+| Secondary / Emerald | `--color-secondary` | `#0F766E` |
+| Accent / Gold | `--color-accent` | `#F59E0B` |
+| Accent interactive | `--color-accent-interactive` | `#B45309` |
+| Background | `--color-background` | `#F8FAFC` |
+| Surface | `--color-surface` | `#FFFFFF` |
+| Primary text | `--color-text` | `#0F172A` |
+| Muted text | `--color-text-muted` | `#475569` |
+| Border | `--color-border` | `#E2E8F0` |
+| Success | `--color-success` | `#15803D` |
+| Warning | `--color-warning` | `#D97706` |
+| Danger | `--color-danger` | `#DC2626` |
+
+### 14.2 Usage rules
+
+- Navy carries identity, trust, and primary structural elements (header, shell).
+- Emerald drives primary actions, success, and growth.
+- Gold marks distinction and opportunities, **with dark text only**.
+- An orange button with white text uses `#B45309`, never `#F59E0B`.
+- Colours are defined once as central design tokens. **Hex values must never be
+  repeated inside components** — enforced by a test.
+- The brand name and logo are dynamic, from the Branding API. **Branding settings
+  cannot change system colours in Phase 8.**
+- CSS logical properties throughout. `left` / `right` physical properties are
+  prohibited for size and position wherever a logical equivalent exists.
+- `dangerouslySetInnerHTML` is prohibited.
+- No hardcoded user-visible strings.
+- Arabic is the primary experience; `en-SA` and RTL/LTR support are mandatory.
+- Modern, clean, professional B2B: medium radii, light shadows, generous spacing.
+- Responsive from 360px upward.
+
+### 14.3 Measured WCAG results
+
+Contrast ratios computed from the approved hex values. Text targets AA (4.5:1);
+non-text UI targets 3:1.
+
+| Pair | Ratio | Verdict |
+|---|---|---|
+| Text `#0F172A` on Background `#F8FAFC` | 17.06:1 | AAA |
+| Text `#0F172A` on Surface `#FFFFFF` | 17.85:1 | AAA |
+| Muted `#475569` on Background `#F8FAFC` | 7.24:1 | AAA |
+| Muted `#475569` on Surface `#FFFFFF` | 7.58:1 | AAA |
+| White on Navy `#0B1F33` | 16.69:1 | AAA |
+| White on Emerald `#0F766E` | 5.47:1 | AA |
+| White on Accent interactive `#B45309` | 5.02:1 | AA |
+| Dark `#0F172A` on Gold `#F59E0B` | 8.31:1 | AAA |
+| White on Success `#15803D` | 5.02:1 | AA |
+| White on Danger `#DC2626` | 4.83:1 | AA |
+| Navy focus ring on Background `#F8FAFC` | 15.95:1 | passes 3:1 |
+| Emerald focus ring on Surface `#FFFFFF` | 5.47:1 | passes 3:1 |
+
+### 14.4 Three measured failures and their resolutions
+
+These were found by measuring the palette, not assumed. Each is resolved by a token
+rule, not by changing an approved colour.
+
+**F1 — White on Gold `#F59E0B` = 2.15:1 (fails 4.5:1).**
+Resolved by the approved rule itself: gold carries **dark text only**
+(`#0F172A` on gold = 8.31:1). No token pairs white with gold, and the button
+component has no white-on-accent variant.
+
+**F2 — White on Warning `#D97706` = 3.19:1 (fails 4.5:1).**
+`#D97706` is therefore **never a background for white text**. Two tokens:
+
+- `--color-warning` = `#D97706` — borders, icons, and surfaces that carry **dark**
+  text (`#0F172A` on `#D97706` = 5.60:1, AA).
+- `--color-warning-text` = `#B45309` — warning text on a light warning surface
+  (`#B45309` on `#FFFBEB` = 4.84:1, AA). `#D97706` as text on `#FFFBEB` is 3.07:1
+  and is not used for text.
+
+**F3 — Border `#E2E8F0` on Surface `#FFFFFF` = 1.23:1.**
+Acceptable for decorative dividers and card edges, which WCAG 1.4.11 does not
+require to meet 3:1. It is **not** acceptable for a form control whose boundary is
+the only indicator of the control. A second token is therefore required:
+
+- `--color-border` = `#E2E8F0` — decorative dividers, card edges.
+- `--color-border-strong` = `#64748B` — input, select, checkbox, and radio borders
+  (4.76:1 against white, passes 3:1). `#94A3B8` was measured at 2.56:1 and rejected.
+
+### 14.5 Derived tokens
+
+Beyond the twelve approved colours, only these derived values are permitted, and
+each is defined centrally:
+
+| Token | Value | Purpose |
+|---|---|---|
+| `--color-border-strong` | `#64748B` | form control borders (F3) |
+| `--color-warning-text` | `#B45309` | warning text on light surfaces (F2) |
+| `--color-warning-surface` | `#FFFBEB` | warning banner background |
+| `--color-focus-ring` | `#0B1F33` | visible focus outline |
+| `--color-on-primary` | `#FFFFFF` | text on navy |
+| `--color-on-secondary` | `#FFFFFF` | text on emerald |
+| `--color-on-accent` | `#0F172A` | text on gold — dark only (F1) |
+
+---
+
+## 15. Approval
 
 - Plan approved on the `phase-8` branch, on top of `phases-1-7-final` (`2d5698f`).
 - Implementation of 8B has **not** started and requires separate approval.
