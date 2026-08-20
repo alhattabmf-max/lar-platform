@@ -814,18 +814,89 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 | Depends on | 8B |
 | Risks | low — no new table, no new UI; the colour picker is deferred to 8F |
 
-### 8C — Auth screens, public marketplace, banners
+### 8C — Auth screens, public marketplace, banners *(delivered)*
+
+Delivered in eight batches. The scope below is what was **built and measured**,
+not what was estimated: the endpoint count came in at 12 rather than the planned
+8, because image delivery turned out not to exist anywhere in the API and had to
+be built (see "Delta against the estimate").
 
 | | |
 |---|---|
-| Backend | banners: 1 public + 5 admin + 2 image = **8**; two settings keys (no migration) |
-| Schema | **migration 88** `promotional_banners` + `BannerPlacement` |
-| Frontend | `(auth)/*`, `(public)/*`, `BannerSlot`, route groups, server guards, `/unauthorized` |
-| Shared types | `BannerItem`, `BannerPlacement`, `LoginRequest`, `OpportunityListItem`, `OpportunityDetail`, `AccountType` |
-| Tests | e2e login by CR number; **no OTP**; cross-role 403; `javascript:`/`data:`/`http:` rejected; internal `/path` accepted without allowlist; SVG upload rejected; forged MIME rejected; banner outside its time window not shown; `imageObjectKey` absent from public responses |
-| Acceptance gate | zero raw HTML; CSRF passes locally and in production topology; an `AuditLog` entry for every banner operation |
+| Backend | banners **11** = public 2 (`GET /banners`, `GET /banners/:id/image`) + admin 6 (`GET`, `POST`, `PATCH /:id`, `POST /:id/schedule`, `POST /:id/toggle`, `POST /reorder`) + admin image 3 (`GET`, `POST`, `DELETE /:id/image`); opportunity image **1** (`GET /opportunities/:id/image`). **8C total = 12.** Two settings keys, no migration |
+| Schema | **migration 88** `promotional_banners` + enum `BannerPlacement`, one composite index, three CHECK constraints |
+| Frontend | `(auth)/*` (login, register, forgot/reset password, verify email), `(public)/*` (landing, marketplace list, opportunity detail, policies viewer), `BannerSlot` in both approved placements, route groups, server guards, `/unauthorized` |
+| Shared types | `BannerItem`, `BannerAdminItem`, `BannerPlacement`, `BannerState`, `PublicOpportunityItem`, `PublicOpportunityDetail`, `TraderOpportunityTerms`, `OpportunitySort`, `TaxonomyNodeItem`, `CityItem`, `PublicPolicyVersion`, `PASSWORD_MIN_LENGTH` |
+| Acceptance gate | zero raw HTML; an `AuditLog` entry for every banner operation; no commercial field on any public surface |
 | Depends on | 8B |
 | Risks | banners are a new XSS surface, mitigated by reusing the hardened image pipeline and the link allowlist |
+
+**Delta against the estimate (+4 endpoints).** The plan assumed image bytes could
+be served by something that already existed. Nothing did — no route in the API
+returned image bytes at all. That produced a shared `ImageDeliveryService` plus
+four routes the estimate did not carry: one public banner image, two admin banner
+image routes beyond the upload that was counted, and one public opportunity image.
+
+**Also delivered, beyond the original 8C line items:**
+
+- **Sort on both opportunity lists.** A closed `sort` parameter
+  (`NEWEST | ENDING_SOON`) on `GET /opportunities/active` and
+  `GET /trader/opportunities/active`. No new endpoint. The wire default stays
+  `NEWEST` so callers written before the parameter existed are unaffected; the
+  marketplace UI sends `ENDING_SOON` explicitly. Every ordering terminates in
+  `id`, because `createdAt` and `endAt` are both non-unique and a tie spanning a
+  page boundary under LIMIT/OFFSET can serve one row twice and never serve
+  another.
+- **`GET /opportunities/:id` widened to the declared detail contract** — product
+  description, fulfilment region, window open. Descriptive only; it adds no
+  commercial term, and notably not `expectedPreparationDays`, which is a supply
+  commitment.
+- **Three public lookup endpoints projected onto declared contracts** —
+  `/cities/active`, `/taxonomy/active`, `/policies/active` previously returned raw
+  Prisma rows. `/policies/active` was the blocking one: a `PolicyDocument` has a
+  `code` and no title, so the viewer had nothing to label sections with. The
+  reshape also stops `isPublished`, `requiresReacceptance`, `policyDocumentId` and
+  row timestamps reaching anonymous callers.
+- **Registration enumeration oracle closed in the API**, not only the UI: the
+  per-field conflict codes were **removed** from the error catalogue rather than
+  deprecated, so a code that is absent cannot be returned. One neutral
+  `REGISTRATION_CONFLICT` answers every identity conflict.
+- **One-time token URL hygiene** — `lib/use-one-time-token.ts` captures the
+  recovery/verification token into a ref and strips it from the address bar with
+  `history.replaceState` before any request is issued. `router.replace()` is
+  deliberately *not* used: it issues an RSC request that would carry the tokened
+  URL as its `Referer`.
+
+**Taxonomy filter semantics, verified against the source rather than assumed:**
+
+| Property | Finding |
+|---|---|
+| `GET /taxonomy/active` shape | Flat array carrying `parentId` — not a tree |
+| Filter matching | **Exact match only**, against the frozen approval snapshot's own `taxonomyNodeId`. Descendants are NOT included |
+| Product placement | Any active node, including non-leaf — there is no leaf-only rule |
+| `isActive` filtering | Per node, **not cascaded** — an active child of a deactivated parent is returned with a `parentId` absent from the list |
+
+Because the API matches exactly, the UI says so in both locales and wires that
+statement to the control with `aria-describedby`. Both facts are exported as
+`TAXONOMY_FILTER_INCLUDES_DESCENDANTS` and `TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS`
+so the copy is driven by the contract instead of by a comment someone must
+remember to update.
+
+**Not in 8C — Admin Banner UI is deferred to 8F.** All 9 admin banner endpoints
+exist and are unit-tested; nothing in `apps/web` calls them. The only banner UI
+delivered is the public read-only `BannerSlot`.
+
+**`requireRoleOrRedirect` is built and unit-tested but not yet consumed.** No
+route group in 8C is role-guarded, because 8C shipped no role-restricted screen.
+It is consumed in 8D–8F.
+
+**Prior encoding corruption — repaired, not a feature.** Two files
+(`apps/api/src/branding/branding.service.spec.ts`,
+`apps/web/__tests__/session.test.ts`) were committed in `85a3976` carrying a UTF-8
+BOM and mojibake produced by PowerShell `Set-Content`/`Get-Content`. The 8C commit
+carries their repair because the corruption was already in `main`'s history and
+had to be undone somewhere; it is a **fix to previously committed damage**, not
+new work. PowerShell text editing is prohibited for this repository as a result.
 
 ### 8D0 — Outbox relay
 
@@ -889,9 +960,33 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 | Frontend | responsive audit; accessibility (landmarks, focus management, skip link, contrast); empty/error/loading states |
 | Shared types | contracts frozen |
 | Tests | axe on every route; Playwright for critical paths in both `ar-SA` and `en-SA`; **a new standalone CI step, `Web tests`**, following the `Build scripts safety tests` pattern |
-| Acceptance gate | zero critical accessibility violations; no horizontal scroll at 360px; CSP without `unsafe-inline` |
+| Acceptance gate | zero critical accessibility violations; no horizontal scroll at 360px; CSP without `unsafe-inline`; **the image-origin debt below closed** |
 | Depends on | 8B–8F |
 | Risks | may surface debt from earlier batches; its duration must not be compressed |
+
+#### Carried debt that 8G must close
+
+**Branding and media URL origins vs. CSP.** Three kinds of image URL now reach
+the browser, and none of them is covered by a production CSP yet:
+
+1. `BrandingPublic.logoMainUrl` / `logoSmallUrl` / `faviconUrl` — arbitrary
+   absolute URLs entered by an administrator, so their origin is not knowable at
+   build time.
+2. `GET /api/v1/banners/:id/image` and `GET /api/v1/opportunities/:id/image` —
+   served from the **API** origin, which differs from the web origin in every
+   deployed environment.
+3. Both are rendered with a plain `<img>` rather than `next/image`, because the
+   dimensions are unknown at build time and `next/image` would need a
+   per-environment `remotePatterns` allowlist.
+
+8G must therefore decide, and encode, a real `img-src` that admits the API origin
+and whatever branding origins are permitted — and constrain what an administrator
+may enter for a branding URL, since a `img-src` wide enough for any URL an admin
+can type is not a policy. Until then there is no CSP restricting where an image
+may be loaded from.
+
+**Branding is fetched with `cache: "no-store"`** on every render (8B.1), pending
+the caching decision 8G owes.
 
 ---
 
@@ -900,7 +995,9 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 | Metric | Value |
 |---|---|
 | Migrations | **87 → 90** (88 banners, 89 outbox relay, 90 notifications) |
-| Endpoints | **178 → 201** (+23; 8D0 adds zero) |
+| Migrations on disk now | **88** — migration 88 is `20260823000100_8c_create_promotional_banners` |
+| Endpoints | **178 → 205** (+27; 8D0 adds zero) |
+| Endpoints measured now (after 8C) | **195** |
 | Batches | **7** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G |
 | Notification types | 18, of which 11 emit `EMAIL_NOTIFICATION_V1` |
 | Legacy outbox event types left outside the relay | 13 |
@@ -908,21 +1005,32 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 
 New endpoints by group:
 
-| Group | Count | Batch |
-|---|---|---|
-| Public branding | 1 | 8B |
-| Admin brand theme | 4 | 8B.1 |
-| Banners — public 1 + admin 5 + image 2 | 8 | 8C |
-| Notifications | 4 | 8D |
-| Documents — trader + supplier | 2 | 8D / 8E |
-| Supplier settlements | 2 | 8E |
-| Audit log viewer | 1 | 8F |
-| Outbox stats | 1 | 8F |
-| **Total** | **23** | |
+| Group | Count | Batch | Status |
+|---|---|---|---|
+| Public branding | 1 | 8B | delivered |
+| Admin brand theme | 4 | 8B.1 | delivered |
+| Banners — public 2 + admin 6 + admin image 3 | 11 | 8C | delivered |
+| Opportunity image — public | 1 | 8C | delivered |
+| Notifications | 4 | 8D | planned |
+| Documents — trader + supplier | 2 | 8D / 8E | planned |
+| Supplier settlements | 2 | 8E | planned |
+| Audit log viewer | 1 | 8F | planned |
+| Outbox stats | 1 | 8F | planned |
+| **Total** | **27** | | |
 
-The earlier figure of 19 predated 8B.1, which added the four admin brand-theme
-routes. Migrations are unaffected: 8B.1 stores the active and draft themes as
-`system_settings` rows and keeps the defaults in code, so the total stays 87 → 90.
+**How the totals reconcile.** 178 measured before Phase 8, +5 delivered in
+8B/8B.1, +12 delivered in 8C = **195 measured today**. The remaining 10 planned
+endpoints (8D, 8E, 8F) bring the phase to **205**.
+
+The +27 figure supersedes the earlier +23. Two revisions produced it: 8B.1 added
+the four admin brand-theme routes, and 8C came in at 12 endpoints against an
+estimate of 8 because image delivery had to be built from nothing. Migrations are
+unaffected by either: 8B.1 stores themes as `system_settings` rows, and 8C's only
+schema change is migration 88, so the planned total stays **87 → 90**.
+
+8C added **no new endpoint** for sorting, the widened opportunity detail, or the
+reshaped lookup endpoints — those are a query parameter and response projections
+on routes that already existed.
 
 There is deliberately **no** `DELETE /admin/banners/:id` — deactivation only, which
 preserves the audit trail and avoids orphaned storage objects.
@@ -934,16 +1042,25 @@ preserves the audit trail and avoids orphaned storage objects.
 Not every written test has been executed. This section records which, so that
 "written" is never mistaken for "passing".
 
-### Executed locally and passing
+### Executed locally and passing — as of the 8C delivery commit
 
-| Suite | Result |
-|---|---|
-| `apps/web` (Vitest) | 187 passing |
-| `apps/api` unit (Jest, `src/**/*.spec.ts`) | 340 passing |
-| `packages/types` guard (`node --test`) | 5 passing |
-| `packages/domain` / `packages/config` | 66 / 6 passing |
-| `pnpm run test:scripts` | 22 passing |
-| typecheck · lint · build | green |
+| Suite | Command | Result |
+|---|---|---|
+| `apps/api` unit (Jest, `src/**/*.spec.ts`) | `pnpm --filter api run test` | **710 passing**, 55 suites |
+| `apps/web` (Vitest) | `pnpm --filter web run test` | **511 passing**, 18 files |
+| `packages/types` guard (`node --test`) | `pnpm --filter @platform/types test` | **5 passing** |
+| `packages/domain` | `pnpm --filter @platform/domain test` | **66 passing** |
+| `packages/config` | `pnpm --filter @platform/config test` | **6 passing** |
+| build scripts | `pnpm run test:scripts` | **22 passing** |
+| `packages/types` build | `pnpm --filter @platform/types build` | green |
+| typecheck (every workspace) | `pnpm -r run typecheck` | `EXIT=0` |
+| lint (every workspace) | `pnpm -r run lint` | `EXIT=0` |
+| web production build | `pnpm --filter web run build` | `EXIT=0`, 10 locale routes + `/_not-found` |
+| Prisma schema validity | `prisma validate` | valid |
+
+These figures are the ones actually printed by those commands on the delivery
+run. Where a number here disagrees with an older section of this document, this
+table is the later measurement.
 
 ### Written but NOT executed
 
@@ -974,10 +1091,58 @@ them; that is a mitigation, not a substitute.
 The same applies to every other pre-existing `*.e2e-spec.ts` and
 `*.integration-spec.ts` file in the repository: none of them run on this machine.
 
+### 8C — written but NOT executed
+
+**Status: WRITTEN — NOT EXECUTED — STATUS UNKNOWN.**
+
+| File | Covers |
+|---|---|
+| `apps/api/test/banners.e2e-spec.ts` | LIVE-window visibility, admin CRUD, schedule, reorder, image upload/serve/delete, link rejection, audit entries |
+| `apps/api/test/opportunity-image.e2e-spec.ts` | public image visibility, variants, conditional requests, legacy snapshots with no media |
+| `apps/api/test/opportunity-discovery.e2e-spec.ts` (extended in 8C) | sort default, `ENDING_SOON` ordering, pagination with no duplicate or dropped row, filter + sort composition, invalid sort → 400 |
+
+None of these has ever been run. Ports 5432, 6379 and 9000 are closed on this
+machine and the E2E suites require PostgreSQL, Redis and MinIO together. They
+typecheck and lint; that is the entire extent of what is known about them.
+
+### Migration 88 — created and validated, not applied
+
+**Status: CREATED / VALIDATED — NOT APPLIED LOCALLY.**
+
+`prisma validate` passes and the SQL was reviewed by hand against
+`schema.prisma`: the enum, the composite index, and all three CHECK constraints
+correspond, the eight image columns in the all-or-none constraint match the eight
+declared on the model, and the content-type allowlist
+(`image/jpeg`, `image/png`, `image/webp`) matches exactly what
+`processImage` emits.
+
+It has **never been executed against a database**. `prisma migrate deploy` has
+not run, no shadow-database diff has been taken, and no drift check has been
+performed — all three need a live PostgreSQL. Nothing may describe this migration
+as applied.
+
+### Behaviour that stays UNVERIFIED until CI / PostgreSQL
+
+These are properties that unit tests **cannot** establish, because they are
+enforced by the database rather than by application code. Every one is asserted
+only at the level of the query or statement the service emits:
+
+| Property | Why a unit test cannot settle it |
+|---|---|
+| `pg_advisory_xact_lock` placement serialisation | Real lock contention needs concurrent sessions |
+| Database `now()` via `$queryRaw` | A mock returns whatever it is told |
+| The three CHECK constraints on `promotional_banners` | Enforced by PostgreSQL, not by Prisma |
+| Concurrent-live-banner limits under true concurrency | Requires overlapping transactions |
+| Pagination returning no duplicate or dropped row | Requires a real result set and a real `ORDER BY` |
+
+**Status: UNVERIFIED UNTIL CI / POSTGRESQL.**
+
 ---
 
 ## 12. Deferred beyond Phase 8
 
+- **Admin Banner UI → 8F.** The 9 admin banner endpoints are delivered and
+  unit-tested in 8C; no screen calls them yet.
 - **Real email provider.** See §13.
 - `User.preferredLocale` — a prerequisite for the real provider.
 - Manual outbox retry and delete. No safe endpoint exists today, so none is reused.
