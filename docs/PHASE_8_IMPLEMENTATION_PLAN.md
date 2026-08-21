@@ -278,7 +278,17 @@ out of the table by construction.
 
 ### 6.3 Notification event matrix
 
-18 types; 11 also emit an email intent.
+18 types; **13** also emit an email intent.
+
+The count was previously stated as 11. **13 is the figure derived from this matrix
+itself** — the rows below marked "yes" in the Email column, counted: `PAYMENT_SUCCEEDED`,
+`PAYMENT_FAILED`, `ORDER_CREATED`, `ALLOCATION_SHIPPED`, `MASTER_ORDER_FULFILLED`,
+`DISPUTE_OPENED`, `DISPUTE_SUPPLIER_RESPONDED`, `DISPUTE_DECIDED`, `REFUND_INITIATED`,
+`REFUND_FAILED`, `REPLACEMENT_REQUIRED`, `REPLACEMENT_FAILED`, `SETTLEMENT_EXECUTED`.
+
+The matrix is authoritative because it names the individual events; the summary
+figure was not sourced from anything. `@platform/email` ships exactly these 13
+template ids, and a unit test asserts the registry length, so the two cannot drift.
 
 | # | Business event | `NotificationType` | Recipients | Email |
 |---|---|---|---|---|
@@ -490,10 +500,22 @@ RELAY_SUPPORTED_EVENT_TYPES = ["EMAIL_NOTIFICATION_V1"]   // constant, in code
 
 The claim query begins with `event_type = ANY($1)`. Therefore:
 
-- The 13 existing event types (`CHECKOUT_LOCK_CREATED`, `CHECKOUT_LOCK_EXPIRED`,
+- **30 literal event types plus dynamically constructed types, measured at the 8D0
+  baseline** (`CHECKOUT_LOCK_CREATED`, `CHECKOUT_LOCK_EXPIRED`,
   `MASTER_ORDER_FULFILLED`, `PRODUCT_SUSPENDED`, `OPPORTUNITY_EXPIRED`,
-  `TRADER_TAX_PROFILE_UPDATED`, `REFUND_ATTEMPT_DEFINITIVE_FAILED`, and the rest) are
-  **invisible to the relay** — never read, never locked, never updated.
+  `REFUND_ATTEMPT_DEFINITIVE_FAILED`, and the rest) are **invisible to the relay** —
+  never read, never locked, never updated.
+
+  An earlier draft of this section said "13 existing event types". The measured
+  figure is **30 distinct string literals**, plus **eight call sites that compute the
+  type at runtime** (`eventType: action`, `` `PRODUCT_REPORT_${toStatus}` ``), so the
+  true set is not statically enumerable at all. Treat 30 as a **baseline measurement,
+  not an invariant** — it will drift as services are added.
+
+  The miscount changes nothing about the design, and that is the point of an
+  allowlist: `event_type = ANY($1)` is a POSITIVE filter, so it excludes 13, 30 or 300
+  identically. **The relay supports `EMAIL_NOTIFICATION_V1` and nothing else.** A
+  negative filter would have had to be corrected.
 - They remain `PENDING` indefinitely. That is correct and intended: they were written
   as an intent ledger, not as email commands.
 - **Why not a watermark:** `created_at >= relayEnabledAt` depends on a configurable
@@ -898,19 +920,90 @@ carries their repair because the corruption was already in `main`'s history and
 had to be undone somewhere; it is a **fix to previously committed damage**, not
 new work. PowerShell text editing is prohibited for this repository as a result.
 
-### 8D0 — Outbox relay
+### 8D0 — Outbox relay *(delivered)*
+
+Delivered in four batches: 8D0.1 the shared package and boot validator, 8D0.2 the
+migration and SQL layer, 8D0.3 the processor/scheduler/worker, 8D0.4 closure.
 
 | | |
 |---|---|
-| Backend | **zero endpoints**. `EMAIL_NOTIFICATION_V1` constant; tightened `MockEmailProvider`; shared boot validator (§9.7 A3) |
-| Schema | **migration 89** `add_outbox_relay_fields` |
-| Worker | `outbox-relay-scheduler.ts`, `create-outbox-relay-worker.ts`, `outbox-relay-processor.ts`, `outbox/claim.ts`, AR/EN templates |
+| Backend | **zero endpoints** — confirmed by recount, 195 before and after |
+| Schema | **migration 89** `20260824000100_8d0_add_outbox_relay_fields` |
+| New package | **`@platform/email`** — Nest-agnostic, zero NestJS dependency |
+| Config | **`EMAIL_REQUIRED`** (boolean, default `false`) + `assertEmailDeliveryConfigured`, invoked by BOTH bootstraps |
+| Worker | `outbox-relay-scheduler.ts`, `create-outbox-relay-worker.ts`, `outbox/{claim,outbox-relay-processor,bounded-pool}.ts`, AR/EN templates |
 | Frontend | none |
-| Shared types | `OutboxErrorClass`, `EmailTemplateId`, `OutboxStats` (consumed by 8F) |
-| Tests | the 18 integration tests in §9.12, plus the migration matrix in §9.7 A8 |
-| Acceptance gate | all tests green; the 13 legacy event types provably untouched; zero leakage in logs; the relay writes no `AuditLog`; no document or commit message uses "exactly-once" |
-| Depends on | 8C (sequencing only; no functional dependency) |
-| Risks | `ALTER TYPE ADD VALUE` runs outside a transaction — acceptable on PostgreSQL 16. No UI and no endpoints, so the risk surface is narrow |
+| Depends on | 8C (sequencing only) |
+
+**`@platform/email` — why a separate package.** `apps/worker` is plain Node +
+BullMQ with no NestJS and no dependency path into `apps/api`, but the provider,
+its DI token and the mock all lived in `apps/api/src/email/`. A relay in the
+worker could not have used them. The provider interface, `MockEmailProvider`,
+the closed `EMAIL_NOTIFICATION_V1` schema, both key builders, the 13 templates,
+the closed error-class set and the relay timing constants now live in the shared
+package; the API keeps a thin adapter that binds the same instance to Nest. It is
+deliberately **not** in `@platform/config` — config is not a sending layer — and
+deliberately **not** in `@platform/types`, because this is an internal channel
+contract between the outbox producer and the relay, not an HTTP or UI wire
+contract.
+
+**Relay design as built:**
+
+| Concern | Decision |
+|---|---|
+| State | `PENDING → PROCESSING → PUBLISHED / PENDING(retry) / FAILED`. The lease *is* `PROCESSING` + `locked_until`; there is no separate leased state |
+| Correctness guard | `claim_token`, unique per claim. `locked_by` is observability only — the same worker id can re-claim after a lapse |
+| Claim | `FOR UPDATE SKIP LOCKED`, `ORDER BY created_at ASC, id ASC` (a TOTAL order), `LIMIT 20`, `attempts` incremented at claim |
+| Crash recovery | The `OR (PROCESSING AND locked_until < now())` branch. No separate reaper |
+| Terminalisation | Runs **before** the claim, in the same transaction. Retires supported rows at `attempts >= MAX_ATTEMPTS` that are expired-PROCESSING or PENDING → `FAILED` / `ATTEMPTS_EXHAUSTED`. Without it those rows are permanently stranded, since the claim requires `attempts < MAX_ATTEMPTS` |
+| Retry | `min(30s · 2^(n−1), 6h)`, jittered into the upper half, from the **database** clock. `MAX_ATTEMPTS = 8` |
+| Dead-letter | `FAILED` + `failed_at` + a closed `error_class`. There is no dead-letter table |
+| Dispatch | Fixed pool of 5 over a batch of 20. Never `Promise.all` over the batch; one row failing does not abandon the rest |
+| Lease safety | `ceil(20/5) × 20s + 20s margin = 100s < 120s lease`, asserted by an **executable invariant** that fails the build if the constants drift. No lease renewal |
+| Timeout | `AbortController` per call, cleared in `finally`, honoured by the provider — a real abort, not a lost race |
+
+**Delivery semantics: at-least-once delivery with a stable provider idempotency
+key.** Not exactly-once, and no document, comment or commit message may say
+otherwise. If the process dies after the provider accepted but before settlement
+commits, the row is re-claimed on lease expiry and re-sent with the same
+`outbox:${id}` key. A provider honouring idempotency keys collapses it; **a
+provider that does not will deliver a duplicate.**
+
+`MAX_ATTEMPTS` bounds *claim/dispatch attempts*; it is not a promise of delivery.
+At-least-once does not mean retrying for ever — terminal payload and provider
+failures, and exhausting the budget, all end at `FAILED`.
+
+**`PUBLISHED` does not mean an email arrived.** It means the configured provider
+accepted the command. With `EMAIL_PROVIDER_MODE=mock` — the only supported mode —
+**nothing is sent at all**; acceptance is a log line. `providerMode` therefore
+travels on every relay log record, and 8F's stats must carry it plus an explicit
+`deliveryIsSimulated` flag, so a dashboard counting `PUBLISHED` can never read as
+healthy delivery.
+
+**Structural isolation.** The relay reads and writes `outbox_events` and READS
+`users` (three columns) for the recipient. It never touches `notifications` — they
+do not exist yet, and it must not depend on migration 90 — and it writes no
+`AuditLog`: there is no business actor, and infrastructure events do not belong in
+an audit trail.
+
+**No stats endpoint and no manual retry.** `GET /admin/outbox/stats` is **8F**;
+manual retry and delete are deferred beyond Phase 8. Between now and 8F the relay
+has no operational visibility except logs, and a dead-lettered row has no
+supported recovery path in this phase.
+
+**Contract handover to 8D.** The outbox producer in 8D imports
+`EMAIL_NOTIFICATION_V1`, `buildCreationIdempotencyKey` and the template ids from
+`@platform/email` rather than re-deriving them, so a shape mismatch fails
+typecheck instead of surfacing as `PAYLOAD_INVALID` dead-letters at runtime.
+
+**Migration-owned database objects.** `outbox_events_failed_idx` (partial) and
+`outbox_events_lease_all_or_none` (CHECK) cannot be represented in
+`schema.prisma` — Prisma 5 supports neither. They were kept rather than
+downgraded. Consequences: `prisma migrate diff` may report them, and that output
+must **not** be a blanket pass/fail gate; CI must separate these two known
+objects from any other drift and fail on anything else, and must assert them
+positively against `pg_indexes.indexdef` and `pg_get_constraintdef`. A unit test
+guards offline that no later migration drops either.
 
 ### 8D — Trader portal
 
@@ -995,11 +1088,11 @@ the caching decision 8G owes.
 | Metric | Value |
 |---|---|
 | Migrations | **87 → 90** (88 banners, 89 outbox relay, 90 notifications) |
-| Migrations on disk now | **88** — migration 88 is `20260823000100_8c_create_promotional_banners` |
-| Endpoints | **178 → 205** (+27; 8D0 adds zero) |
-| Endpoints measured now (after 8C) | **195** |
+| Migrations on disk now | **89** — 88 banners, 89 `20260824000100_8d0_add_outbox_relay_fields` |
+| Endpoints | **178 → 208** (+30; 8D0 adds zero) |
+| Endpoints measured now (after 8D0) | **195** |
 | Batches | **7** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G |
-| Notification types | 18, of which 11 emit `EMAIL_NOTIFICATION_V1` |
+| Notification types | 18, of which **13** emit `EMAIL_NOTIFICATION_V1` |
 | Legacy outbox event types left outside the relay | 13 |
 | Shared wire enums | 9 |
 
@@ -1011,22 +1104,31 @@ New endpoints by group:
 | Admin brand theme | 4 | 8B.1 | delivered |
 | Banners — public 2 + admin 6 + admin image 3 | 11 | 8C | delivered |
 | Opportunity image — public | 1 | 8C | delivered |
+| Outbox relay | **0** | 8D0 | delivered |
 | Notifications | 4 | 8D | planned |
-| Documents — trader + supplier | 2 | 8D / 8E | planned |
+| Trader documents | 1 | 8D | planned |
+| Trader disputes + replacements list/detail | 3 | 8D | planned |
+| Supplier documents | 1 | 8E | planned |
 | Supplier settlements | 2 | 8E | planned |
 | Audit log viewer | 1 | 8F | planned |
 | Outbox stats | 1 | 8F | planned |
-| **Total** | **27** | | |
+| **Total** | **30** | | |
 
 **How the totals reconcile.** 178 measured before Phase 8, +5 delivered in
-8B/8B.1, +12 delivered in 8C = **195 measured today**. The remaining 10 planned
-endpoints (8D, 8E, 8F) bring the phase to **205**.
+8B/8B.1, +12 delivered in 8C, **+0 in 8D0** = **195 measured today**. The
+remaining 13 planned endpoints (8 in 8D, 3 in 8E, 2 in 8F) bring the phase to
+**208**.
 
-The +27 figure supersedes the earlier +23. Two revisions produced it: 8B.1 added
-the four admin brand-theme routes, and 8C came in at 12 endpoints against an
-estimate of 8 because image delivery had to be built from nothing. Migrations are
-unaffected by either: 8B.1 stores themes as `system_settings` rows, and 8C's only
-schema change is migration 88, so the planned total stays **87 → 90**.
+The +30 figure supersedes the earlier +27. Three revisions produced it: 8B.1
+added the four admin brand-theme routes; 8C came in at 12 against an estimate of 8
+because image delivery had to be built from nothing; and 8D grew from 5 to 8 once
+the trader portal's disputes and replacements screens were found to have no read
+endpoints at all.
+
+Migrations are unaffected by any of it: 8B.1 stores themes as `system_settings`
+rows, 8C's only schema change is migration 88, and 8D0's is migration 89 — so the
+planned final total stays **87 → 90**, with 90 (`create_notifications`) arriving
+in 8D.
 
 8C added **no new endpoint** for sorting, the widened opportunity detail, or the
 reshaped lookup endpoints — those are a query parameter and response projections
@@ -1042,21 +1144,24 @@ preserves the audit trail and avoids orphaned storage objects.
 Not every written test has been executed. This section records which, so that
 "written" is never mistaken for "passing".
 
-### Executed locally and passing — as of the 8C delivery commit
+### Executed locally and passing — as of the 8D0 delivery commit
 
 | Suite | Command | Result |
 |---|---|---|
-| `apps/api` unit (Jest, `src/**/*.spec.ts`) | `pnpm --filter api run test` | **710 passing**, 55 suites |
+| `apps/api` unit (Jest, `src/**/*.spec.ts`) | `pnpm --filter api run test` | **719 passing**, 56 suites |
 | `apps/web` (Vitest) | `pnpm --filter web run test` | **511 passing**, 18 files |
+| **`apps/worker` unit** | `pnpm --filter worker run test` | **196 passing**, 7 suites |
+| **`packages/email`** | `pnpm --filter @platform/email test` | **165 passing**, 7 suites |
+| `packages/config` | `pnpm --filter @platform/config test` | **31 passing**, 2 suites |
 | `packages/types` guard (`node --test`) | `pnpm --filter @platform/types test` | **5 passing** |
 | `packages/domain` | `pnpm --filter @platform/domain test` | **66 passing** |
-| `packages/config` | `pnpm --filter @platform/config test` | **6 passing** |
 | build scripts | `pnpm run test:scripts` | **22 passing** |
-| `packages/types` build | `pnpm --filter @platform/types build` | green |
+| builds — email, config, api, worker | `pnpm --filter <pkg> build` | all green |
 | typecheck (every workspace) | `pnpm -r run typecheck` | `EXIT=0` |
 | lint (every workspace) | `pnpm -r run lint` | `EXIT=0` |
 | web production build | `pnpm --filter web run build` | `EXIT=0`, 10 locale routes + `/_not-found` |
 | Prisma schema validity | `prisma validate` | valid |
+| Endpoint recount · migration count | script | **195** · **89** |
 
 These figures are the ones actually printed by those commands on the delivery
 run. Where a number here disagrees with an older section of this document, this
@@ -1134,6 +1239,56 @@ only at the level of the query or statement the service emits:
 | The three CHECK constraints on `promotional_banners` | Enforced by PostgreSQL, not by Prisma |
 | Concurrent-live-banner limits under true concurrency | Requires overlapping transactions |
 | Pagination returning no duplicate or dropped row | Requires a real result set and a real `ORDER BY` |
+
+**Status: UNVERIFIED UNTIL CI / POSTGRESQL.**
+
+### 8D0 — written but NOT executed
+
+**Status: WRITTEN — NOT EXECUTED — STATUS UNKNOWN.**
+
+| File | Covers |
+|---|---|
+| `apps/worker/test/outbox-relay-claim.integration-spec.ts` | attempt-budget transitions, terminalisation, legacy rows untouched, backoff deferral, two clients under `SKIP LOCKED`, stale-token settlement, the CHECK constraint's four cases, lease arithmetic |
+| `apps/worker/test/outbox-relay-processor.integration-spec.ts` | end-to-end publish, no resend of a published row, dead-lettering, budget exhaustion, real abort on timeout, log leakage, no `AuditLog` written |
+
+Neither has ever run. Ports 5432, 6379 and 9000 are closed on this machine.
+
+### Migration 89 — created and validated, not applied
+
+**Status: CREATED / VALIDATED — NOT APPLIED LOCALLY.**
+
+`prisma validate` passes and the SQL was reviewed against `schema.prisma`: the
+`PROCESSING` enum value, the seven nullable columns, the claim index, the partial
+failed index and the CHECK all correspond, and a unit test asserts the mapping
+field by field.
+
+It has **never been executed against a database**. In particular it is **not a
+wholly metadata-only migration**: the columns are nullable with no default so no
+row data is rewritten, but `ADD CONSTRAINT … CHECK` may require PostgreSQL to
+scan the table to validate existing rows, holding a lock for the duration. That
+scan — not the `ADD COLUMN`s — is what deserves a maintenance window on a large
+`outbox_events`.
+
+### 8D0 behaviour that stays UNVERIFIED until CI / PostgreSQL
+
+Every one of these is asserted **only at the level of the SQL or the decision
+logic**, never observed:
+
+| Property | Why a local test cannot settle it |
+|---|---|
+| `FOR UPDATE SKIP LOCKED` splitting a batch between workers | Needs two live sessions |
+| Two-worker concurrency generally | Same |
+| Crash recovery via lease expiry | Needs a real clock and a real lease |
+| The all-or-none CHECK rejecting a partial lease | Enforced by PostgreSQL, not by Prisma |
+| The partial index existing with its predicate | Needs `pg_indexes` |
+| Migration 89 applying to a fresh and to an upgraded database | Needs a database |
+| `prisma migrate diff` drift, minus the two migration-owned objects | Needs a shadow database |
+
+**In particular: duplicate prevention and at-least-once behaviour are NOT
+demonstrated.** The stable idempotency key is asserted to be passed and to be
+identical across attempts; whether a duplicate is actually collapsed depends on a
+real provider honouring it, and no real provider exists. Nothing here may be
+described as proven duplicate-free.
 
 **Status: UNVERIFIED UNTIL CI / POSTGRESQL.**
 
