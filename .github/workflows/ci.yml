@@ -60,6 +60,11 @@ jobs:
       STORAGE_BUCKET_NAME: platform-test
       STORAGE_FORCE_PATH_STYLE: "true"
       EMAIL_PROVIDER_MODE: mock
+      # CI runs on the mock provider, which delivers nothing. Declaring
+      # email as not required keeps the boot validator satisfied; the
+      # validator's refusing combination is exercised by unit tests
+      # rather than by the CI environment.
+      EMAIL_REQUIRED: "false"
       MAP_PROVIDER_MODE: manual
       CORS_ALLOWED_ORIGINS: http://localhost:3001
 

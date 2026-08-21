@@ -50,6 +50,24 @@ const envSchema = z
     STORAGE_FORCE_PATH_STYLE: z.coerce.boolean().default(true),
 
     EMAIL_PROVIDER_MODE: z.enum(["mock"]).default("mock"),
+
+    /**
+     * Whether this deployment depends on email actually being
+     * delivered.
+     *
+     * Defaults to FALSE, which is what keeps every existing deployment
+     * booting unchanged: today the only provider mode is `mock`, so a
+     * default of true would refuse to start every production process.
+     *
+     * Setting it true in production asserts "email must work here", and
+     * `assertEmailDeliveryConfigured` then refuses to boot against a
+     * provider that delivers nothing. See that function for why the
+     * check is a boot failure rather than a warning.
+     */
+    EMAIL_REQUIRED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     MAP_PROVIDER_MODE: z.enum(["manual"]).default("manual"),
 
     CORS_ALLOWED_ORIGINS: z

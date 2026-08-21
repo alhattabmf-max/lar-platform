@@ -1,18 +1,17 @@
-export interface SendEmailParams {
-  to: string;
-  subject: string;
-  htmlBody: string;
-  textBody?: string;
-}
+import type { EmailProvider, SendEmailCommand, SendEmailParams } from "@platform/email";
 
 /**
- * Provider Adapter = an isolation layer that lets a real email vendor
- * be plugged in later without touching any calling code. Phase 1 only
- * ships MockEmailProvider (EMAIL_PROVIDER_MODE=mock); a real provider
- * is added behind this same interface in a later phase.
+ * The API's DI token for the shared provider.
+ *
+ * The interface itself now lives in `@platform/email`, which is
+ * framework-free: `apps/worker` runs the relay, has no NestJS, and has
+ * no dependency path into `apps/api`. Keeping one implementation of the
+ * sending behaviour means the two processes cannot drift.
+ *
+ * This file is the Nest-facing adapter surface and nothing more. It is
+ * re-exported at the original import path so the auth flows written
+ * before 8D0 keep working unchanged.
  */
-export interface EmailProvider {
-  sendEmail(params: SendEmailParams): Promise<void>;
-}
-
 export const EMAIL_PROVIDER = Symbol("EMAIL_PROVIDER");
+
+export type { EmailProvider, SendEmailCommand, SendEmailParams };

@@ -30,6 +30,7 @@ function testEnv(): Env {
     STORAGE_BUCKET_NAME: "platform-test",
     STORAGE_FORCE_PATH_STYLE: true,
     EMAIL_PROVIDER_MODE: "mock",
+    EMAIL_REQUIRED: false,
     MAP_PROVIDER_MODE: "manual",
     CORS_ALLOWED_ORIGINS: [],
   };

@@ -144,23 +144,62 @@ model IdempotencyKey {
 // -----------------------------------------------------------------------
 enum OutboxStatus {
   PENDING
+  PROCESSING
   PUBLISHED
   FAILED
 }
 
+/// The intent ledger. Rows are written inside the business transaction
+/// that produced them.
+///
+/// Phase 8D0 added the relay lease fields below. They are ALL nullable
+/// and carry no default, so migration 89 rewrites no historical row and
+/// needs no backfill: every pre-existing event keeps its exact bytes and
+/// its new columns are NULL.
+///
+/// A CHECK constraint (see the migration) ties the four lease columns to
+/// the status: they are all NULL unless the row is PROCESSING, in which
+/// case they are all non-null. A half-leased row — a token with no
+/// expiry, an expiry with no owner — cannot be stored at all, so no
+/// reader has to defend against one.
 model OutboxEvent {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  eventType   String       @map("event_type")
-  payload     Json
-  status      OutboxStatus @default(PENDING)
-  attempts    Int          @default(0)
-  lastError   String?      @map("last_error")
-  idempotencyKey String?   @map("idempotency_key")
-  publishedAt DateTime?    @map("published_at") @db.Timestamptz(3)
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType      String       @map("event_type")
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0)
+  /// Written nowhere in the repository. The relay records `errorClass`
+  /// instead, because a free-text column invites an exception message —
+  /// and provider exception text routinely echoes the recipient address.
+  lastError      String?      @map("last_error")
+  idempotencyKey String?      @map("idempotency_key")
+  publishedAt    DateTime?    @map("published_at") @db.Timestamptz(3)
+
+  /// Deferral for backoff. NULL means eligible now.
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+
+  /// Lease. Set together at claim, cleared together at settlement.
+  lockedAt    DateTime? @map("locked_at") @db.Timestamptz(3)
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(3)
+  /// Observability only — never a correctness guard. The same worker id
+  /// can re-claim a row after a lease expiry, so a settlement matched on
+  /// it could overwrite a newer attempt's result.
+  lockedBy    String?   @map("locked_by")
+  /// THE correctness guard: unique per claim attempt, so a superseded
+  /// settlement matches zero rows.
+  claimToken  String?   @map("claim_token") @db.Uuid
+
+  /// A member of the closed class set in @platform/email. Never free text.
+  errorClass String?   @map("error_class")
+  failedAt   DateTime? @map("failed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([status])
+  /// Serves the claim predicate. `status` alone forces an increasingly
+  /// large scan as the table grows, and legacy rows stay PENDING for ever.
+  @@index([eventType, status, nextAttemptAt, lockedUntil], map: "outbox_events_claim_idx")
   @@map("outbox_events")
 }
 

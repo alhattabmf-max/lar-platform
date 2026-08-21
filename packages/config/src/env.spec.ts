@@ -27,6 +27,32 @@ describe("loadEnv", () => {
     expect(env.CORS_ALLOWED_ORIGINS).toEqual([]);
   });
 
+  describe("EMAIL_REQUIRED", () => {
+    it("defaults to false, so every existing deployment still boots", () => {
+      // The only provider mode is "mock". Defaulting this to true would
+      // refuse to start every production process on the day it shipped.
+      expect(loadEnv(baseEnv()).EMAIL_REQUIRED).toBe(false);
+    });
+
+    it("parses the string 'true' into a real boolean", () => {
+      expect(loadEnv({ ...baseEnv(), EMAIL_REQUIRED: "true" }).EMAIL_REQUIRED).toBe(true);
+    });
+
+    it("parses the string 'false' into a real boolean", () => {
+      expect(loadEnv({ ...baseEnv(), EMAIL_REQUIRED: "false" }).EMAIL_REQUIRED).toBe(false);
+    });
+
+    it.each(["yes", "1", "TRUE", "on", ""])(
+      "rejects %p rather than silently reading it as false",
+      (value) => {
+        // A typo'd "1" quietly meaning false is exactly how a
+        // deployment ends up believing email is guaranteed when it is
+        // not.
+        expect(() => loadEnv({ ...baseEnv(), EMAIL_REQUIRED: value })).toThrow(/EMAIL_REQUIRED/);
+      }
+    );
+  });
+
   it("throws a descriptive error when a required variable is missing", () => {
     const { DATABASE_URL: _omit, ...rest } = baseEnv();
     expect(() => loadEnv(rest)).toThrow(/DATABASE_URL/);

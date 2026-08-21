@@ -3,7 +3,7 @@ import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import type { Logger } from "pino";
-import type { Env } from "@platform/config";
+import { assertEmailDeliveryConfigured, type Env } from "@platform/config";
 import { APP_ENV } from "../config/app-config.module";
 import {
   createHttpLogger,
@@ -23,6 +23,12 @@ import {
 export function configureApp(app: INestApplication): { env: Env; logger: Logger } {
   const env = app.get<Env>(APP_ENV);
   const logger = app.get<Logger>(PINO_LOGGER);
+
+  // Before anything is wired up: refuse to serve if this deployment
+  // says email must work and the configured provider delivers nothing.
+  // The identical call guards the worker's bootstrap — see
+  // assertEmailDeliveryConfigured for why it cannot live here alone.
+  assertEmailDeliveryConfigured(env);
 
   // pino-http is mounted first, before Nest routing, guards, pipes, and
   // controllers, so every request/response — and every error — is

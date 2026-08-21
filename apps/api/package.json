@@ -27,6 +27,7 @@
     "@nestjs/throttler": "^6.2.1",
     "@platform/config": "workspace:*",
     "@platform/domain": "workspace:*",
+    "@platform/email": "workspace:*",
     "@platform/opportunity-lifecycle": "workspace:*",
     "@platform/types": "workspace:*",
     "@prisma/client": "^5.22.0",

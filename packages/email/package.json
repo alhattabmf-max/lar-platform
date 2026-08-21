@@ -1,0 +1,26 @@
+{
+  "name": "@platform/email",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "node ../../scripts/build/clean-build-artifacts.mjs",
+    "prebuild": "pnpm run clean",
+    "build": "tsc -p tsconfig.json",
+    "postbuild": "node ../../scripts/build/verify-build-output.mjs dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "jest"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  }
+}
