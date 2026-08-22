@@ -4,6 +4,7 @@ import { RefundExecutionService } from "../src/refunds/refund-execution.service"
 import { RefundProviderRegistry } from "../src/refunds/providers/refund-provider.registry";
 import { MockRefundProvider } from "../src/refunds/providers/mock-refund.provider";
 import { seedRefundFixture, refundFixturePrisma } from "./fixtures/refund.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = refundFixturePrisma;
 
@@ -11,7 +12,7 @@ function buildService() {
   const registry = new RefundProviderRegistry();
   const provider = new MockRefundProvider();
   registry.register(provider);
-  return { service: new RefundExecutionService(prisma as unknown as PrismaService, registry), provider };
+  return { service: new RefundExecutionService(prisma as unknown as PrismaService, registry, notificationEvents()), provider };
 }
 
 describe("RefundExecutionService — core TX1/external-call/TX2 lifecycle (integration, real DB)", () => {

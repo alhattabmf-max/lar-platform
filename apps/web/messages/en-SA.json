@@ -11,7 +11,7 @@
   },
   "home": {
     "title": "Wholesale buying opportunities",
-    "description": "Browse the opportunities on offer and see the product, the fulfilment city and the closing date. Commercial terms appear once you sign in with a trader account.",
+    "description": "Browse the opportunities on offer and see the product, the shipping origin city and the closing date. Commercial terms appear once you sign in with a trader account.",
     "browseOpportunities": "Browse opportunities",
     "bannersLabel": "Announcements",
     "featuredTitle": "Closing soonest",
@@ -120,7 +120,7 @@
     "resultCount": "{count, plural, =0 {No matching opportunities} one {# opportunity} other {# opportunities}}",
     "filters": {
       "regionLabel": "Filter opportunities",
-      "city": "Fulfilment city",
+      "city": "Shipping origin city",
       "anyCity": "All cities",
       "category": "Category",
       "anyCategory": "All categories",
@@ -134,7 +134,7 @@
       "endingSoon": "Ending soonest"
     },
     "card": {
-      "city": "Fulfilment city",
+      "city": "Ships from",
       "unit": "Sales unit",
       "closes": "Closes",
       "closesInDays": "{days, plural, one {Closes in # day} other {Closes in # days}}",
@@ -182,6 +182,544 @@
       "description": "No text has been published so far."
     }
   },
+  "trader": {
+    "nav": {
+      "label": "Trader account navigation",
+      "dashboard": "Home",
+      "opportunities": "Opportunities",
+      "orders": "Orders",
+      "notifications": "Notifications",
+      "disputes": "Disputes",
+      "account": "Account",
+      "comingSoon": "Coming soon",
+      "replacements": "Replacements"
+    },
+    "dashboard": {
+      "title": "Trader dashboard",
+      "signedInAs": "Signed in as {company}",
+      "browseOpportunities": "Browse opportunities",
+      "viewOrders": "View orders",
+      "account": "Account details",
+      "needsAttention": {
+        "title": "Needs attention",
+        "description": "Orders past their expected preparation time that have not shipped.",
+        "progress": "{delivered} of {total} delivered"
+      },
+      "orders": {
+        "title": "Recent orders",
+        "total": "{count, plural, =0 {No orders} one {# order} other {# orders}}",
+        "delivered": "{delivered} of {total} delivered",
+        "emptyTitle": "No orders yet",
+        "emptyDescription": "Your first purchase will appear here."
+      },
+      "notifications": {
+        "title": "Notifications",
+        "unread": "{count, plural, =0 {No unread notifications} one {# unread notification} other {# unread notifications}}"
+      }
+    },
+    "account": {
+      "title": "Account",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToAccount": "Back to account",
+      "readOnlyNotice": "These pages are view-only for now.",
+      "company": {
+        "title": "Company details",
+        "description": "Legal name, commercial registration and verification status.",
+        "identity": "Legal identity",
+        "legalName": "Legal name",
+        "crNumber": "Commercial registration number",
+        "verification": "Verification status",
+        "email": "Email address",
+        "emailVerification": "Email status"
+      },
+      "locations": {
+        "title": "Delivery locations",
+        "description": "The branches your orders are delivered to.",
+        "emptyTitle": "No locations",
+        "emptyDescription": "No branch has been registered for your company yet.",
+        "default": "Default",
+        "city": "Delivery city",
+        "address": "Address",
+        "contactName": "Contact name",
+        "contactPhone": "Contact number"
+      },
+      "bankAccount": {
+        "title": "Payment and refunds",
+        "description": "How your orders are paid for, and where a refund goes.",
+        "howPaymentWorks": "How payment works",
+        "paymentPoint": "Payment is taken at checkout by the payment provider. Your card details never pass through FORSA.",
+        "refundPoint": "A refund is returned to the same payment method it was taken from, not to a bank account.",
+        "noStoredDetailsPoint": "FORSA holds no bank account for traders. Bank accounts are required from suppliers only, so they can be paid out."
+      },
+      "taxProfile": {
+        "title": "Tax profile",
+        "description": "Your billing legal name and VAT registration status.",
+        "billingIdentity": "Billing details",
+        "billingLegalName": "Billing legal name",
+        "vatRegistration": "VAT registration",
+        "vatRegistered": "Registered",
+        "vatNotRegistered": "Not registered",
+        "vatNumber": "VAT number",
+        "statusLabel": "Status",
+        "missingStatus": "Billing details are incomplete",
+        "missingAction": "Checkout cannot be completed until your billing details are set. Contact support to complete them.",
+        "selfDeclaredNotice": "These details are declared by the company itself and are not verified by a third party."
+      }
+    },
+    "status": {
+      "companyVerification": {
+        "PENDING_VERIFICATION": "Under review",
+        "VERIFIED": "Verified",
+        "REJECTED": "Rejected"
+      },
+      "emailVerification": {
+        "PENDING": "Awaiting confirmation",
+        "VERIFIED": "Confirmed",
+        "WAIVED": "Not required"
+      },
+      "order": {
+        "IN_FULFILLMENT": "In fulfilment",
+        "FULFILLED": "Fulfilled"
+      },
+      "allocation": {
+        "AWAITING_PREPARATION": "Awaiting preparation",
+        "PREPARING": "Being prepared",
+        "READY_TO_SHIP": "Ready to ship",
+        "SHIPPED": "Shipped",
+        "DELIVERED": "Delivered"
+      },
+      "dispute": {
+        "OPEN": "Open",
+        "SUPPLIER_RESPONDED": "Supplier responded",
+        "AWAITING_REPLACEMENT": "Awaiting replacement",
+        "RESOLVED_ACCEPTED": "Upheld — refunded in full",
+        "RESOLVED_PARTIAL": "Upheld in part — partially refunded",
+        "RESOLVED_REJECTED": "Rejected — nothing refunded",
+        "RESOLVED_REPLACED": "Upheld — a replacement was ordered"
+      },
+      "replacement": {
+        "AWAITING_PREPARATION": "Awaiting preparation",
+        "PREPARING": "Being prepared",
+        "READY_TO_SHIP": "Ready to ship",
+        "SHIPPED": "Shipped",
+        "DELIVERED": "Delivered",
+        "FAILED": "Replacement failed"
+      }
+    },
+    "opportunities": {
+      "title": "Opportunities",
+      "description": "Opportunities available to buy, with pricing and commercial terms.",
+      "resultCount": "{count} opportunities",
+      "emptyTitle": "No opportunities",
+      "emptyDescription": "There are no opportunities available right now.",
+      "emptyFilteredDescription": "No opportunities match the current filters. Try widening them.",
+      "unitPrice": "Unit price",
+      "priceUnavailable": "Price unavailable",
+      "sold": "Sold of available quantity",
+      "unsold": "Unsold quantity",
+      "sharePurchaseStep": "Bought in multiples of {quantity} {unit}",
+      "detail": {
+        "breadcrumbLabel": "Breadcrumb",
+        "backToList": "Back to opportunities",
+        "termsLabel": "Commercial terms",
+        "priceIncludesTax": "Price includes VAT.",
+        "shareQuantity": "Minimum purchase and step",
+        "preparationTime": "Expected preparation time",
+        "preparationDays": "{days} days",
+        "deliveryLabel": "Shipping and dates",
+        "unsoldCaveat": "The unsold quantity is arithmetic, not a reservation. The quantity is confirmed when you start a purchase.",
+        "progressCaveat": "This is the share of the available quantity that has sold. Reaching it unlocks nothing — every paid order is fulfilled on its own."
+      }
+    },
+    "checkout": {
+      "title": "Review your order",
+      "description": "Check the details and the amount before paying.",
+      "quoteLabel": "Amount breakdown",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price incl. VAT",
+      "productsExclTax": "Products excl. VAT",
+      "tax": "VAT",
+      "productsInclTax": "Products incl. VAT",
+      "shipping": "Total shipping",
+      "grandTotal": "Total amount",
+      "amountUnavailable": "Unavailable",
+      "destinationsLabel": "Delivery locations",
+      "destinationQuantity": "Quantity",
+      "destinationShipping": "Shipping",
+      "browseOpportunities": "Browse opportunities",
+      "locked": {
+        "expiresAt": "The quantity hold expires at {at}.",
+        "notReserved": "The quantity is not guaranteed until payment completes successfully.",
+        "pay": "Continue to payment",
+        "paying": "Starting payment…",
+        "retry": "Try again"
+      },
+      "pending": {
+        "title": "Payment in progress",
+        "description": "A payment has been started for this order and has not completed yet.",
+        "continue": "Continue payment"
+      },
+      "paid": {
+        "title": "Paid",
+        "description": "Payment completed and the order was created.",
+        "viewOrder": "View order"
+      },
+      "expired": {
+        "title": "The hold expired",
+        "description": "The quantity hold for this order expired and it can no longer be completed. Start again from the opportunity."
+      },
+      "abandoned": {
+        "title": "Order cancelled",
+        "description": "This order was cancelled and the quantity released. Start again from the opportunity."
+      }
+    },
+    "payment": {
+      "title": "Payment",
+      "description": "Waiting for the payment to be confirmed.",
+      "amountUnavailable": "Unavailable",
+      "browseOpportunities": "Browse opportunities",
+      "pending": {
+        "title": "Waiting for confirmation",
+        "deadline": "Payment must complete before {at}.",
+        "description": "The payment is confirmed by the payment provider directly. You will be taken to the order as soon as the confirmation arrives.",
+        "waiting": "Checking the payment status…",
+        "stopped": "Automatic checking has stopped. The confirmation may still arrive.",
+        "recheck": "Check now",
+        "doNotClose": "You can leave this page open. Closing it does not affect the payment itself.",
+        "contractError": "The order status could not be confirmed because the response was inconsistent. Contact support before trying again."
+      },
+      "EXPIRED": {
+        "title": "The hold expired",
+        "description": "The quantity hold expired before the payment completed. If any amount was taken it is returned to the same payment method."
+      },
+      "ABANDONED": {
+        "title": "Order cancelled",
+        "description": "This order was cancelled. If any amount was taken it is returned to the same payment method."
+      }
+    },
+    "compose": {
+      "title": "Choose a quantity and continue",
+      "step": "Bought in multiples of {quantity} {unit}.",
+      "quantityLabel": "Quantity",
+      "increase": "Increase the quantity by {step}",
+      "decrease": "Decrease the quantity by {step}",
+      "availability": "Currently unsold: {unsold}",
+      "availabilityCaveat": "That is arithmetic, not a reservation. The quantity is confirmed by the server when the purchase starts.",
+      "destinationsLabel": "Delivery locations",
+      "branchLabel": "Branch",
+      "cityLabel": "Delivery city",
+      "rowLabel": "Branch {index}",
+      "addBranch": "Add another branch",
+      "removeBranch": "Remove",
+      "allocatedSoFar": "Allocated: {allocated} of {quantity}",
+      "submit": "Continue to purchase",
+      "submitting": "Preparing…",
+      "totalsComeLater": "Shipping, VAT and the total amount are calculated by the server and shown on the review page before payment.",
+      "noLocations": {
+        "title": "No branches registered",
+        "description": "A purchase cannot start until at least one branch is registered to receive the order.",
+        "action": "View delivery locations"
+      },
+      "issues": {
+        "QUANTITY_REQUIRED": "Enter a quantity.",
+        "QUANTITY_NOT_INTEGER": "The quantity must be a whole number.",
+        "QUANTITY_NOT_POSITIVE": "The quantity must be greater than zero.",
+        "QUANTITY_NOT_MULTIPLE": "The quantity must be a multiple of {step}.",
+        "QUANTITY_ABOVE_UNSOLD": "The quantity is more than the unsold amount ({unsold}).",
+        "ALLOCATION_REQUIRED": "Enter a quantity for every branch.",
+        "ALLOCATION_NOT_INTEGER": "A branch quantity must be a whole number.",
+        "ALLOCATION_NOT_POSITIVE": "A branch quantity must be greater than zero.",
+        "ALLOCATION_DUPLICATE": "The same branch cannot appear in more than one row.",
+        "ALLOCATION_UNKNOWN_LOCATION": "That branch is not available to choose.",
+        "ALLOCATION_SUM_MISMATCH": "The branch quantities ({allocated}) do not add up to the quantity requested ({quantity})."
+      },
+      "stepNoUnit": "Bought in multiples of {quantity}."
+    },
+    "orders": {
+      "title": "Orders",
+      "description": "Your paid orders and the delivery status of each branch.",
+      "resultCount": "{count} orders",
+      "emptyTitle": "No orders",
+      "emptyDescription": "You have not placed an order yet.",
+      "browseOpportunities": "Browse opportunities",
+      "needsAttention": "Needs attention",
+      "needsAttentionDescription": "Preparation is past its due date and nothing has shipped.",
+      "allOrders": "All other orders",
+      "currentPage": "Page {page}",
+      "total": "Amount",
+      "amountUnavailable": "Unavailable",
+      "progress": "Delivered",
+      "deliveredOf": "{delivered} of {total}",
+      "paidAt": "Paid on",
+      "overdueNotice": "Preparation is past its agreed due date.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToOrders": "Back to orders",
+      "allocations": "Shipments by branch",
+      "deliveryCity": "Delivery city",
+      "quantity": "Quantity",
+      "preparationDue": "Preparation due",
+      "shippedAt": "Shipped on",
+      "deliveredAt": "Delivered on",
+      "carrier": "Carrier",
+      "tracking": "Tracking number",
+      "overdueCount": "{count} shipments are past their preparation date.",
+      "viewDispute": "View dispute",
+      "openDispute": "Open a dispute for this shipment",
+      "disputeWindowCloses": "A dispute can be opened until {at}.",
+      "next": {
+        "AWAITING_PREPARATION": "The supplier has not started preparing yet. Nothing is needed from you.",
+        "PREPARING": "The supplier is preparing this shipment. Nothing is needed from you.",
+        "READY_TO_SHIP": "Ready, waiting to be handed to the carrier.",
+        "SHIPPED": "On its way. Confirm receipt when it arrives.",
+        "DELIVERED": "Received. You can open a dispute within the window if something is wrong.",
+        "overdue": "The supplier is past the preparation date. Contact support if it continues."
+      },
+      "confirmDelivery": {
+        "label": "Confirm receipt",
+        "prompt": "Confirm you received this shipment? This cannot be undone, and the dispute window starts from here.",
+        "confirm": "Yes, it arrived",
+        "cancel": "Cancel",
+        "submitting": "Confirming…"
+      }
+    },
+    "documents": {
+      "title": "Order documents",
+      "description": "Internal documents, for reference only.",
+      "emptyTitle": "No documents",
+      "emptyDescription": "No documents have been issued for this order yet.",
+      "amount": "Amount",
+      "issuedAt": "Issued on",
+      "reference": "Reference",
+      "notTaxInvoice": "NOT a tax invoice",
+      "amountUnavailable": "Unavailable",
+      "type": {
+        "INTERNAL_PRODUCT_DRAFT": "Internal product draft",
+        "INTERNAL_ADJUSTMENT_DRAFT": "Internal adjustment draft"
+      }
+    },
+    "disputes": {
+      "title": "Disputes",
+      "description": "Disputes you have opened on your shipments, and how each was decided.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to disputes",
+      "resultCount": "{count} disputes",
+      "emptyTitle": "No disputes",
+      "emptyDescription": "You have not opened a dispute on any shipment.",
+      "openedAt": "Opened",
+      "responseDue": "Supplier response due",
+      "waitingOnThem": "Waiting on the supplier or on a decision. Nothing is needed from you.",
+      "waitingOnYou": "There are updates on this dispute worth reading.",
+      "viewOrder": "View order",
+      "yourDescription": "What you reported",
+      "reason": {
+        "ITEM_NOT_RECEIVED": "Shipment never arrived",
+        "ITEM_DAMAGED": "Shipment arrived damaged",
+        "ITEM_INCORRECT": "Wrong product received",
+        "QUANTITY_SHORTAGE": "Quantity short",
+        "QUALITY_ISSUE": "Quality problem",
+        "OTHER": "Something else"
+      },
+      "evidence": {
+        "title": "Attachments",
+        "none": "Your company attached no files.",
+        "item": "Attachment {index}",
+        "size": "{kb} KB",
+        "unknownType": "Unknown type",
+        "noDownload": "File details only — downloading attachments is not available yet.",
+        "companyOnly": "Only your company's attachments appear here. The supplier's are not shown."
+      },
+      "supplierResponse": {
+        "title": "Supplier's response",
+        "type": {
+          "ACCEPT": "The supplier accepted the dispute",
+          "REJECT": "The supplier rejected the dispute",
+          "PARTIAL_ACCEPT": "The supplier partly accepted the dispute",
+          "REPLACEMENT_OFFER": "The supplier offered a replacement"
+        }
+      },
+      "decisions": {
+        "title": "Platform decisions",
+        "type": {
+          "FULL_REFUND": "Refunded in full",
+          "PARTIAL_REFUND": "Partially refunded",
+          "REJECTED": "Dispute rejected",
+          "REPLACEMENT": "Replacement ordered"
+        }
+      },
+      "next": {
+        "OPEN": "Waiting for the supplier to respond within the deadline.",
+        "SUPPLIER_RESPONDED": "The supplier has responded and the platform is reviewing the dispute.",
+        "AWAITING_REPLACEMENT": "A replacement was ordered — follow it on the replacements page.",
+        "RESOLVED_ACCEPTED": "Closed in your favour and refunded in full to the same payment method.",
+        "RESOLVED_PARTIAL": "Closed with a partial refund to the same payment method.",
+        "RESOLVED_REJECTED": "Closed with no refund. Contact support if something has changed.",
+        "RESOLVED_REPLACED": "Closed with a replacement — follow it on the replacements page."
+      },
+      "open": {
+        "title": "Open a dispute",
+        "subtitle": "Describe the problem precisely and attach anything that shows it.",
+        "backToOrder": "Back to the order",
+        "reasonLabel": "Reason",
+        "reason": {
+          "ITEM_NOT_RECEIVED": "Shipment never arrived",
+          "ITEM_DAMAGED": "Shipment arrived damaged",
+          "ITEM_INCORRECT": "Wrong product received",
+          "QUANTITY_SHORTAGE": "Quantity short",
+          "QUALITY_ISSUE": "Quality problem",
+          "OTHER": "Something else"
+        },
+        "descriptionLabel": "What went wrong",
+        "descriptionHint": "Between {min} and {max} characters. Used so far: {used}.",
+        "evidenceLabel": "Attachments (optional)",
+        "evidenceHint": "Up to {max} files, {size} MB each, as JPEG, PNG or PDF.",
+        "fileMeta": "{type} · {kb} KB",
+        "removeFile": "Remove",
+        "uploading": "Uploading files…",
+        "submit": "Open the dispute",
+        "submitting": "Opening…",
+        "retry": "Try again",
+        "cancel": "Cancel",
+        "notOpened": "The dispute was NOT opened. Your attachments are still held in this form.",
+        "issues": {
+          "type": "That file type is not allowed. Use JPEG, PNG or PDF.",
+          "size": "That file is larger than {max} MB.",
+          "tooMany": "No more than {max} files can be attached.",
+          "uploadFailed": "A file could not be uploaded. The ones that succeeded are still attached.",
+          "descriptionShort": "That description is too short — at least {min} characters.",
+          "descriptionLong": "That description is too long — at most {max} characters."
+        },
+        "already": {
+          "title": "This shipment already has a dispute",
+          "description": "Only one dispute can be opened on a shipment.",
+          "action": "View the dispute"
+        },
+        "notDelivered": {
+          "title": "This shipment has not been received yet",
+          "description": "A dispute can only be opened after you confirm receipt."
+        },
+        "windowClosed": {
+          "title": "The dispute window has closed",
+          "description": "The period for opening a dispute on this shipment has passed. Contact support if needed."
+        }
+      }
+    },
+    "productReports": {
+      "title": "Product reports",
+      "description": "Reports your company has raised about listed products, and where each stands.",
+      "emptyTitle": "No reports",
+      "emptyDescription": "Your company has not reported a product.",
+      "reportedAt": "Reported on",
+      "reason": {
+        "COUNTERFEIT": "Counterfeit product",
+        "MISLEADING_INFO": "Misleading information",
+        "SAFETY_CONCERN": "Safety concern",
+        "REGULATORY_CONCERN": "Regulatory concern",
+        "INTELLECTUAL_PROPERTY": "Intellectual property infringement",
+        "INAPPROPRIATE_CONTENT": "Inappropriate content",
+        "DUPLICATE_OR_SPAM": "Duplicate or spam",
+        "OTHER": "Something else"
+      },
+      "status": {
+        "OPEN": "Under review",
+        "CLARIFICATION_REQUESTED": "Clarification needed from you",
+        "DISMISSED": "Closed with no action",
+        "RESOLVED": "Acted on"
+      },
+      "next": {
+        "OPEN": "The platform team is reviewing this report. Nothing is needed from you.",
+        "CLARIFICATION_REQUESTED": "The platform team asked for more detail. Contact support to provide it.",
+        "DISMISSED": "This report was reviewed and no action was taken.",
+        "RESOLVED": "This report was reviewed and acted on.",
+        "default": "This report is being followed up."
+      }
+    },
+    "replacements": {
+      "title": "Replacements",
+      "description": "Replacements you are owed following dispute decisions.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to replacements",
+      "resultCount": "{count} replacements",
+      "emptyTitle": "No replacements",
+      "emptyDescription": "You are not owed any replacements right now.",
+      "itemTitle": "Replacement of {quantity}",
+      "createdAt": "Created",
+      "preparationStartedAt": "Preparation started",
+      "readyToShipAt": "Ready to ship",
+      "shippedAt": "Shipped",
+      "deliveredAt": "Delivered",
+      "failedAt": "Failed",
+      "timeline": "Progress",
+      "shipping": "Shipping",
+      "carrier": "Carrier",
+      "tracking": "Tracking number",
+      "viewOrder": "View order",
+      "viewDispute": "View dispute",
+      "next": {
+        "AWAITING_PREPARATION": "The supplier has not started preparing the replacement yet.",
+        "PREPARING": "The supplier is preparing the replacement.",
+        "READY_TO_SHIP": "Ready, waiting to be handed to the carrier.",
+        "SHIPPED": "On its way. Confirm receipt when it arrives.",
+        "DELIVERED": "The replacement arrived and this is complete.",
+        "FAILED": "The replacement could not be sent. Contact support about the options."
+      },
+      "confirmDelivery": {
+        "label": "Confirm the replacement arrived",
+        "prompt": "Confirm you received the replacement? This cannot be undone.",
+        "confirm": "Yes, it arrived",
+        "cancel": "Cancel",
+        "submitting": "Confirming…"
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Updates on your orders and disputes.",
+      "emptyTitle": "No notifications",
+      "emptyDescription": "You have not received any notifications yet.",
+      "unread": "Unread",
+      "markRead": "Mark as read",
+      "markAllRead": "Mark all as read",
+      "message": {
+        "PAYMENT_SUCCEEDED": "Your payment of {amount} {currency} was received and your order was created.",
+        "PAYMENT_FAILED": "A payment of {amount} {currency} could not be completed. You can try again.",
+        "ORDER_CREATED": "A new order was created and is being fulfilled.",
+        "ALLOCATION_PREPARATION_STARTED": "The supplier started preparing one of your shipments.",
+        "ALLOCATION_READY": "One of your shipments is ready to ship.",
+        "ALLOCATION_SHIPPED": "One of your shipments has been shipped.",
+        "ALLOCATION_DELIVERED": "One of your shipments has been delivered.",
+        "MASTER_ORDER_FULFILLED": "Your order has been fulfilled in full.",
+        "DISPUTE_OPENED": "A dispute was opened on one of your shipments.",
+        "DISPUTE_SUPPLIER_RESPONDED": "The supplier responded to your dispute.",
+        "DISPUTE_DECIDED": "Your dispute has been decided.",
+        "REFUND_INITIATED": "A refund of {amount} {currency} has started, to the same payment method.",
+        "REFUND_FAILED": "A refund of {amount} {currency} could not be completed. Contact support.",
+        "REPLACEMENT_REQUIRED": "A replacement was ordered for one of your shipments.",
+        "REPLACEMENT_SHIPPED": "The replacement you are owed has shipped.",
+        "REPLACEMENT_DELIVERED": "The replacement you are owed has been delivered.",
+        "REPLACEMENT_FAILED": "The replacement you are owed could not be sent. Contact support.",
+        "SETTLEMENT_EXECUTED": "A settlement of {amount} {currency} was executed."
+      },
+      "action": {
+        "PAYMENT_SUCCEEDED": "View order",
+        "PAYMENT_FAILED": "Continue payment",
+        "ORDER_CREATED": "View order",
+        "ALLOCATION_PREPARATION_STARTED": "View order",
+        "ALLOCATION_READY": "View order",
+        "ALLOCATION_SHIPPED": "View order",
+        "ALLOCATION_DELIVERED": "View order",
+        "MASTER_ORDER_FULFILLED": "View order",
+        "DISPUTE_OPENED": "View dispute",
+        "DISPUTE_SUPPLIER_RESPONDED": "View dispute",
+        "DISPUTE_DECIDED": "View dispute",
+        "REFUND_INITIATED": "View order",
+        "REFUND_FAILED": "View order",
+        "REPLACEMENT_REQUIRED": "View replacement",
+        "REPLACEMENT_SHIPPED": "View replacement",
+        "REPLACEMENT_DELIVERED": "View replacement",
+        "REPLACEMENT_FAILED": "View replacement",
+        "SETTLEMENT_EXECUTED": "View settlement"
+      }
+    }
+  },
   "unauthorized": {
     "title": "Access not available",
     "description": "Your account cannot open this page.",
@@ -208,7 +746,8 @@
     "emptyDescription": "No items have been added.",
     "errorTitle": "Something went wrong",
     "errorDescription": "An unexpected error occurred. Please try again.",
-    "requestIdLabel": "Reference"
+    "requestIdLabel": "Reference",
+    "loadingDocuments": "Loading documents…"
   },
   "errors": {
     "requestIdLabel": "Reference",

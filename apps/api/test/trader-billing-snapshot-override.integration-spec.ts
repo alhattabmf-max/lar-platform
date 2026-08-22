@@ -8,6 +8,7 @@ import { CommissionTaxPolicyService } from "../src/settings/commission-tax-polic
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { seedPaymentFixture, paymentFixturePrisma, ensureCommissionTaxPolicy } from "./fixtures/payment.fixture";
 import { seedCheckoutFixture } from "./fixtures/checkout.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = paymentFixturePrisma;
 
@@ -19,7 +20,7 @@ function buildOverrideService(p: PrismaService = prisma as unknown as PrismaServ
 }
 function buildWebhookService(p: PrismaService, provider: MockPaymentProvider) {
   const audit = new AuditService(p);
-  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider);
+  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider, notificationEvents());
 }
 
 async function captureViaWebhook(provider: MockPaymentProvider, p: PrismaService, merchantReference: string, providerReference: string, amount: number) {
@@ -48,7 +49,7 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
 
     const opportunityBefore = await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } });
 
-    const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.grandTotalAmount);
+    const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.providerAmount);
     expect(result.processingOutcome).toBe("REFUND_REQUIRED");
 
     const refund = await prisma.refundObligation.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
@@ -68,7 +69,7 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
     });
     const provider = new MockPaymentProvider();
 
-    const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.grandTotalAmount);
+    const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.providerAmount);
     expect(result.processingOutcome).toBe("ORDER_CREATED");
 
     const order = await prisma.masterOrder.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
@@ -102,7 +103,7 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
         { isVatRegistered: true, vatNumber: "310175397500003", billingLegalName: "Race Updated Name LLC" },
         { userId: crypto.randomUUID(), companyId: fixture.traderCompanyId, requestId: "r-race-update" }
       ),
-      captureViaWebhook(provider, prismaB as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-race-${fixture.paymentAttemptId}`, fixture.grandTotalAmount),
+      captureViaWebhook(provider, prismaB as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-race-${fixture.paymentAttemptId}`, fixture.providerAmount),
     ]);
 
     await prismaA.$disconnect();
@@ -128,7 +129,7 @@ describe("MasterOrderBuyerBillingOverride (integration, real DB)", () => {
   it("rejects an override for a RECENT order that already has a snapshot", async () => {
     const fixture = await seedPaymentFixture({ traderCrPrefix: "OVERRIDERECENT" });
     const provider = new MockPaymentProvider();
-    await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.grandTotalAmount);
+    await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.providerAmount);
     const order = await prisma.masterOrder.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
 
     const service = buildOverrideService();

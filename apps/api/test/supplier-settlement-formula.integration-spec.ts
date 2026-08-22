@@ -3,6 +3,7 @@ import type { PrismaService } from "../src/database/prisma.service";
 import { computeSupplierPayoutNet } from "@platform/domain";
 import { DisputeService } from "../src/disputes/dispute.service";
 import { seedDisputeFixture, disputeFixturePrisma } from "./fixtures/dispute.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = disputeFixturePrisma;
 
@@ -88,7 +89,7 @@ describe("Supplier settlement — ledger balance to SupplierPayout.netAmount (in
 
   it("full product AND shipping refund makes the allocation's settlement net exactly zero, no ledger postings created", async () => {
     const fixture = await seedDisputeFixture("SETTLEFULLREFUND");
-    const disputeService = new DisputeService(prisma as unknown as PrismaService);
+    const disputeService = new DisputeService(prisma as unknown as PrismaService, notificationEvents());
     const traderCtx = { userId: fixture.traderUserId, companyId: fixture.traderCompanyId, requestId: "r1" };
     const supplierCtx = { userId: crypto.randomUUID(), companyId: fixture.supplierCompanyId, requestId: "r2" };
     const adminCtx = { userId: crypto.randomUUID(), requestId: "r3" };

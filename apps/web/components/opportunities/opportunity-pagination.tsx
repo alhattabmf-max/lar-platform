@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { buttonClasses } from "@/components/ui/button";
-import { marketplaceHref, withPage, type MarketplaceQuery } from "@/lib/marketplace-query";
+import {
+  marketplaceHref,
+  withPage,
+  PUBLIC_OPPORTUNITIES_PATH,
+  type MarketplaceQuery,
+} from "@/lib/marketplace-query";
 
 /**
  * Pagination as LINKS.
@@ -30,6 +35,8 @@ export interface OpportunityPaginationProps {
   total: number;
   labels: OpportunityPaginationLabels;
   className?: string;
+  /** Which listing these pages belong to. Defaults to the public one. */
+  basePath?: string;
 }
 
 export function OpportunityPagination({
@@ -38,6 +45,7 @@ export function OpportunityPagination({
   total,
   labels,
   className,
+  basePath = PUBLIC_OPPORTUNITIES_PATH,
 }: OpportunityPaginationProps) {
   const lastPage = Math.max(1, Math.ceil(total / query.pageSize));
 
@@ -52,7 +60,7 @@ export function OpportunityPagination({
     <nav aria-label={labels.navLabel} className={cn("flex items-center justify-between gap-3", className)}>
       {canGoBack ? (
         <Link
-          href={marketplaceHref(locale, withPage(query, query.page - 1))}
+          href={marketplaceHref(locale, withPage(query, query.page - 1), basePath)}
           rel="prev"
           className={buttonClasses("ghost", "sm")}
         >
@@ -68,7 +76,7 @@ export function OpportunityPagination({
 
       {canGoForward ? (
         <Link
-          href={marketplaceHref(locale, withPage(query, query.page + 1))}
+          href={marketplaceHref(locale, withPage(query, query.page + 1), basePath)}
           rel="next"
           className={buttonClasses("ghost", "sm")}
         >

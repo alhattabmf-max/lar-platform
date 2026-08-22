@@ -6,6 +6,7 @@ import { AuditService } from "../src/audit/audit.service";
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { seedPaymentFixture, paymentFixturePrisma } from "./fixtures/payment.fixture";
 import { runPaymentPendingExpirySweep } from "@platform/opportunity-lifecycle";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = paymentFixturePrisma;
 const provider = new MockPaymentProvider();
@@ -16,7 +17,7 @@ function halalas(amount: number): number {
 
 function buildWebhookService(p: PrismaService) {
   const audit = new AuditService(p);
-  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider);
+  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider, notificationEvents());
 }
 
 describe("PaymentWebhookService — additional explicit scenarios (integration, real DB)", () => {
@@ -34,7 +35,7 @@ describe("PaymentWebhookService — additional explicit scenarios (integration, 
       providerEventId: `evt-success-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const successResult = await service.handleWebhook(successWebhook.rawBody, successWebhook.headers);
     expect(successResult.processingOutcome).toBe("ORDER_CREATED");
@@ -113,7 +114,7 @@ describe("PaymentWebhookService — additional explicit scenarios (integration, 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: capturedAt,
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const result = await service.handleWebhook(rawBody, headers);
     expect(result.processingOutcome).toBe("ORDER_CREATED");
@@ -150,14 +151,14 @@ describe("PaymentWebhookService — additional explicit scenarios (integration, 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: capturedAt,
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const result = await service.handleWebhook(rawBody, headers);
     expect(result.processingOutcome).toBe("REFUND_REQUIRED");
 
     const refund = await prisma.refundObligation.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
     expect(refund.reasonCode).toBe("LATE_CAPTURE_AFTER_DEADLINE");
-    expect(halalas(Number(refund.amount))).toBe(halalas(fixture.grandTotalAmount));
+    expect(halalas(Number(refund.amount))).toBe(halalas(fixture.providerAmount));
 
     const orders = await prisma.masterOrder.count({ where: { checkoutSessionId: fixture.checkoutSessionId } });
     expect(orders).toBe(0);
@@ -177,7 +178,7 @@ describe("PaymentWebhookService — additional explicit scenarios (integration, 
       eventType: "SUCCESS",
       currency: "USD",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
 
     const result = await service.handleWebhook(rawBody, headers);
@@ -185,7 +186,7 @@ describe("PaymentWebhookService — additional explicit scenarios (integration, 
 
     const refund = await prisma.refundObligation.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
     expect(refund.reasonCode).toBe("CAPTURE_AMOUNT_MISMATCH");
-    expect(halalas(Number(refund.amount))).toBe(halalas(fixture.grandTotalAmount));
+    expect(halalas(Number(refund.amount))).toBe(halalas(fixture.providerAmount));
 
     const orders = await prisma.masterOrder.count({ where: { checkoutSessionId: fixture.checkoutSessionId } });
     expect(orders).toBe(0);

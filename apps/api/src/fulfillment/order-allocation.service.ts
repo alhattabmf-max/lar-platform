@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 
@@ -20,7 +21,10 @@ const DISPUTE_WINDOW_DAYS = 7;
 
 @Injectable()
 export class OrderAllocationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationEventsService
+  ) {}
 
   async startPreparation(orderAllocationId: string, ctx: ActorContext) {
     await this.assertSupplierOwnership(orderAllocationId, ctx.companyId!);
@@ -34,6 +38,7 @@ export class OrderAllocationService {
         throw new BusinessException(409, ERROR_CODES.INVALID_FULFILLMENT_TRANSITION, "This allocation is not awaiting preparation");
       }
       await this.emit(tx, ctx, "ORDER_ALLOCATION_PREPARATION_STARTED", orderAllocationId);
+      await this.notifications.allocationPreparationStarted(tx, orderAllocationId);
       return tx.orderAllocation.findUniqueOrThrow({ where: { id: orderAllocationId } });
     });
   }
@@ -50,6 +55,7 @@ export class OrderAllocationService {
         throw new BusinessException(409, ERROR_CODES.INVALID_FULFILLMENT_TRANSITION, "This allocation is not currently preparing");
       }
       await this.emit(tx, ctx, "ORDER_ALLOCATION_READY", orderAllocationId);
+      await this.notifications.allocationReady(tx, orderAllocationId);
       return tx.orderAllocation.findUniqueOrThrow({ where: { id: orderAllocationId } });
     });
   }
@@ -82,6 +88,7 @@ export class OrderAllocationService {
       await tx.$executeRawUnsafe(`SET CONSTRAINTS trg_check_shipped_has_tracking IMMEDIATE`);
 
       await this.emit(tx, ctx, "ORDER_ALLOCATION_SHIPPED", orderAllocationId);
+      await this.notifications.allocationShipped(tx, orderAllocationId);
       return tx.orderAllocation.findUniqueOrThrow({ where: { id: orderAllocationId } });
     });
   }
@@ -136,6 +143,7 @@ export class OrderAllocationService {
     await tx.$executeRawUnsafe(`SET CONSTRAINTS trg_check_delivered_has_confirmation IMMEDIATE`);
 
     await this.emit(tx, ctx, "ORDER_ALLOCATION_DELIVERED", orderAllocationId);
+    await this.notifications.allocationDelivered(tx, orderAllocationId);
 
     const remaining = await tx.orderAllocation.count({
       where: { masterOrderId, status: { not: "DELIVERED" } },
@@ -146,6 +154,7 @@ export class OrderAllocationService {
       `;
       if (fulfilled.length > 0) {
         await this.emit(tx, ctx, "MASTER_ORDER_FULFILLED", masterOrderId, "master_order");
+        await this.notifications.masterOrderFulfilled(tx, masterOrderId);
       }
     }
 

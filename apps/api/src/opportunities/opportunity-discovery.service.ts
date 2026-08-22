@@ -79,13 +79,18 @@ export interface PublicOpportunityDetailView extends PublicOpportunityView {
   startAt: Date;
 }
 
-export interface TraderOpportunityView {
-  id: string;
-  productNameAr: string;
-  productNameEn: string;
-  productDescriptionAr: string | null;
-  productDescriptionEn: string | null;
-  unitPriceAmount: number;
+/**
+ * Commercial terms, trader-only.
+ *
+ * Mirrors `TraderOpportunityTerms` in @platform/types. Every money
+ * field is a fixed-scale DECIMAL STRING: these come from
+ * `Decimal(12,2)` columns and a JSON number cannot represent 125.50
+ * exactly, so serialising through one changes a figure that gets
+ * reconciled against a bank statement.
+ */
+export interface TraderOpportunityTermsView {
+  /** Tax-INCLUSIVE unit price, from opportunities.unit_price_amount. */
+  unitPriceInclTaxAmount: string;
   currency: string;
   targetQuantity: number;
   fundedQuantity: number;
@@ -95,31 +100,54 @@ export interface TraderOpportunityView {
    *
    * What a later cancellation or refund does to sellable quantity is an
    * explicitly deferred decision, so this must never be presented as
-   * available-to-buy, and Checkout must never treat it as a reservation.
-   * Checkout's own lock is the only authority on availability.
+   * available-to-buy, and Checkout must never treat it as a
+   * reservation. Checkout's own lock is the only authority.
    *
-   * Clamped at zero defensively — a negative figure would be nonsense
-   * to render, and reaching one would mean fundedQuantity had exceeded
-   * the cap, which is a separate bug to find in the data rather than to
-   * propagate into the UI.
+   * Clamped at zero defensively — a negative figure would mean
+   * fundedQuantity had exceeded the cap, which is a data problem to
+   * find rather than one to render as "-3 available".
    */
   unsoldQuantity: number;
-  /** Percentage of the supply cap (targetQuantity) sold so far — "how much has sold", not "how close to a required goal". targetQuantity is a supply cap the supplier is willing to sell, not a collective funding target. */
+  /** Share of the supply cap SOLD so far — not progress toward a goal. */
   progressPercentage: number;
-  /** Minimum/increment purchase unit — the single source of truth, replacing the old minPurchaseQuantity/maxPurchaseQuantity. */
+  /** Minimum purchase AND the increment step — one value serves both. */
   shareQuantity: number;
-  /** A human percentage (e.g. 10, 2.5) — never the raw basis points or the policy version id. */
+  /** Human percentage (e.g. 10, 2.5) — never raw basis points. */
   sharePercentage: number;
-  salesUnitNameAr: string;
-  salesUnitNameEn: string;
-  fulfillmentCityNameAr: string;
-  fulfillmentCityNameEn: string;
-  fulfillmentRegionNameAr: string;
-  fulfillmentRegionNameEn: string;
-  startAt: Date;
-  endAt: Date;
+}
+
+/**
+ * The trader LIST item: the public item plus commercial terms.
+ *
+ * COMPOSED from `PublicOpportunityView` rather than restating its
+ * fields. Restating is how the two lists drift — a field added to one
+ * and forgotten on the other, or a name differing by a letter, which no
+ * compiler catches because the types would be unrelated.
+ *
+ * Composition also means the trader list gets the SAME image selection
+ * as the public one for free: one `selectMainMedia` call site, one
+ * ordering (isMain DESC, sortOrder ASC, objectKey ASC), and a route
+ * rather than a storage key.
+ *
+ * The direction matters. Terms extend the public shape; the public
+ * shape never extends terms, so no commercial field can arrive on the
+ * anonymous marketplace by inheritance.
+ */
+export interface TraderOpportunityItemView
+  extends PublicOpportunityView,
+    TraderOpportunityTermsView {}
+
+/**
+ * The trader DETAIL view: the public detail plus the same terms.
+ *
+ * `expectedPreparationDays` is added HERE and nowhere public: it is how
+ * long the supplier has to prepare after payment — a supply commitment
+ * a trader needs before buying, and not a property of the product.
+ */
+export interface TraderOpportunityDetailView
+  extends PublicOpportunityDetailView,
+    TraderOpportunityTermsView {
   expectedPreparationDays: number;
-  status: OpportunityStatus;
 }
 
 const PUBLIC_SELECT = {
@@ -159,30 +187,37 @@ const ORDER_BY: Record<OpportunitySort, Prisma.OpportunityOrderByWithRelationInp
   ENDING_SOON: [{ endAt: "asc" }, { createdAt: "desc" }, { id: "asc" }],
 };
 
-const TRADER_SELECT = {
-  id: true,
+/**
+ * The columns terms are built from, on top of a public select.
+ *
+ * Kept separate so both trader selects add exactly the same set — and
+ * so what makes a select "trader" is one named thing rather than a
+ * difference someone has to diff two object literals to see.
+ */
+const TERMS_SELECT = {
   unitPriceAmount: true,
   currency: true,
   targetQuantity: true,
   fundedQuantity: true,
   shareQuantity: true,
   shareBasisPoints: true,
-  salesUnitNameAr: true,
-  salesUnitNameEn: true,
-  fulfillmentCityNameAr: true,
-  fulfillmentCityNameEn: true,
-  fulfillmentRegionNameAr: true,
-  fulfillmentRegionNameEn: true,
-  startAt: true,
-  endAt: true,
+} satisfies Prisma.OpportunitySelect;
+
+const TRADER_SELECT = {
+  ...PUBLIC_SELECT,
+  ...TERMS_SELECT,
+} satisfies Prisma.OpportunitySelect;
+
+const TRADER_DETAIL_SELECT = {
+  ...PUBLIC_DETAIL_SELECT,
+  ...TERMS_SELECT,
   expectedPreparationDays: true,
-  status: true,
-  productApprovalSnapshot: { select: { snapshot: true } },
 } satisfies Prisma.OpportunitySelect;
 
 type PublicRow = Prisma.OpportunityGetPayload<{ select: typeof PUBLIC_SELECT }>;
 type PublicDetailRow = Prisma.OpportunityGetPayload<{ select: typeof PUBLIC_DETAIL_SELECT }>;
 type TraderRow = Prisma.OpportunityGetPayload<{ select: typeof TRADER_SELECT }>;
+type TraderDetailRow = Prisma.OpportunityGetPayload<{ select: typeof TRADER_DETAIL_SELECT }>;
 
 /**
  * Never exposes: reasonCode, reasonDetails, blockedAt, fulfillmentLocationId,
@@ -224,7 +259,7 @@ export class OpportunityDiscoveryService {
     return row ? this.toPublicDetailView(row) : null;
   }
 
-  async listForTrader(query: ListOpportunitiesQueryDto): Promise<PaginatedResult<TraderOpportunityView>> {
+  async listForTrader(query: ListOpportunitiesQueryDto): Promise<PaginatedResult<TraderOpportunityItemView>> {
     const { where, orderBy, page, pageSize } = await this.buildQuery(query);
 
     const [rows, total] = await Promise.all([
@@ -241,13 +276,13 @@ export class OpportunityDiscoveryService {
     return { items: rows.map((r) => this.toTraderView(r)), page, pageSize, total };
   }
 
-  async getTraderDetail(id: string): Promise<TraderOpportunityView | null> {
+  async getTraderDetail(id: string): Promise<TraderOpportunityDetailView | null> {
     const statuses = await this.resolveVisibleStatuses();
     const row = await this.prisma.opportunity.findFirst({
       where: { id, status: { in: statuses } },
-      select: TRADER_SELECT,
+      select: TRADER_DETAIL_SELECT,
     });
-    return row ? this.toTraderView(row) : null;
+    return row ? this.toTraderDetailView(row) : null;
   }
 
   private async resolveVisibleStatuses(): Promise<OpportunityStatus[]> {
@@ -378,49 +413,56 @@ export class OpportunityDiscoveryService {
     };
   }
 
-  private toTraderView(row: TraderRow): TraderOpportunityView {
-    const product = this.parseSnapshot(row.productApprovalSnapshot?.snapshot ?? {});
-    const targetQuantity = row.targetQuantity;
-    const fundedQuantity = row.fundedQuantity;
-    // Percentage of the supply cap sold so far — not "progress toward
-    // completion". targetQuantity is a cap, not a collective goal.
-    const progressPercentage = targetQuantity > 0 ? (fundedQuantity / targetQuantity) * 100 : 0;
-    // Clamped defensively. A negative value would mean fundedQuantity
-    // exceeded the cap — a data problem to investigate, not one to
-    // render as "-3 available". Named "unsold" rather than "remaining"
-    // because it describes what has not been sold, not what a buyer is
-    // guaranteed to be able to buy: Checkout's lock is the only
-    // authority on availability.
-    const unsoldQuantity = Math.max(0, targetQuantity - fundedQuantity);
-    // Human percentage derived from basis points (e.g. 1000 -> 10) —
-    // the raw basis points value and the policy version id are never
-    // included in this view.
-    const sharePercentage = (row.shareBasisPoints ?? 0) / 100;
+  /**
+   * The commercial half, shared by the item and the detail.
+   *
+   * Money is rendered with `Decimal.toFixed(2)`. `toNumber()` is
+   * deliberately absent: it would hand the client an IEEE-754 double
+   * that cannot hold 125.50 exactly, and the figure would differ from
+   * the one checkout freezes and the provider charges.
+   */
+  private toTerms(row: {
+    unitPriceAmount: Prisma.Decimal;
+    currency: string;
+    targetQuantity: number;
+    fundedQuantity: number;
+    shareQuantity: number | null;
+    shareBasisPoints: number | null;
+  }): TraderOpportunityTermsView {
+    const { targetQuantity, fundedQuantity } = row;
 
     return {
-      id: row.id,
-      productNameAr: product.nameAr,
-      productNameEn: product.nameEn,
-      productDescriptionAr: product.descriptionAr,
-      productDescriptionEn: product.descriptionEn,
-      unitPriceAmount: row.unitPriceAmount.toNumber(),
+      unitPriceInclTaxAmount: row.unitPriceAmount.toFixed(2),
       currency: row.currency,
       targetQuantity,
       fundedQuantity,
-      unsoldQuantity,
-      progressPercentage,
+      // Clamped: a negative figure would mean the cap was exceeded,
+      // which is a data problem to find rather than one to render.
+      unsoldQuantity: Math.max(0, targetQuantity - fundedQuantity),
+      // Percentage of the supply cap SOLD so far — not "progress toward
+      // completion". targetQuantity is a cap, not a collective goal.
+      progressPercentage: targetQuantity > 0 ? (fundedQuantity / targetQuantity) * 100 : 0,
       shareQuantity: row.shareQuantity ?? 0,
-      sharePercentage,
-      salesUnitNameAr: row.salesUnitNameAr ?? "",
-      salesUnitNameEn: row.salesUnitNameEn ?? "",
-      fulfillmentCityNameAr: row.fulfillmentCityNameAr ?? "",
-      fulfillmentCityNameEn: row.fulfillmentCityNameEn ?? "",
-      fulfillmentRegionNameAr: row.fulfillmentRegionNameAr ?? "",
-      fulfillmentRegionNameEn: row.fulfillmentRegionNameEn ?? "",
-      startAt: row.startAt,
-      endAt: row.endAt,
+      // Human percentage derived from basis points (1000 -> 10). The
+      // raw basis points and the policy version id stay internal.
+      sharePercentage: (row.shareBasisPoints ?? 0) / 100,
+    };
+  }
+
+  private toTraderView(row: TraderRow): TraderOpportunityItemView {
+    return { ...this.toPublicView(row), ...this.toTerms(row) };
+  }
+
+  /**
+   * Builds on `toPublicDetailView`, so the description, region and
+   * window open cannot drift from the anonymous detail — and so a field
+   * added there reaches the trader without a second edit.
+   */
+  private toTraderDetailView(row: TraderDetailRow): TraderOpportunityDetailView {
+    return {
+      ...this.toPublicDetailView(row),
+      ...this.toTerms(row),
       expectedPreparationDays: row.expectedPreparationDays,
-      status: row.status,
     };
   }
 }

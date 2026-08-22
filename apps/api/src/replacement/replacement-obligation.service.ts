@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 
@@ -17,7 +18,10 @@ const TRACKING_NUMBER_MAX = 64;
 
 @Injectable()
 export class ReplacementObligationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationEventsService
+  ) {}
 
   async startPreparation(replacementObligationId: string, ctx: ActorContext) {
     await this.assertSupplierOwnership(replacementObligationId, ctx.companyId!);
@@ -86,6 +90,7 @@ export class ReplacementObligationService {
       await tx.$executeRawUnsafe(`SET CONSTRAINTS trg_check_replacement_shipped_has_tracking IMMEDIATE`);
 
       await this.emit(tx, ctx, "REPLACEMENT_SHIPPED", replacementObligationId);
+      await this.notifications.replacementShipped(tx, replacementObligationId);
       return tx.replacementObligation.findUniqueOrThrow({ where: { id: replacementObligationId } });
     });
   }
@@ -142,6 +147,7 @@ export class ReplacementObligationService {
     await tx.$executeRawUnsafe(`SET CONSTRAINTS trg_check_replacement_delivered_has_confirmation IMMEDIATE`);
 
     await this.emit(tx, ctx, "REPLACEMENT_DELIVERED", replacementObligationId);
+    await this.notifications.replacementDelivered(tx, replacementObligationId);
 
     const closed = await tx.$queryRaw<{ id: string }[]>`
       UPDATE disputes SET status = 'RESOLVED_REPLACED' WHERE id = ${disputeId}::uuid AND status = 'AWAITING_REPLACEMENT' RETURNING id
@@ -226,6 +232,7 @@ export class ReplacementObligationService {
       }
 
       await this.emit(tx, ctx, "REPLACEMENT_FAILED", replacementObligationId);
+      await this.notifications.replacementFailed(tx, replacementObligationId);
 
       return tx.replacementObligation.findUniqueOrThrow({ where: { id: replacementObligationId } });
     });

@@ -11,18 +11,19 @@ import {
   seedHistoricalFailedReplacementFixture,
   settlementFixturePrisma,
 } from "./fixtures/settlement.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = settlementFixturePrisma;
 
 function buildPayoutService(p: PrismaService = prisma as unknown as PrismaService) {
-  return new SupplierPayoutService(p);
+  return new SupplierPayoutService(p, notificationEvents());
 }
 function buildRefundServices(p: PrismaService = prisma as unknown as PrismaService) {
   const registry = new RefundProviderRegistry();
   const provider = new MockRefundProvider();
   registry.register(provider);
-  const execution = new RefundExecutionService(p, registry);
-  const webhook = new RefundWebhookService(p, registry, execution);
+  const execution = new RefundExecutionService(p, registry, notificationEvents());
+  const webhook = new RefundWebhookService(p, registry, execution, notificationEvents());
   return { execution, webhook, provider };
 }
 const adminCtx = () => ({ userId: crypto.randomUUID(), requestId: `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });

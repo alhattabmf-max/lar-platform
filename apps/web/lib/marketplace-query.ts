@@ -115,10 +115,31 @@ export function toUrlSearchParams(query: MarketplaceQuery): URLSearchParams {
   return params;
 }
 
-/** Builds a marketplace href for the given locale and query. */
-export function marketplaceHref(locale: string, query: MarketplaceQuery): string {
+/**
+ * The anonymous marketplace listing. The default base path.
+ *
+ * The signed-in trader listing at `/{locale}/trader/opportunities` is
+ * the SAME list with commercial terms added, and it parses, filters,
+ * sorts and paginates identically — so both share this builder rather
+ * than growing a second query vocabulary that can drift.
+ */
+export const PUBLIC_OPPORTUNITIES_PATH = "opportunities";
+
+/**
+ * Builds a listing href for the given locale and query.
+ *
+ * `basePath` is a fixed internal path chosen by the caller, never a
+ * value taken from a query string or a response — an href builder that
+ * accepts a caller-supplied destination is an open redirect waiting
+ * for its first untrusted input.
+ */
+export function marketplaceHref(
+  locale: string,
+  query: MarketplaceQuery,
+  basePath: string = PUBLIC_OPPORTUNITIES_PATH
+): string {
   const search = toUrlSearchParams(query).toString();
-  return `/${locale}/opportunities${search ? `?${search}` : ""}`;
+  return `/${locale}/${basePath}${search ? `?${search}` : ""}`;
 }
 
 /**

@@ -5,6 +5,7 @@ import { RefundWebhookService } from "../src/refunds/refund-webhook.service";
 import { RefundProviderRegistry } from "../src/refunds/providers/refund-provider.registry";
 import { MockRefundProvider } from "../src/refunds/providers/mock-refund.provider";
 import { seedRefundFixture, refundFixturePrisma } from "./fixtures/refund.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = refundFixturePrisma;
 
@@ -12,8 +13,8 @@ function buildServices() {
   const registry = new RefundProviderRegistry();
   const provider = new MockRefundProvider();
   registry.register(provider);
-  const execution = new RefundExecutionService(prisma as unknown as PrismaService, registry);
-  const webhook = new RefundWebhookService(prisma as unknown as PrismaService, registry, execution);
+  const execution = new RefundExecutionService(prisma as unknown as PrismaService, registry, notificationEvents());
+  const webhook = new RefundWebhookService(prisma as unknown as PrismaService, registry, execution, notificationEvents());
   return { execution, webhook, provider };
 }
 

@@ -161,15 +161,21 @@ describe("migration 89 — placement in the sequence", () => {
     statSync(join(MIGRATIONS_DIR, entry)).isDirectory()
   );
 
-  it("is the 89th migration", () => {
-    expect(directories).toHaveLength(89);
-  });
-
-  it("sorts last, after the 8C banners migration", () => {
+  it("occupies position 89 in the sequence", () => {
+    // Asserted by POSITION, not by "is last": migration 90 lands in 8D
+    // and later phases add more, so a last-element assertion would
+    // break on every subsequent migration for no real reason.
     const sorted = [...directories].sort();
 
-    expect(sorted[sorted.length - 1]).toBe(MIGRATION_89);
-    expect(sorted[sorted.length - 2]).toBe("20260823000100_8c_create_promotional_banners");
+    expect(sorted.indexOf(MIGRATION_89)).toBe(88);
+    expect(sorted).toHaveLength(directories.length);
+  });
+
+  it("follows the 8C banners migration immediately", () => {
+    const sorted = [...directories].sort();
+    const index = sorted.indexOf(MIGRATION_89);
+
+    expect(sorted[index - 1]).toBe("20260823000100_8c_create_promotional_banners");
   });
 
   it("gives every migration directory exactly one migration.sql", () => {

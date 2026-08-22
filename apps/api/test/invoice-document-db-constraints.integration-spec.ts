@@ -6,12 +6,13 @@ import { CommissionTaxPolicyService } from "../src/settings/commission-tax-polic
 import { AuditService } from "../src/audit/audit.service";
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { seedPaymentFixture, paymentFixturePrisma } from "./fixtures/payment.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = paymentFixturePrisma;
 
 async function captureViaWebhook(provider: MockPaymentProvider, p: PrismaService, merchantReference: string, providerReference: string, amount: number) {
   const audit = new AuditService(p);
-  const webhookService = new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider);
+  const webhookService = new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider, notificationEvents());
   const { rawBody, headers } = provider.buildSignedWebhook({
     merchantReference,
     providerReference,
@@ -26,7 +27,7 @@ async function captureViaWebhook(provider: MockPaymentProvider, p: PrismaService
 async function seedOnePaidOrder(prefix: string): Promise<string> {
   const fixture = await seedPaymentFixture({ traderCrPrefix: prefix });
   const provider = new MockPaymentProvider();
-  const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.grandTotalAmount);
+  const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.providerAmount);
   if (result.processingOutcome !== "ORDER_CREATED") throw new Error(`unexpected capture outcome: ${result.processingOutcome}`);
   const order = await prisma.masterOrder.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
   return order.id;

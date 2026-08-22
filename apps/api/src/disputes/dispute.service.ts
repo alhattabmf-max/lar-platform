@@ -2,8 +2,17 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
 import { computeDisputeRefundReversal } from "@platform/domain";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { TraderDisputeDetailView } from "@platform/types";
+import {
+  TRADER_DISPUTE_SELECT,
+  toTraderDisputeDetailView,
+  traderDisputeWhere,
+  traderEvidenceQuery,
+  type TraderEvidenceRow,
+} from "./trader-dispute.view";
 
 const SUPPLIER_RESPONSE_WINDOW_DAYS = 3;
 
@@ -43,7 +52,10 @@ const HTTP_MAX_RETRY = 3;
 
 @Injectable()
 export class DisputeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationEventsService
+  ) {}
 
   /** HTTP-facing wrapper: adds an explicit Idempotency-Key layer around openDispute. */
   async openDisputeIdempotent(orderAllocationId: string, input: OpenDisputeInput, ctx: ActorContext, idempotencyKey: string) {
@@ -154,6 +166,7 @@ export class DisputeService {
       }
 
       await this.emit(tx, ctx, "DISPUTE_OPENED", "dispute", dispute.id);
+      await this.notifications.disputeOpened(tx, dispute.id);
 
       return dispute;
     });
@@ -239,6 +252,7 @@ export class DisputeService {
       await tx.dispute.update({ where: { id: disputeId }, data: { status: "SUPPLIER_RESPONDED" } });
 
       await this.emit(tx, ctx, "DISPUTE_SUPPLIER_RESPONDED", "dispute", disputeId);
+      await this.notifications.disputeSupplierResponded(tx, disputeId);
 
       return response;
     });
@@ -388,7 +402,7 @@ export class DisputeService {
     if (input.decisionType === "REJECTED") {
       await tx.dispute.update({ where: { id: disputeId }, data: { status: "RESOLVED_REJECTED" } });
     } else if (input.decisionType === "REPLACEMENT") {
-      await tx.replacementObligation.create({
+      const replacementObligation = await tx.replacementObligation.create({
         data: {
           disputeDecisionId: decision.id,
           originalOrderAllocationId: dispute.orderAllocationId,
@@ -396,6 +410,10 @@ export class DisputeService {
         },
       });
       await tx.$executeRawUnsafe(`SET CONSTRAINTS trg_check_replacement_quantity_within_original IMMEDIATE`);
+      await this.notifications.replacementRequired(tx, {
+        replacementObligationId: replacementObligation.id,
+        disputeId,
+      });
       await tx.dispute.update({ where: { id: disputeId }, data: { status: "AWAITING_REPLACEMENT" } });
     } else {
       // FULL_REFUND / PARTIAL_REFUND
@@ -455,6 +473,7 @@ export class DisputeService {
     }
 
     await this.emit(tx, ctx, "DISPUTE_DECIDED", "dispute", disputeId);
+    await this.notifications.disputeDecided(tx, disputeId);
 
     return { disputeId, decisionId: decision.id, sequenceNumber, decisionType: input.decisionType };
   }
@@ -491,29 +510,33 @@ export class DisputeService {
   // relationship exists).
   // -----------------------------------------------------------------
 
-  async getForTrader(disputeId: string, traderCompanyId: string) {
-    const dispute = await this.prisma.dispute.findUnique({
-      where: { id: disputeId },
-      select: {
-        id: true,
-        orderAllocationId: true,
-        reasonCode: true,
-        description: true,
-        status: true,
-        supplierResponseDueAt: true,
-        openedAt: true,
-        orderAllocation: { select: { masterOrder: { select: { traderCompanyId: true } } } },
-        evidence: { select: { id: true, storageObjectKey: true, uploadedAt: true } },
-        supplierResponse: { select: { responseType: true, description: true, respondedAt: true } },
-        decisions: { select: { sequenceNumber: true, decisionType: true, reasonNote: true, decidedAt: true } },
-      },
+  /**
+   * One dispute, as the trader may see it.
+   *
+   * Ownership is IN THE QUERY, so an unknown id and another company's
+   * dispute produce the identical 404 and neither can be distinguished
+   * by probing.
+   *
+   * Evidence is read separately and filtered by COMPANY in the
+   * database — the supplier's attachments are never fetched, not
+   * fetched and discarded. See `traderEvidenceQuery` for why that
+   * needs raw SQL.
+   */
+  async getForTrader(
+    disputeId: string,
+    traderCompanyId: string
+  ): Promise<TraderDisputeDetailView> {
+    const dispute = await this.prisma.dispute.findFirst({
+      where: traderDisputeWhere(disputeId, traderCompanyId),
+      select: TRADER_DISPUTE_SELECT,
     });
-    if (!dispute || dispute.orderAllocation.masterOrder.traderCompanyId !== traderCompanyId) {
-      throw new NotFoundException("Dispute not found");
-    }
-    const { orderAllocation: _oa, ...rest } = dispute;
-    void _oa;
-    return rest;
+    if (!dispute) throw new NotFoundException("Dispute not found");
+
+    const evidence = await this.prisma.$queryRaw<TraderEvidenceRow[]>(
+      traderEvidenceQuery(disputeId, traderCompanyId)
+    );
+
+    return toTraderDisputeDetailView(dispute, evidence);
   }
 
   async getForSupplier(disputeId: string, supplierCompanyId: string) {

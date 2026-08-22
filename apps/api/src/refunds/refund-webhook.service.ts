@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 import { RefundProviderRegistry } from "./providers/refund-provider.registry";
@@ -22,7 +23,8 @@ export class RefundWebhookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: RefundProviderRegistry,
-    private readonly execution: RefundExecutionService
+    private readonly execution: RefundExecutionService,
+    private readonly notifications: NotificationEventsService
   ) {}
 
   async handleWebhook(providerParam: string, rawBody: Buffer, headers: Record<string, string | string[] | undefined>): Promise<WebhookOutcome> {
@@ -144,6 +146,10 @@ export class RefundWebhookService {
       },
     });
     await tx.outboxEvent.create({ data: { eventType: "REFUND_ATTEMPT_DEFINITIVE_FAILED", payload: { refundAttemptId: attempt.id } as Prisma.InputJsonValue } });
+    await this.notifications.refundFailed(tx, {
+      refundObligationId: attempt.refundObligationId,
+      refundAttemptId: attempt.id,
+    });
 
     await this.recordProviderEvent(tx, attempt.id, parsed, "DEFINITIVE_FAILED");
     return { processingOutcome: "DEFINITIVE_FAILED" };

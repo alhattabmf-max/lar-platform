@@ -12,7 +12,7 @@
     "dev:worker": "pnpm --filter worker run start:dev",
     "clean": "node scripts/build/clean-workspace-artifacts.mjs",
     "test:scripts": "node --test \"scripts/build/__tests__/*.test.mjs\"",
-    "build:packages": "pnpm --filter @platform/types run build && pnpm --filter @platform/config run build && pnpm --filter @platform/domain run build && pnpm --filter @platform/opportunity-lifecycle run build",
+    "build:packages": "pnpm --filter @platform/types run build && pnpm --filter @platform/config run build && pnpm --filter @platform/domain run build && pnpm --filter @platform/opportunity-lifecycle run build && pnpm --filter @platform/email run build",
     "typecheck": "pnpm run build:packages && pnpm -r --filter=./apps/* --filter=./packages/* run typecheck",
     "lint": "pnpm -r --filter=./apps/* --filter=./packages/* run lint",
     "test": "pnpm run build:packages && pnpm -r --filter=./apps/* --filter=./packages/* run test",

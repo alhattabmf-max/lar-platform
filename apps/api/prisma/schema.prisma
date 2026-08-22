@@ -272,6 +272,7 @@ model Company {
   locations         CompanyLocation[]
   policyAcceptances PolicyAcceptance[]
   products          Product[]
+  notifications     Notification[]
 
   // Phase 5 — Supplier Financial Readiness
   bankAccounts        SupplierBankAccount[]     @relation("SupplierBankAccountOwner")
@@ -317,6 +318,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
   paymentAttempts         PaymentAttempt[]
+  notificationRecipients  NotificationRecipient[]
 
   @@index([companyId])
   @@map("users")
@@ -2229,4 +2231,91 @@ model PromotionalBanner {
 
   @@index([placement, isActive, startsAt, endsAt, sortOrder])
   @@map("promotional_banners")
+}
+
+// ============================================================
+// Phase 8D — Notifications
+// ============================================================
+
+/// The 18 business events that produce an in-app notification.
+///
+/// Thirteen of them ALSO emit an EMAIL_NOTIFICATION_V1 outbox intent;
+/// the other five are in-app only because they report routine
+/// fulfilment progress that does not warrant a message in an inbox.
+/// Which is which lives in @platform/types, and a contract test asserts
+/// this enum and that union are exactly equal.
+enum NotificationType {
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  ORDER_CREATED
+  ALLOCATION_PREPARATION_STARTED
+  ALLOCATION_READY
+  ALLOCATION_SHIPPED
+  ALLOCATION_DELIVERED
+  MASTER_ORDER_FULFILLED
+  DISPUTE_OPENED
+  DISPUTE_SUPPLIER_RESPONDED
+  DISPUTE_DECIDED
+  REFUND_INITIATED
+  REFUND_FAILED
+  REPLACEMENT_REQUIRED
+  REPLACEMENT_SHIPPED
+  REPLACEMENT_DELIVERED
+  REPLACEMENT_FAILED
+  SETTLEMENT_EXECUTED
+}
+
+/// One business event, written inside that event's own transaction —
+/// the same pattern as AuditLog and OutboxEvent.
+///
+/// Stores a TYPE plus whitelisted scalar params, never rendered text.
+/// The frontend translates, which gives both locales for free and keeps
+/// message content — and anything that might later need redacting — out
+/// of the table by construction.
+///
+/// `dedupe_key` is UNIQUE, and that uniqueness is enforced by the
+/// DATABASE rather than by a check-then-insert in application code. The
+/// distinction is the whole point under concurrency: two transactions
+/// reprocessing the same event collide on the index, and the loser
+/// treats it as a no-op.
+model Notification {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId  String           @map("company_id") @db.Uuid
+  type       NotificationType
+  /// With entityId, enough for the UI to build its own internal link.
+  /// No URL is ever stored — a stored link outlives the routing it was
+  /// written against, and an external one would be an open redirect.
+  entityType String           @map("entity_type")
+  entityId   String           @map("entity_id") @db.Uuid
+  /// Whitelisted scalars only, validated ON WRITE. Never sanitised on
+  /// read, because by then it is too late.
+  params     Json
+  /// `${type}:${entityType}:${entityId}:${discriminator}`
+  dedupeKey  String           @unique @map("dedupe_key")
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company    Company                 @relation(fields: [companyId], references: [id])
+  recipients NotificationRecipient[]
+
+  @@index([companyId, createdAt])
+  @@map("notifications")
+}
+
+/// Per-user read state.
+///
+/// Two tables rather than one because read state is a property of the
+/// (notification, user) PAIR. A single `read_at` on the notification
+/// would let one colleague's read clear everyone else's badge.
+model NotificationRecipient {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId String    @map("notification_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  readAt         DateTime? @map("read_at") @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+  @@map("notification_recipients")
 }

@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import type { TraderDisputeDetailView } from "@platform/types";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request } from "express";
 import { DisputeService } from "./dispute.service";
@@ -45,8 +46,17 @@ export class TraderOrderAllocationDisputeController {
 export class TraderDisputeDetailController {
   constructor(private readonly disputes: DisputeService) {}
 
+  /**
+   * Returns the closed `TraderDisputeDetailView`.
+   *
+   * No storage key, no uploader, no administrator's internal note, and
+   * no evidence uploaded by the supplier.
+   */
   @Get(":id")
-  get(@Param("id") id: string, @CurrentSession() session: SessionData) {
+  get(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentSession() session: SessionData
+  ): Promise<TraderDisputeDetailView> {
     return this.disputes.getForTrader(id, session.companyId);
   }
 

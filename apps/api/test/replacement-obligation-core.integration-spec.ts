@@ -2,11 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { ReplacementObligationService } from "../src/replacement/replacement-obligation.service";
 import { seedReplacementFixture, replacementFixturePrisma } from "./fixtures/replacement.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = replacementFixturePrisma;
 
 function buildService(p: PrismaService = prisma as unknown as PrismaService) {
-  return new ReplacementObligationService(p);
+  return new ReplacementObligationService(p, notificationEvents());
 }
 
 describe("ReplacementObligationService — core lifecycle (integration, real DB)", () => {

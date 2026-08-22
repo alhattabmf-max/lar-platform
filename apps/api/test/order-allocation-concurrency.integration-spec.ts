@@ -5,11 +5,12 @@ import { ShippingWebhookService } from "../src/fulfillment/shipping-webhook.serv
 import { ShippingProviderRegistry } from "../src/fulfillment/providers/shipping-provider.registry";
 import { MockShippingProvider } from "../src/fulfillment/providers/mock-shipping.provider";
 import { seedFulfillmentFixture, fulfillmentFixturePrisma } from "./fixtures/fulfillment.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = fulfillmentFixturePrisma;
 
 function buildService(p: PrismaService = prisma as unknown as PrismaService) {
-  return new OrderAllocationService(p);
+  return new OrderAllocationService(p, notificationEvents());
 }
 
 async function shipBothAllocations(fixture: { orderAllocationIds: string[]; supplierCompanyId: string }) {

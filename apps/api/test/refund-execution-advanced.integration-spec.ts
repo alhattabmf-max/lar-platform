@@ -5,6 +5,7 @@ import { RefundWebhookService } from "../src/refunds/refund-webhook.service";
 import { RefundProviderRegistry } from "../src/refunds/providers/refund-provider.registry";
 import { MockRefundProvider } from "../src/refunds/providers/mock-refund.provider";
 import { seedRefundFixture, refundFixturePrisma } from "./fixtures/refund.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = refundFixturePrisma;
 const sharedProvider = new MockRefundProvider();
@@ -12,8 +13,8 @@ const sharedProvider = new MockRefundProvider();
 function buildServices(p: PrismaService = prisma as unknown as PrismaService) {
   const registry = new RefundProviderRegistry();
   registry.register(sharedProvider);
-  const execution = new RefundExecutionService(p, registry);
-  const webhook = new RefundWebhookService(p, registry, execution);
+  const execution = new RefundExecutionService(p, registry, notificationEvents());
+  const webhook = new RefundWebhookService(p, registry, execution, notificationEvents());
   return { execution, webhook, provider: sharedProvider };
 }
 
@@ -141,8 +142,8 @@ describe("RefundExecutionService + RefundWebhookService — advanced (integratio
     const registryB = new RefundProviderRegistry();
     registryA.register(sharedProvider);
     registryB.register(sharedProvider);
-    const execA = new RefundExecutionService(prismaA as unknown as PrismaService, registryA);
-    const execB = new RefundExecutionService(prismaB as unknown as PrismaService, registryB);
+    const execA = new RefundExecutionService(prismaA as unknown as PrismaService, registryA, notificationEvents());
+    const execB = new RefundExecutionService(prismaB as unknown as PrismaService, registryB, notificationEvents());
 
     const results = await Promise.allSettled([
       (prismaA as unknown as PrismaClient).$transaction((tx) => execA.completeRefundSuccessTx(tx, attemptResult.refundAttemptId, { requestId: "race-a" })),

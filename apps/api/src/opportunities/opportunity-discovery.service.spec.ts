@@ -1,4 +1,4 @@
-import { OpportunityStatus } from "@prisma/client";
+import { Prisma, OpportunityStatus } from "@prisma/client";
 import { OpportunityDiscoveryService } from "./opportunity-discovery.service";
 
 /** Window close on the public view, added when the contract widened in 8C. */
@@ -169,7 +169,7 @@ describe("OpportunityDiscoveryService", () => {
         opportunity: {
           findFirst: jest.fn().mockResolvedValue({
             id: "opp-1",
-            unitPriceAmount: { toNumber: () => 11.5 },
+            unitPriceAmount: new Prisma.Decimal("11.5"),
             currency: "SAR",
             targetQuantity: 200,
             fundedQuantity: 50,
@@ -194,7 +194,7 @@ describe("OpportunityDiscoveryService", () => {
       const result = await service.getTraderDetail("opp-1");
 
       expect(result?.progressPercentage).toBe(25);
-      expect(result?.unitPriceAmount).toBe(11.5);
+      expect(result?.unitPriceInclTaxAmount).toBe("11.50");
       expect(result?.fulfillmentCityNameEn).toBe("Jeddah");
       expect(result?.shareQuantity).toBe(20);
       expect(result?.sharePercentage).toBe(10); // 1000 bps -> 10%, computed, never raw bps
@@ -224,7 +224,7 @@ describe("OpportunityDiscoveryService", () => {
         opportunity: {
           findFirst: jest.fn().mockResolvedValue({
             id: "opp-1",
-            unitPriceAmount: { toNumber: () => 10 },
+            unitPriceAmount: new Prisma.Decimal("10"),
             currency: "SAR",
             targetQuantity: 0,
             fundedQuantity: 0,

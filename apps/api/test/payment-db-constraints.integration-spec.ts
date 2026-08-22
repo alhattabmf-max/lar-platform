@@ -4,6 +4,7 @@ import { MockPaymentProvider } from "../src/payments/providers/mock-payment.prov
 import { PaymentWebhookService } from "../src/payments/payment-webhook.service";
 import { CommissionTaxPolicyService } from "../src/settings/commission-tax-policy.service";
 import { AuditService } from "../src/audit/audit.service";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = paymentFixturePrisma;
 
@@ -88,7 +89,7 @@ describe("Phase 7C direct DB constraint breakage (integration, real DB)", () => 
           checkoutSessionId: fixture.checkoutSessionId,
           providerCode: "MOCK",
           idempotencyKey: "dup-key",
-          amount: fixture.grandTotalAmount,
+          amount: fixture.providerAmount,
           currency: "SAR",
         },
       })
@@ -99,7 +100,7 @@ describe("Phase 7C direct DB constraint breakage (integration, real DB)", () => 
     const fixture = await seedPaymentFixture({ traderCrPrefix: "CHKORDMUT" });
     const mockProvider = new MockPaymentProvider();
     const audit = new AuditService(prisma as never);
-    const service = new PaymentWebhookService(prisma as never, new CommissionTaxPolicyService(prisma as never, audit), mockProvider);
+    const service = new PaymentWebhookService(prisma as never, new CommissionTaxPolicyService(prisma as never, audit), mockProvider, notificationEvents());
 
     const { rawBody, headers } = mockProvider.buildSignedWebhook({
       merchantReference: fixture.merchantReference,
@@ -107,7 +108,7 @@ describe("Phase 7C direct DB constraint breakage (integration, real DB)", () => 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const result = await service.handleWebhook(rawBody, headers);
 

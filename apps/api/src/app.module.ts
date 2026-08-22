@@ -51,6 +51,7 @@ import { AdminOpportunitiesModule } from "./admin/opportunities/admin-opportunit
 import { BrandingModule } from "./branding/branding.module";
 import { BannerModule } from "./banners/banner.module";
 import { AdminBannerModule } from "./admin/banners/admin-banner.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { AdminBannerModule } from "./admin/banners/admin-banner.module";
     BrandingModule,
     BannerModule,
     AdminBannerModule,
+    NotificationsModule,
   ],
   providers: [
     {

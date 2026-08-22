@@ -5,6 +5,7 @@ import { CommissionTaxPolicyService } from "../src/settings/commission-tax-polic
 import { AuditService } from "../src/audit/audit.service";
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { seedPaymentFixture, paymentFixturePrisma } from "./fixtures/payment.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = paymentFixturePrisma;
 const provider = new MockPaymentProvider();
@@ -20,7 +21,7 @@ function sumHalalas(postings: { amount: unknown }[]): number {
 
 function buildWebhookService(p: PrismaService) {
   const audit = new AuditService(p);
-  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider);
+  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider, notificationEvents());
 }
 
 describe("PaymentWebhookService — full success cycle (integration, real DB)", () => {
@@ -39,7 +40,7 @@ describe("PaymentWebhookService — full success cycle (integration, real DB)", 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: capturedAt,
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
 
     const result = await service.handleWebhook(rawBody, headers);
@@ -48,7 +49,7 @@ describe("PaymentWebhookService — full success cycle (integration, real DB)", 
 
     const order = await prisma.masterOrder.findUniqueOrThrow({ where: { id: result.masterOrderId } });
     expect(order.status).toBe("IN_FULFILLMENT");
-    expect(Number(order.totalAmount)).toBe(fixture.grandTotalAmount);
+    expect(Number(order.totalAmount)).toBe(fixture.providerAmount);
     expect(order.supplierBankAccountId).toBeDefined();
 
     const allocations = await prisma.orderAllocation.findMany({ where: { masterOrderId: order.id } });
@@ -68,7 +69,7 @@ describe("PaymentWebhookService — full success cycle (integration, real DB)", 
 
     const attempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: fixture.paymentAttemptId } });
     expect(attempt.status).toBe("SUCCEEDED");
-    expect(Number(attempt.providerCapturedAmount)).toBe(fixture.grandTotalAmount);
+    expect(Number(attempt.providerCapturedAmount)).toBe(fixture.providerAmount);
 
     const session = await prisma.checkoutSession.findUniqueOrThrow({ where: { id: fixture.checkoutSessionId } });
     expect(session.status).toBe("PAID");
@@ -85,7 +86,7 @@ describe("PaymentWebhookService — full success cycle (integration, real DB)", 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const result = await service.handleWebhook(rawBody, headers);
     const order = await prisma.masterOrder.findUniqueOrThrow({ where: { id: result.masterOrderId } });
@@ -103,7 +104,7 @@ describe("PaymentWebhookService — full success cycle (integration, real DB)", 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
       providerFeeAmount: 2.5,
     });
     const result = await service.handleWebhook(rawBody, headers);

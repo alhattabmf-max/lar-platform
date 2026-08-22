@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 import { RefundProviderRegistry } from "./providers/refund-provider.registry";
@@ -24,7 +25,8 @@ const HTTP_MAX_RETRY = 3;
 export class RefundExecutionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly registry: RefundProviderRegistry
+    private readonly registry: RefundProviderRegistry,
+    private readonly notifications: NotificationEventsService
   ) {}
 
   async getObligation(refundObligationId: string) {
@@ -159,6 +161,10 @@ export class RefundExecutionService {
       if (result.outcome === "SENT") {
         await tx.refundAttempt.update({ where: { id: attempt.id }, data: { status: "PENDING", providerReference: result.providerReference } });
         await tx.$executeRaw`UPDATE refund_obligations SET status = 'SENT' WHERE id = ${refundObligationId}::uuid AND status = 'PENDING_EXECUTION'`;
+        await this.notifications.refundInitiated(tx, {
+          refundObligationId,
+          refundAttemptId: attempt.id,
+        });
         await this.emit(tx, ctx, "REFUND_ATTEMPT_SENT", "refund_attempt", attempt.id);
         return { outcome: "PENDING" as const, refundAttemptId: attempt.id, providerReference: result.providerReference };
       }

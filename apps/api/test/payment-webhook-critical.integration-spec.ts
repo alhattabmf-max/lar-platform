@@ -6,6 +6,7 @@ import { AuditService } from "../src/audit/audit.service";
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { AdminOpportunitiesService } from "../src/admin/opportunities/admin-opportunities.service";
 import { seedPaymentFixture, paymentFixturePrisma, buildPaymentAttemptService } from "./fixtures/payment.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = paymentFixturePrisma;
 const provider = new MockPaymentProvider();
@@ -20,7 +21,7 @@ function sumHalalas(postings: { amount: unknown }[]): number {
 
 function buildWebhookService(p: PrismaService) {
   const audit = new AuditService(p);
-  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider);
+  return new PaymentWebhookService(p, new CommissionTaxPolicyService(p, audit), provider, notificationEvents());
 }
 
 describe("PaymentWebhookService — critical scenarios (integration, real DB)", () => {
@@ -47,7 +48,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: capturedAt,
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
 
     const result = await service.handleWebhook(rawBody, headers);
@@ -55,7 +56,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
 
     const refund = await prisma.refundObligation.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
     expect(refund.reasonCode).toBe("LATE_CAPTURE_AFTER_CANCEL");
-    expect(Number(refund.amount)).toBe(fixture.grandTotalAmount);
+    expect(Number(refund.amount)).toBe(fixture.providerAmount);
 
     const orders = await prisma.masterOrder.findMany({ where: { checkoutSessionId: fixture.checkoutSessionId } });
     expect(orders).toHaveLength(0);
@@ -70,7 +71,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
     const creditHalalas = sumHalalas(postings.filter((p) => p.direction === "CREDIT"));
     expect(debitHalalas).toBe(creditHalalas);
     const refundPosting = postings.find((p) => p.account === "CUSTOMER_REFUND_PAYABLE");
-    expect(Number(refundPosting!.amount)).toBe(fixture.grandTotalAmount);
+    expect(Number(refundPosting!.amount)).toBe(fixture.providerAmount);
   }, 30_000);
 
   it("Capture BEFORE opportunity cancellation, webhook arrives AFTER -> Order IS created (providerCapturedAt decides, not arrival order)", async () => {
@@ -87,7 +88,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: capturedAt,
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
 
     const result = await service.handleWebhook(rawBody, headers);
@@ -101,7 +102,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
   it("Amount mismatch: captured amount != PaymentAttempt amount -> REFUND_REQUIRED, CAPTURE_AMOUNT_MISMATCH, refund amount = actually captured amount", async () => {
     const fixture = await seedPaymentFixture({ traderCrPrefix: "MISMATCH" });
     const service = buildWebhookService(prisma as unknown as PrismaService);
-    const wrongAmount = fixture.grandTotalAmount + 17.5;
+    const wrongAmount = fixture.providerAmount + 17.5;
     const { rawBody, headers } = provider.buildSignedWebhook({
       merchantReference: fixture.merchantReference,
       providerReference: `ref-${fixture.merchantReference}`,
@@ -136,7 +137,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: eventId,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     await service.handleWebhook(first.rawBody, first.headers);
 
@@ -146,7 +147,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: eventId,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
 
     await expect(service.handleWebhook(second.rawBody, second.headers)).rejects.toThrow();
@@ -164,7 +165,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: `evt-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
 
     const r1 = await service.handleWebhook(rawBody, headers);
@@ -217,7 +218,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: `evt-second-${second.id}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const r1 = await service.handleWebhook(w1.rawBody, w1.headers);
     expect(r1.processingOutcome).toBe("ORDER_CREATED");
@@ -230,14 +231,14 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
       providerEventId: `evt-first-late-${fixture.merchantReference}`,
       eventType: "SUCCESS",
       providerCapturedAt: new Date(),
-      providerCapturedAmount: fixture.grandTotalAmount,
+      providerCapturedAmount: fixture.providerAmount,
     });
     const r2 = await service.handleWebhook(w2.rawBody, w2.headers);
     expect(r2.processingOutcome).toBe("REFUND_REQUIRED");
 
     const refund = await prisma.refundObligation.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
     expect(refund.reasonCode).toBe("DUPLICATE_SUCCESSFUL_CAPTURE");
-    expect(Number(refund.amount)).toBe(fixture.grandTotalAmount);
+    expect(Number(refund.amount)).toBe(fixture.providerAmount);
 
     const firstAttemptAfter = await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: fixture.paymentAttemptId } });
     expect(firstAttemptAfter.status).toBe("SUCCEEDED"); // money captured is recorded as truth, not left as FAILED

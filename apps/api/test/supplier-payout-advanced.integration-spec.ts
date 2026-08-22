@@ -3,11 +3,12 @@ import type { PrismaService } from "../src/database/prisma.service";
 import { SupplierPayoutService } from "../src/settlement/supplier-payout.service";
 import { DisputeService } from "../src/disputes/dispute.service";
 import { seedSettlementFixture, settlementFixturePrisma } from "./fixtures/settlement.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = settlementFixturePrisma;
 
 function buildPayoutService(p: PrismaService = prisma as unknown as PrismaService) {
-  return new SupplierPayoutService(p);
+  return new SupplierPayoutService(p, notificationEvents());
 }
 const adminCtx = () => ({ userId: crypto.randomUUID(), requestId: `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
 const idemKey = (prefix: string) => `settle:${prefix}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
@@ -45,7 +46,7 @@ describe("SupplierPayoutService — advanced (integration, real DB)", () => {
 
     const prismaA = new PrismaClient();
     const prismaB = new PrismaClient();
-    const disputeService = new DisputeService(prismaA as unknown as PrismaService);
+    const disputeService = new DisputeService(prismaA as unknown as PrismaService, notificationEvents());
     const payoutService = buildPayoutService(prismaB as unknown as PrismaService);
 
     const results = await Promise.allSettled([

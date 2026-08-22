@@ -6,11 +6,12 @@ import { DisputeService } from "../src/disputes/dispute.service";
 import { ShippingProviderRegistry } from "../src/fulfillment/providers/shipping-provider.registry";
 import { MockShippingProvider } from "../src/fulfillment/providers/mock-shipping.provider";
 import { seedReplacementFixture, replacementFixturePrisma } from "./fixtures/replacement.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = replacementFixturePrisma;
 
 function buildService(p: PrismaService = prisma as unknown as PrismaService) {
-  return new ReplacementObligationService(p);
+  return new ReplacementObligationService(p, notificationEvents());
 }
 
 async function shipReplacement(fixture: { replacementObligationId: string; supplierCompanyId: string }) {
@@ -79,7 +80,7 @@ describe("ReplacementObligationService — races, decision sequencing, webhook (
   it("a FAILED replacement allows a second decision (FULL_REFUND) via the real service, and a third decision is rejected", async () => {
     const fixture = await seedReplacementFixture("REPLSECONDDECISION");
     const replacementService = buildService();
-    const disputeService = new DisputeService(prisma as unknown as PrismaService);
+    const disputeService = new DisputeService(prisma as unknown as PrismaService, notificationEvents());
     const adminCtx = { userId: crypto.randomUUID(), requestId: "r1" };
 
     await replacementService.markFailed(fixture.replacementObligationId, adminCtx);

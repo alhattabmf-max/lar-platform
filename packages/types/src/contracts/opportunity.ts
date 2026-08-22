@@ -143,3 +143,79 @@ export interface TraderOpportunityTerms {
   /** Human percentage (e.g. 10, 2.5) — never raw basis points. */
   sharePercentage: number;
 }
+
+/**
+ * `TraderOpportunityTerms` field names, for a boundary test that
+ * asserts none of them reaches a public shape.
+ */
+export const TRADER_OPPORTUNITY_TERMS_KEYS = [
+  "unitPriceInclTaxAmount",
+  "currency",
+  "targetQuantity",
+  "fundedQuantity",
+  "unsoldQuantity",
+  "progressPercentage",
+  "shareQuantity",
+  "sharePercentage",
+] as const satisfies readonly (keyof TraderOpportunityTerms)[];
+
+/**
+ * The list item a signed-in trader sees.
+ *
+ * COMPOSED, not restated: it extends `PublicOpportunityItem` and adds
+ * `TraderOpportunityTerms`. Writing the presentation fields out again
+ * is how the two lists drift — a field added to the public card and
+ * forgotten here, or a name that differs by a letter, which no
+ * compiler catches because the two would be unrelated types.
+ *
+ * The inheritance is one-directional on purpose. Terms extend the
+ * public shape; the public shape never extends terms, so a commercial
+ * field cannot arrive on the anonymous marketplace by inheritance.
+ */
+export interface TraderOpportunityItem
+  extends PublicOpportunityItem,
+    TraderOpportunityTerms {}
+
+export const TRADER_OPPORTUNITY_ITEM_KEYS = [
+  ...PUBLIC_OPPORTUNITY_ITEM_KEYS,
+  ...TRADER_OPPORTUNITY_TERMS_KEYS,
+] as const satisfies readonly (keyof TraderOpportunityItem)[];
+
+/**
+ * The detail a signed-in trader sees.
+ *
+ * `PublicOpportunityDetail` already adds the safe non-commercial
+ * context — the product description, the fulfilment region, the window
+ * open — so this composes that with the same terms rather than
+ * introducing a second description field that could disagree.
+ *
+ * `expectedPreparationDays` is added HERE and not on the item. It is
+ * how long the supplier has to prepare after payment, which a trader
+ * needs before buying and which is absent from every public shape: it
+ * describes the supplier's commitment, not the product.
+ */
+export interface TraderOpportunityDetail
+  extends PublicOpportunityDetail,
+    TraderOpportunityTerms {
+  /** Days the supplier has to prepare, from the frozen opportunity. */
+  expectedPreparationDays: number;
+}
+
+export const TRADER_OPPORTUNITY_DETAIL_KEYS = [
+  ...PUBLIC_OPPORTUNITY_DETAIL_KEYS,
+  ...TRADER_OPPORTUNITY_TERMS_KEYS,
+  "expectedPreparationDays",
+] as const satisfies readonly (keyof TraderOpportunityDetail)[];
+
+/**
+ * Everything a trader shape may carry that a public one may not.
+ *
+ * Exists so the boundary can be asserted in one place: a test walks a
+ * public payload and fails if any of these appears. Adding a field to
+ * `TraderOpportunityTerms` without adding it here fails the
+ * `satisfies` above, so the list cannot fall behind.
+ */
+export const COMMERCIAL_ONLY_KEYS = [
+  ...TRADER_OPPORTUNITY_TERMS_KEYS,
+  "expectedPreparationDays",
+] as const;

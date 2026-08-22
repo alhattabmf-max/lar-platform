@@ -2,6 +2,7 @@ import type { PrismaService } from "../../src/database/prisma.service";
 import { seedFulfillmentFixture, fulfillmentFixturePrisma } from "./fulfillment.fixture";
 import { OrderAllocationService } from "../../src/fulfillment/order-allocation.service";
 import { computeDisputeRefundReversal } from "@platform/domain";
+import { notificationEvents } from "./notifications.fixture";
 
 const prisma = fulfillmentFixturePrisma;
 
@@ -24,7 +25,7 @@ export interface SettlementFixture {
  */
 export async function seedSettlementFixture(prefix: string, disputeWindowOffsetMs = -3_600_000): Promise<SettlementFixture> {
   const base = await seedFulfillmentFixture(prefix);
-  const service = new OrderAllocationService(prisma as unknown as PrismaService);
+  const service = new OrderAllocationService(prisma as unknown as PrismaService, notificationEvents());
   const supplierCtx = { userId: crypto.randomUUID(), companyId: base.supplierCompanyId, requestId: `r-settlement-fixture-${prefix}` };
 
   const deliveredId = base.orderAllocationIds[0];

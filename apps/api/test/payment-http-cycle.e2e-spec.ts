@@ -186,9 +186,16 @@ describe("Phase 7C — Payment/Order full HTTP cycle (e2e)", () => {
 
     const traderList = await traderAgent.get("/api/v1/trader/orders").set("Origin", ORIGIN);
     expect(traderList.status).toBe(200);
-    expect(traderList.body.some((o: { id: string }) => o.id === masterOrderId)).toBe(true);
+    // Paginated as of 8D.3 — the endpoint no longer returns a bare
+    // array, and an unbounded list was the thing that change removed.
+    expect(traderList.body.items.some((o: { id: string }) => o.id === masterOrderId)).toBe(true);
+    expect(traderList.body.pageSize).toBeLessThanOrEqual(50);
+
     const traderDetail = await traderAgent.get(`/api/v1/trader/orders/${masterOrderId}`).set("Origin", ORIGIN);
     expect(traderDetail.status).toBe(200);
+    // Allocations arrive inline; there is no standalone allocation route.
+    expect(Array.isArray(traderDetail.body.allocations)).toBe(true);
+    expect(traderDetail.body).not.toHaveProperty("commissionAmount");
 
     const supplierUser = await prisma.user.findFirstOrThrow({ where: { companyId: fixture.supplierCompanyId } });
     const supplierAgent = await loginAsCompany(app, fixture.supplierCompanyId, supplierUser.id);

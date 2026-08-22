@@ -7,7 +7,11 @@ import {
 } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import { localized } from "@/lib/localized";
-import { hasActiveFilters, type MarketplaceQuery } from "@/lib/marketplace-query";
+import {
+  hasActiveFilters,
+  PUBLIC_OPPORTUNITIES_PATH,
+  type MarketplaceQuery,
+} from "@/lib/marketplace-query";
 import { Select } from "@/components/ui/select";
 import { Button, buttonClasses } from "@/components/ui/button";
 import type { TaxonomyOption } from "@/lib/taxonomy-tree";
@@ -55,6 +59,8 @@ export interface OpportunityFiltersProps {
   cities: readonly CityItem[];
   taxonomyOptions: readonly TaxonomyOption[];
   labels: OpportunityFiltersLabels;
+  /** Which listing the form submits back to. Defaults to the public one. */
+  basePath?: string;
 }
 
 export function OpportunityFilters({
@@ -63,11 +69,12 @@ export function OpportunityFilters({
   cities,
   taxonomyOptions,
   labels,
+  basePath = PUBLIC_OPPORTUNITIES_PATH,
 }: OpportunityFiltersProps) {
   return (
     <form
       method="get"
-      action={`/${locale}/opportunities`}
+      action={`/${locale}/${basePath}`}
       aria-label={labels.regionLabel}
       className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4"
     >
@@ -145,7 +152,7 @@ export function OpportunityFilters({
 
         {hasActiveFilters(query) ? (
           <Link
-            href={`/${locale}/opportunities`}
+            href={`/${locale}/${basePath}`}
             className={buttonClasses("ghost", "sm")}
           >
             {labels.clear}

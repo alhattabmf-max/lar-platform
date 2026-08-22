@@ -10,6 +10,7 @@ import { PaymentAttemptService } from "../../src/payments/payment-attempt.servic
 import { PaymentSettingsService } from "../../src/settings/payment-settings.service";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./checkout.fixture";
 import { ensureCommissionTaxPolicy } from "./payment.fixture";
+import { notificationEvents } from "./notifications.fixture";
 
 const prisma = checkoutFixturePrisma;
 const provider = new MockPaymentProvider();
@@ -63,7 +64,7 @@ export async function seedFulfillmentFixture(prefix: string): Promise<Fulfillmen
     new CheckoutSettingsService(prisma as unknown as PrismaService, audit)
   );
 
-  const session = (await checkoutService.create(
+  const session = await checkoutService.create(
     {
       opportunityId: fixture.opportunityId,
       quantity: 4,
@@ -74,7 +75,7 @@ export async function seedFulfillmentFixture(prefix: string): Promise<Fulfillmen
     },
     `fulfx-checkout-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     { userId: fixture.traderUserId, companyId: fixture.traderCompanyId, requestId: "req-fulfx" }
-  )) as { id: string; grandTotalAmount: number };
+  );
 
   const paymentAttemptService = new PaymentAttemptService(
     prisma as unknown as PrismaService,
@@ -82,24 +83,26 @@ export async function seedFulfillmentFixture(prefix: string): Promise<Fulfillmen
     new CommissionTaxPolicyService(prisma as unknown as PrismaService, audit),
     provider
   );
-  const attemptView = (await paymentAttemptService.startPayment(
+  const attemptView = await paymentAttemptService.startPayment(
     session.id,
     `fulfx-attempt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     { userId: fixture.traderUserId, companyId: fixture.traderCompanyId, requestId: "req-fulfx-2" }
-  )) as { id: string; amount: number };
+  );
 
   const webhookService = new PaymentWebhookService(
     prisma as unknown as PrismaService,
     new CommissionTaxPolicyService(prisma as unknown as PrismaService, audit),
     provider
-  );
+  , notificationEvents());
   const { rawBody, headers } = provider.buildSignedWebhook({
     merchantReference: attemptView.id,
     providerReference: `ref-${attemptView.id}`,
     providerEventId: `evt-${attemptView.id}`,
     eventType: "SUCCESS",
     providerCapturedAt: new Date(),
-    providerCapturedAmount: attemptView.amount,
+    // The provider wire format carries a JSON number; the contract
+    // carries the decimal string. Converted here, at the boundary.
+    providerCapturedAmount: Number(attemptView.amount),
   });
   const result = await webhookService.handleWebhook(rawBody, headers);
   const masterOrderId = result.masterOrderId!;

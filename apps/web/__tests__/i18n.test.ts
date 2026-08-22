@@ -144,6 +144,59 @@ describe("message catalogues", () => {
     }
   });
 
+  /**
+   * The marketplace shows the SUPPLIER'S shipping origin, not a
+   * delivery destination — a trader picks where goods go later, at
+   * checkout. Calling it a delivery city on the marketplace told a
+   * browsing trader the opposite of the truth, and these assertions
+   * exist so it cannot drift back.
+   */
+  describe("shipping origin is never called a delivery city", () => {
+    const marketplace = (m: Record<string, unknown>) =>
+      (m.marketplace as Record<string, Record<string, string>>);
+
+    it("labels the marketplace filter as the shipping origin", () => {
+      expect(marketplace(ar).filters.city).toBe("مدينة الشحن");
+      expect(marketplace(en).filters.city).toBe("Shipping origin city");
+    });
+
+    it("labels the card and detail city as 'ships from'", () => {
+      // Rendered as `{label}: {city}` — "يُشحن من: الرياض".
+      expect(marketplace(ar).card.city).toBe("يُشحن من");
+      expect(marketplace(en).card.city).toBe("Ships from");
+    });
+
+    it("no longer says 'delivery city' anywhere in the marketplace", () => {
+      for (const messages of [ar, en]) {
+        const serialised = JSON.stringify(marketplace(messages));
+
+        expect(serialised).not.toContain("مدينة التسليم");
+        expect(serialised).not.toContain("Fulfilment city");
+        expect(serialised).not.toContain("Delivery city");
+      }
+    });
+
+    it("keeps the trader's OWN address wording untouched", () => {
+      // register.city is the trader's company location, a genuine
+      // address — not a supplier origin.
+      expect((ar.register as Record<string, string>).city).toBe("المدينة");
+      expect((en.register as Record<string, string>).city).toBe("City");
+    });
+
+    it("distinguishes shipping origin from delivery in English", () => {
+      const filter = marketplace(en).filters.city.toLowerCase();
+
+      expect(filter).toContain("shipping origin");
+      expect(filter).not.toContain("delivery");
+      expect(filter).not.toContain("fulfilment");
+    });
+
+    it("describes the landing page by shipping origin too", () => {
+      expect((ar.home as Record<string, string>).description).toContain("مدينة الشحن");
+      expect((en.home as Record<string, string>).description).toContain("shipping origin");
+    });
+  });
+
   it("makes no affirmative tax-invoice or ZATCA claim", () => {
     // The mandatory NOT_A_TAX_INVOICE warning is not built yet (it
     // arrives with documents in 8D), but the prohibition on affirmative

@@ -371,7 +371,10 @@ describe("trader view", () => {
 
     const item = (await service.listForTrader({})).items[0];
 
-    expect(item.unitPriceAmount).toBe(115);
+    // A decimal STRING, at the scale of the Decimal(12,2) column.
+    // A JSON number cannot hold 125.50 exactly, and this figure is
+    // reconciled against a bank statement.
+    expect(item.unitPriceInclTaxAmount).toBe("115.00");
     expect(item.shareQuantity).toBe(5);
     expect(item.sharePercentage).toBe(10);
   });

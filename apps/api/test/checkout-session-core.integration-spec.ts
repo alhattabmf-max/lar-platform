@@ -125,7 +125,7 @@ describe("CheckoutSessionService — core scenarios (integration, real DB)", () 
 
     const tariff = await rawPrisma.shippingTariffPolicyVersion.findUniqueOrThrow({ where: { id: fixture.tariffId } });
 
-    const session = (await service.create(
+    const session = await service.create(
       {
         opportunityId: fixture.opportunityId,
         quantity: 12,
@@ -137,7 +137,7 @@ describe("CheckoutSessionService — core scenarios (integration, real DB)", () 
       },
       "tiers-key",
       ctxFor(fixture)
-    )) as { id: string; totalShippingFeeAmount: number };
+    );
 
     const allocations = await rawPrisma.checkoutLocationAllocation.findMany({ where: { checkoutSessionId: session.id } });
     const byTier = new Map(allocations.map((a) => [a.shippingTierCode, Number(a.shippingFeeAmount)]));
@@ -145,9 +145,13 @@ describe("CheckoutSessionService — core scenarios (integration, real DB)", () 
     expect(byTier.get("SAME_REGION_DIFFERENT_CITY")).toBe(Number(tariff.sameRegionDifferentCityFeeAmount));
     expect(byTier.get("DIFFERENT_REGION")).toBe(Number(tariff.differentRegionFeeAmount));
 
-    const expectedTotal =
-      Number(tariff.sameCityFeeAmount) + Number(tariff.sameRegionDifferentCityFeeAmount) + Number(tariff.differentRegionFeeAmount);
-    expect(session.totalShippingFeeAmount).toBe(expectedTotal);
+    // The response carries a decimal STRING, so the expectation is
+    // built in Decimal too — comparing against a float sum would be
+    // asserting the very drift the contract exists to prevent.
+    const expectedTotal = tariff.sameCityFeeAmount
+      .add(tariff.sameRegionDifferentCityFeeAmount)
+      .add(tariff.differentRegionFeeAmount);
+    expect(session.totalShippingFeeAmount).toBe(expectedTotal.toFixed(2));
   }, 30_000);
 
   it("Cooldown blocks a new lock after 3 qualifying EXPIRED/TRADER_ABANDONED releases within the window", async () => {

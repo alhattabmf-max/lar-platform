@@ -2,11 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { OrderAllocationService } from "../src/fulfillment/order-allocation.service";
 import { seedFulfillmentFixture, fulfillmentFixturePrisma } from "./fixtures/fulfillment.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = fulfillmentFixturePrisma;
 
 function buildService() {
-  return new OrderAllocationService(prisma as unknown as PrismaService);
+  return new OrderAllocationService(prisma as unknown as PrismaService, notificationEvents());
 }
 
 describe("OrderAllocationService — full flow + direct DB constraints (integration, real DB)", () => {

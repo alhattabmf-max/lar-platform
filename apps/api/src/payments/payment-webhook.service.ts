@@ -1,6 +1,7 @@
 import { Injectable, Inject, UnauthorizedException } from "@nestjs/common";
 import { Prisma, LedgerAccount, LedgerDirection } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 import { CommissionTaxPolicyService } from "../settings/commission-tax-policy.service";
@@ -21,7 +22,8 @@ export class PaymentWebhookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commissionTaxPolicy: CommissionTaxPolicyService,
-    @Inject("PaymentProvider") private readonly provider: PaymentProvider
+    @Inject("PaymentProvider") private readonly provider: PaymentProvider,
+    private readonly notifications: NotificationEventsService
   ) {}
 
   async handleWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): Promise<WebhookOutcome> {
@@ -124,6 +126,12 @@ export class PaymentWebhookService {
     }
 
     await this.insertEvent(tx, parsed, attempt.id, "PAYMENT_FAILED");
+    await this.notifications.paymentFailed(tx, {
+      checkoutSessionId: session.id,
+      paymentAttemptId: attempt.id,
+      traderCompanyId: await this.traderCompanyIdForSession(tx, session.id),
+      ...(await this.failedAttemptAmount(tx, attempt.id)),
+    });
     return { processingOutcome: "PAYMENT_FAILED" };
   }
 
@@ -282,6 +290,19 @@ export class PaymentWebhookService {
       });
     }
 
+    // Both inside the webhook's own transaction: the notification
+    // cannot outlive a rollback of the capture that produced it.
+    await this.notifications.paymentSucceeded(tx, {
+      masterOrderId: order.id,
+      traderCompanyId: session.trader_company_id,
+      amount: order.totalAmount,
+      currency: attempt.currency,
+    });
+    await this.notifications.orderCreated(tx, {
+      masterOrderId: order.id,
+      supplierCompanyId: supplierCompany.id,
+    });
+
     // Phase 7E — every future order gets its per-allocation financial
     // snapshot computed and frozen right here, within this same
     // transaction, never re-derived later.
@@ -421,8 +442,39 @@ export class PaymentWebhookService {
       },
     });
   }
-}
+  /**
+   * The failure path's session projection carries no trader company,
+   * so it is read here rather than inferred from the request.
+   */
+  /**
+   * The failure path projects only {id, status} from the attempt, so
+   * the figure shown to the trader is read from the row rather than
+   * recomputed from anything.
+   */
+  private async failedAttemptAmount(
+    tx: Prisma.TransactionClient,
+    paymentAttemptId: string
+  ): Promise<{ amount: Prisma.Decimal; currency: string }> {
+    const row = await tx.paymentAttempt.findUniqueOrThrow({
+      where: { id: paymentAttemptId },
+      select: { amount: true, currency: true },
+    });
+    return { amount: row.amount, currency: row.currency };
+  }
+
+  private async traderCompanyIdForSession(
+    tx: Prisma.TransactionClient,
+    checkoutSessionId: string
+  ): Promise<string> {
+    const session = await tx.checkoutSession.findUniqueOrThrow({
+      where: { id: checkoutSessionId },
+      select: { traderCompanyId: true },
+    });
+    return session.traderCompanyId;
+  }}
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+
+
 }

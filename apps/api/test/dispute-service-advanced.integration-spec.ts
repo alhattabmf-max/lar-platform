@@ -2,11 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { DisputeService } from "../src/disputes/dispute.service";
 import { seedDisputeFixture, disputeFixturePrisma } from "./fixtures/dispute.fixture";
+import { notificationEvents } from "./fixtures/notifications.fixture";
 
 const prisma = disputeFixturePrisma;
 
 function buildService(p: PrismaService = prisma as unknown as PrismaService) {
-  return new DisputeService(p);
+  return new DisputeService(p, notificationEvents());
 }
 
 describe("DisputeService — races, decision sequencing, ledger precision (integration, real DB)", () => {

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
 import { isOrderAllocationSettlementEligible } from "@platform/domain";
 import { PrismaService } from "../database/prisma.service";
+import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 
@@ -26,7 +27,9 @@ const MAX_RETRY = 3;
 
 @Injectable()
 export class SupplierPayoutService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly notifications: NotificationEventsService
+  ) {}
 
   /**
    * Admin-only. Idempotency-Key is mandatory and scoped to the
@@ -206,6 +209,17 @@ export class SupplierPayoutService {
 
     await this.emit(tx, ctx, "SUPPLIER_PAYOUT_" + outcome, "supplier_payout", payout.id);
 
+    // EXECUTED only: a ZERO_BALANCE payout moved no money, and
+    // announcing it would be noise.
+    if (outcome === "EXECUTED") {
+      await this.notifications.settlementExecuted(tx, {
+        supplierPayoutId: payout.id,
+        supplierCompanyId: await this.supplierCompanyIdForPayout(tx, payout.id),
+        netAmount,
+        currency: "SAR",
+      });
+    }
+
     await tx.$executeRaw`UPDATE order_allocations SET payout_settled_at = now() WHERE id = ${orderAllocationId}::uuid AND payout_settled_at IS NULL`;
 
     await tx.$executeRawUnsafe(
@@ -236,8 +250,20 @@ export class SupplierPayoutService {
     });
     await tx.outboxEvent.create({ data: { eventType: action, payload: { entityType, entityId } as Prisma.InputJsonValue } });
   }
-}
+  /** Resolved from the payout's own allocation, never from the request. */
+  private async supplierCompanyIdForPayout(
+    tx: Prisma.TransactionClient,
+    supplierPayoutId: string
+  ): Promise<string> {
+    const payout = await tx.supplierPayout.findUniqueOrThrow({
+      where: { id: supplierPayoutId },
+      select: { orderAllocation: { select: { masterOrder: { select: { supplierCompanyId: true } } } } },
+    });
+    return payout.orderAllocation.masterOrder.supplierCompanyId;
+  }}
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+
+
 }

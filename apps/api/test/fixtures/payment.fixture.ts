@@ -15,7 +15,22 @@ export interface PaymentFixture extends CheckoutFixture {
   checkoutSessionId: string;
   paymentAttemptId: string;
   merchantReference: string;
-  grandTotalAmount: number;
+  /**
+   * The grand total as the API serialises it: a fixed-scale decimal
+   * string. This is what a client receives and what assertions about
+   * the CONTRACT compare against.
+   */
+  grandTotalAmount: string;
+  /**
+   * The same amount in the PROVIDER's wire shape, which is numeric.
+   *
+   * Kept as a separate, differently named field rather than one field
+   * that changes type by context. A webhook payload really does carry
+   * a JSON number — that is the provider's format, not ours — and
+   * naming it makes each test say which side of the boundary it is
+   * asserting about.
+   */
+  providerAmount: number;
 }
 
 export async function ensureCommissionTaxPolicy(ratePercent = 5): Promise<void> {
@@ -73,19 +88,19 @@ export async function seedPaymentFixture(overrides?: {
   await seedSupplierBilling(fixture.supplierCompanyId);
 
   const checkoutService = buildCheckoutService(prisma as unknown as PrismaService);
-  const session = (await checkoutService.create(
+  const session = await checkoutService.create(
     { opportunityId: fixture.opportunityId, quantity: 4, allocations: [{ companyLocationId: fixture.traderLocations.sameCity, quantity: 4 }] },
     `payfx-checkout-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     { userId: fixture.traderUserId, companyId: fixture.traderCompanyId, requestId: "req-fixture" }
-  )) as { id: string; grandTotalAmount: number };
+  );
 
   const provider = new MockPaymentProvider();
   const paymentAttemptService = buildPaymentAttemptService(prisma as unknown as PrismaService, provider);
-  const attemptView = (await paymentAttemptService.startPayment(
+  const attemptView = await paymentAttemptService.startPayment(
     session.id,
     `payfx-attempt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     { userId: fixture.traderUserId, companyId: fixture.traderCompanyId, requestId: "req-fixture-2" }
-  )) as { id: string; status: string; amount: number; currency: string };
+  );
 
   return {
     ...fixture,
@@ -93,6 +108,7 @@ export async function seedPaymentFixture(overrides?: {
     paymentAttemptId: attemptView.id,
     merchantReference: attemptView.id,
     grandTotalAmount: attemptView.amount,
+    providerAmount: Number(attemptView.amount),
   };
 }
 

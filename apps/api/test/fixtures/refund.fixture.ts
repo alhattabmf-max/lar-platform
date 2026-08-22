@@ -1,6 +1,7 @@
 import type { PrismaService } from "../../src/database/prisma.service";
 import { DisputeService } from "../../src/disputes/dispute.service";
 import { seedDisputeFixture, disputeFixturePrisma } from "./dispute.fixture";
+import { notificationEvents } from "./notifications.fixture";
 
 const prisma = disputeFixturePrisma;
 
@@ -15,7 +16,7 @@ export interface RefundFixture {
 
 export async function seedRefundFixture(prefix: string): Promise<RefundFixture> {
   const base = await seedDisputeFixture(prefix);
-  const service = new DisputeService(prisma as unknown as PrismaService);
+  const service = new DisputeService(prisma as unknown as PrismaService, notificationEvents());
   const traderCtx = { userId: base.traderUserId, companyId: base.traderCompanyId, requestId: `r-refundfixture-${prefix}` };
   const supplierCtx = { userId: crypto.randomUUID(), companyId: base.supplierCompanyId, requestId: `r-refundfixture-sup-${prefix}` };
   const adminCtx = { userId: crypto.randomUUID(), requestId: `r-refundfixture-admin-${prefix}` };

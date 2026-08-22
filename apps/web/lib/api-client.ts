@@ -117,6 +117,52 @@ async function apiFetch<T>(
   return (await parseBody(response)) as T;
 }
 
+/**
+ * Uploads one file as multipart/form-data.
+ *
+ * Separate from `apiFetch` because that sets a JSON content type, and
+ * setting any Content-Type on a FormData body destroys the multipart
+ * boundary the browser generates — the request arrives unparseable.
+ * The header is deliberately left unset here so the browser writes it.
+ *
+ * Browser-only. `FormData` with a `File` has no server equivalent,
+ * and every upload in this product is a person choosing a file.
+ *
+ * Failures map through the same `mapApiError`, so a caller sees the
+ * one `ApiError` shape and the same request id as every other call.
+ */
+export async function uploadFile<T>(
+  path: string,
+  file: File,
+  fieldName = "file"
+): Promise<T> {
+  assertCallablePath(path);
+
+  const body = new FormData();
+  body.append(fieldName, file);
+
+  let response: Response;
+  try {
+    response = await fetch(`${resolveApiBaseUrl()}${API_PREFIX}${path}`, {
+      method: "POST",
+      body,
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      // Sends the session cookie cross-origin; the browser attaches
+      // Origin, which is what the API's CSRF guard checks.
+      credentials: "include",
+    });
+  } catch (cause) {
+    throw networkError(cause);
+  }
+
+  if (!response.ok) {
+    throw mapApiError(response.status, await parseBody(response), response.headers.get("x-request-id"));
+  }
+
+  return (await parseBody(response)) as T;
+}
+
 export const apiClient = {
   get: <T>(path: string, options: RequestOptions = {}) =>
     apiFetch<T>("GET", path, undefined, options),

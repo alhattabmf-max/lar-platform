@@ -5,9 +5,14 @@ import { resolveShippingTier, feeForTier, computeCheckoutCooldown } from "@platf
 import { PrismaService } from "../database/prisma.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { CheckoutSessionView } from "@platform/types";
 import { ShippingTariffPolicyService } from "../settings/shipping-tariff-policy.service";
 import { CheckoutSettingsService } from "../settings/checkout-settings.service";
 import type { CreateCheckoutSessionDto } from "./dto/create-checkout-session.dto";
+import {
+  CHECKOUT_SESSION_VIEW_SELECT,
+  toCheckoutSessionView,
+} from "./checkout-session.view";
 
 interface ActorContext {
   userId: string;
@@ -36,7 +41,11 @@ export class CheckoutSessionService {
     private readonly checkoutSettings: CheckoutSettingsService
   ) {}
 
-  async create(dto: CreateCheckoutSessionDto, idempotencyKey: string, ctx: ActorContext) {
+  async create(
+    dto: CreateCheckoutSessionDto,
+    idempotencyKey: string,
+    ctx: ActorContext
+  ): Promise<CheckoutSessionView> {
     const scope = `TRADER_CHECKOUT_CREATE:${ctx.companyId}`;
     const requestHash = createHash("sha256").update(JSON.stringify(canonicalize(dto))).digest("hex");
 
@@ -86,7 +95,7 @@ export class CheckoutSessionService {
         return { kind: "existing" as const, session: row.response_snapshot };
       });
 
-      if (outcome.kind !== "retry") return outcome.session;
+      if (outcome.kind !== "retry") return outcome.session as CheckoutSessionView;
     }
 
     throw new BusinessException(
@@ -271,11 +280,24 @@ export class CheckoutSessionService {
     const now = new Date();
     const lockExpiresAt = new Date(now.getTime() + settings.lockDurationMinutes * 60_000);
 
-    const productsSubtotalExclTax = Number(fullOpportunity.unitPriceExclTaxAmount) * dto.quantity;
-    const productsTax = Number(fullOpportunity.unitTaxAmount) * dto.quantity;
-    const productsSubtotalInclTax = Number(fullOpportunity.unitPriceAmount) * dto.quantity;
-    const totalShipping = pricing.priced.reduce((s, p) => s + p.fee, 0);
-    const grandTotal = productsSubtotalInclTax + totalShipping;
+    // Every figure below is computed in DECIMAL, never in JavaScript
+    // numbers. These land in Decimal(14,2) columns and are the amount
+    // the payment provider is asked for: `Number(unitPrice) * quantity`
+    // goes through IEEE-754, where a price like 12.10 is not
+    // representable, and the product can land a cent away from the
+    // arithmetic a person doing it by hand would get.
+    const quantity = new Prisma.Decimal(dto.quantity);
+    const productsSubtotalExclTax = fullOpportunity.unitPriceExclTaxAmount!.mul(quantity);
+    const productsTax = fullOpportunity.unitTaxAmount!.mul(quantity);
+    const productsSubtotalInclTax = fullOpportunity.unitPriceAmount.mul(quantity);
+    // Shipping fees come from the tariff policy as plain numbers.
+    // Converting each through its own string keeps the sum exact
+    // rather than accumulating error across branches.
+    const totalShipping = pricing.priced.reduce(
+      (sum, p) => sum.add(new Prisma.Decimal(p.fee.toString())),
+      new Prisma.Decimal(0)
+    );
+    const grandTotal = productsSubtotalInclTax.add(totalShipping);
 
     const created = await tx.checkoutSession.create({
       data: {
@@ -368,31 +390,42 @@ export class CheckoutSessionService {
       data: { eventType: "CHECKOUT_LOCK_CREATED", payload: { checkoutSessionId: created.id } as Prisma.InputJsonValue },
     });
 
-    return toTraderCheckoutView(created, {
-      quantity: dto.quantity,
-      shareQuantity: fullOpportunity.shareQuantity ?? 1,
-      sharePercentageReadable: fullOpportunity.shareBasisPoints ? fullOpportunity.shareBasisPoints / 100 : 0,
-      productsSubtotalInclTaxAmount: productsSubtotalInclTax,
-      totalShippingFeeAmount: totalShipping,
-      grandTotalAmount: grandTotal,
-      currency: "SAR",
-      allocations: pricing.priced.map((p) => ({
-        companyLocationId: p.location.id,
-        locationName: p.location.name,
-        quantity: p.quantity,
-        shippingFeeAmount: p.fee,
-      })),
+    // Re-read through the SAME projection GET uses, on this
+    // transaction client so it sees its own writes.
+    //
+    // The alternative — assembling a response from the values just
+    // computed above — is what let POST and GET drift apart in the
+    // first place: POST answered with JSON numbers and its own field
+    // names while GET answered with decimal strings, for one entity.
+    // One select and one mapper means they cannot disagree, and the
+    // cost is a single primary-key read.
+    const view = await tx.checkoutSession.findUniqueOrThrow({
+      where: { id: created.id },
+      select: CHECKOUT_SESSION_VIEW_SELECT,
     });
+    return toCheckoutSessionView(view);
   }
 
-  async getById(id: string, ctx: ActorContext) {
+  /**
+   * The trader's own view of a checkout session.
+   *
+   * Ownership is IN THE QUERY — never fetched and then checked — and an
+   * unknown id and another company's session produce the identical 404,
+   * so neither can be distinguished by probing.
+   *
+   * Returns the closed CheckoutSessionView, never the raw row: the
+   * underlying record carries the trader company snapshot, the tax rule
+   * code, the shipping tariff policy version and the provider code,
+   * none of which belong on a client.
+   */
+  async getById(id: string, ctx: ActorContext): Promise<CheckoutSessionView> {
     await this.lazyExpire(id);
     const session = await this.prisma.checkoutSession.findFirst({
       where: { id, traderCompanyId: ctx.companyId },
-      include: { quoteSnapshot: true, allocations: true },
+      select: CHECKOUT_SESSION_VIEW_SELECT,
     });
     if (!session) throw new NotFoundException("Checkout session not found");
-    return session;
+    return toCheckoutSessionView(session);
   }
 
   async abandon(id: string, ctx: ActorContext) {
@@ -473,30 +506,3 @@ function canonicalize(dto: CreateCheckoutSessionDto): unknown {
 }
 
 /** Never exposes shareBasisPoints, any *PolicyVersionId, or productApprovalSnapshotId. */
-function toTraderCheckoutView(
-  session: { id: string; status: string; lockExpiresAt: Date },
-  quote: {
-    quantity: number;
-    shareQuantity: number;
-    sharePercentageReadable: number;
-    productsSubtotalInclTaxAmount: number;
-    totalShippingFeeAmount: number;
-    grandTotalAmount: number;
-    currency: string;
-    allocations: { companyLocationId: string; locationName: string; quantity: number; shippingFeeAmount: number }[];
-  }
-) {
-  return {
-    id: session.id,
-    status: session.status,
-    lockExpiresAt: session.lockExpiresAt,
-    quantity: quote.quantity,
-    minimumQuantity: quote.shareQuantity,
-    sharePercentage: quote.sharePercentageReadable,
-    productsSubtotalInclTaxAmount: quote.productsSubtotalInclTaxAmount,
-    totalShippingFeeAmount: quote.totalShippingFeeAmount,
-    grandTotalAmount: quote.grandTotalAmount,
-    currency: quote.currency,
-    allocations: quote.allocations,
-  };
-}

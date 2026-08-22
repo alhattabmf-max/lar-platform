@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { PaymentAttemptView } from "@platform/types";
 import { PaymentSettingsService } from "../settings/payment-settings.service";
 import { CommissionTaxPolicyService } from "../settings/commission-tax-policy.service";
 import type { PaymentProvider } from "./providers/payment-provider.interface";
@@ -28,7 +29,20 @@ export class PaymentAttemptService {
     @Inject("PaymentProvider") private readonly provider: PaymentProvider
   ) {}
 
-  async startPayment(checkoutSessionId: string, idempotencyKey: string, ctx: ActorContext) {
+  /**
+   * Starts one payment attempt for a checkout session.
+   *
+   * Returns the closed `PaymentAttemptView`: id, status, amount,
+   * currency. Not the row — that carries the provider code, the
+   * provider reference, the internal idempotency key, the policy
+   * acceptance id and the accepting user, none of which a trader needs
+   * and all of which describe how the integration works.
+   */
+  async startPayment(
+    checkoutSessionId: string,
+    idempotencyKey: string,
+    ctx: ActorContext
+  ): Promise<PaymentAttemptView> {
     const scope = `PAYMENT_ATTEMPT_START:${ctx.companyId}:${checkoutSessionId}`;
     const requestHash = createHash("sha256").update(JSON.stringify({ checkoutSessionId })).digest("hex");
 
@@ -60,7 +74,10 @@ export class PaymentAttemptService {
         if (row.request_hash !== requestHash) {
           throw new BusinessException(409, ERROR_CODES.CONFLICT, "Idempotency-Key was already used with a different request");
         }
-        const snap = row.response_snapshot as { id: string; status: string; amount: number; currency: string };
+        // Replayed verbatim from the stored snapshot, which was
+        // written in this same shape — so a retry of one operation
+        // answers byte-identically to its first response.
+        const snap = row.response_snapshot as PaymentAttemptView;
         return { kind: "existing" as const, view: snap, attemptId: snap.id };
       });
 
@@ -72,7 +89,11 @@ export class PaymentAttemptService {
     throw new BusinessException(409, ERROR_CODES.CONFLICT, "Could not start payment under concurrent load — please retry");
   }
 
-  private async createAttemptTx(tx: Prisma.TransactionClient, checkoutSessionId: string, ctx: ActorContext) {
+  private async createAttemptTx(
+    tx: Prisma.TransactionClient,
+    checkoutSessionId: string,
+    ctx: ActorContext
+  ): Promise<PaymentAttemptView> {
     const sessionRows = await tx.$queryRaw<{ id: string; trader_company_id: string; status: string; lock_expires_at: Date }[]>`
       SELECT id, trader_company_id, status, lock_expires_at FROM checkout_sessions WHERE id = ${checkoutSessionId}::uuid FOR UPDATE
     `;
@@ -147,13 +168,32 @@ export class PaymentAttemptService {
       data: { status: "PAYMENT_PENDING", paymentDeadlineAt },
     });
 
-    return { id: created.id, status: "CREATED" as const, amount: Number(quote.grandTotalAmount), currency: quote.currency };
+    // The amount is the frozen quote's grand total as a fixed-scale
+    // decimal STRING — byte-identical to what
+    // `CheckoutSessionView.grandTotalAmount` carries for this session.
+    // `Number()` here would produce a figure that prints the same and
+    // compares unequal, so the checkout screen and the payment screen
+    // could show two different totals for one purchase.
+    return {
+      id: created.id,
+      status: "CREATED",
+      amount: quote.grandTotalAmount.toFixed(2),
+      currency: quote.currency,
+    };
   }
 
-  private async callProviderAndFinalize(attemptId: string, view: { id: string; status: string; amount: number; currency: string }) {
+  private async callProviderAndFinalize(
+    attemptId: string,
+    view: PaymentAttemptView
+  ): Promise<PaymentAttemptView> {
     const attempt = await this.prisma.paymentAttempt.findUniqueOrThrow({ where: { id: attemptId } });
     if (attempt.status !== "CREATED") return view;
 
+    // The provider's SDK contract takes a number. This is the ONE
+    // place a money value becomes one, and it is an outbound call
+    // argument rather than a serialized response field: nothing here
+    // reaches a client, and the figure the trader sees comes from the
+    // decimal string above.
     const result = await this.provider.createPaymentIntent({
       amount: Number(attempt.amount),
       currency: attempt.currency,
@@ -166,7 +206,7 @@ export class PaymentAttemptService {
         UPDATE payment_attempts SET status = 'PENDING', provider_reference = ${result.providerReference}, updated_at = now()
         WHERE id = ${attemptId}::uuid AND status = 'CREATED'
       `;
-      return { ...view, status: "PENDING" };
+      return { ...view, status: "PENDING" as const };
     }
 
     if (result.outcome === "RETRYABLE_UNKNOWN") {
@@ -174,7 +214,7 @@ export class PaymentAttemptService {
     }
 
     await this.markAttemptFailedAndRestoreCheckout(attemptId);
-    return { ...view, status: "FAILED" };
+    return { ...view, status: "FAILED" as const };
   }
 
   private async markAttemptFailedAndRestoreCheckout(attemptId: string): Promise<void> {
