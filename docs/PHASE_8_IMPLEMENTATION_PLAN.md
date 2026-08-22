@@ -294,27 +294,59 @@ template ids, and a unit test asserts the registry length, so the two cannot dri
 |---|---|---|---|---|
 | 1 | Payment succeeded | `PAYMENT_SUCCEEDED` | trader | yes |
 | 2 | Payment definitively failed | `PAYMENT_FAILED` | trader | yes |
-| 3 | Order created | `ORDER_CREATED` | trader + supplier | yes (both) |
+| 3 | Order created | `ORDER_CREATED` | **supplier** | yes |
 | 4 | Preparation started | `ALLOCATION_PREPARATION_STARTED` | trader | no |
 | 5 | Ready to ship | `ALLOCATION_READY` | trader | no |
 | 6 | Shipped | `ALLOCATION_SHIPPED` | trader | yes |
-| 7 | Delivery confirmed | `ALLOCATION_DELIVERED` | trader + supplier | no |
-| 8 | Master order fulfilled | `MASTER_ORDER_FULFILLED` | trader + supplier | yes (both) |
+| 7 | Delivery confirmed | `ALLOCATION_DELIVERED` | **trader** | no |
+| 8 | Master order fulfilled | `MASTER_ORDER_FULFILLED` | **trader** | yes |
 | 9 | Dispute opened | `DISPUTE_OPENED` | supplier | yes |
 | 10 | Supplier responded | `DISPUTE_SUPPLIER_RESPONDED` | trader | yes |
-| 11 | Dispute decided | `DISPUTE_DECIDED` | trader + supplier | yes (both) |
+| 11 | Dispute decided | `DISPUTE_DECIDED` | **trader** | yes |
 | 12 | Refund initiated | `REFUND_INITIATED` | trader | yes |
 | 13 | Refund definitively failed | `REFUND_FAILED` | trader | yes |
 | 14 | Replacement obligation created | `REPLACEMENT_REQUIRED` | supplier | yes |
 | 15 | Replacement shipped | `REPLACEMENT_SHIPPED` | trader | no |
-| 16 | Replacement delivered | `REPLACEMENT_DELIVERED` | trader + supplier | no |
-| 17 | Replacement failed | `REPLACEMENT_FAILED` | trader + supplier | yes |
+| 16 | Replacement delivered | `REPLACEMENT_DELIVERED` | **trader** | no |
+| 17 | Replacement failed | `REPLACEMENT_FAILED` | **trader** | yes |
 | 18 | Settlement executed | `SETTLEMENT_EXECUTED` | supplier | yes |
 
 Recipient expansion: every active user of the company at creation time gets one
 `NotificationRecipient` row.
 
 **No SMS, no WhatsApp, no push.**
+
+#### Option A — one recipient company per notification *(approved, delivered)*
+
+The six rows above marked in bold read "trader + supplier" in the original
+draft. They were changed during 8D.2 and the change was approved explicitly.
+Each notification type now names exactly **one** `targetCompany`, and the
+implemented matrix in `apps/api/src/notifications/notification-matrix.ts` is
+authoritative — a machine-checked table, not prose.
+
+The reason is that a dual-recipient type has to answer "which company's users?"
+at every call site, and getting it wrong is a counterparty leak rather than a
+missing message. One target per type makes the recipient rule a property of the
+type, checkable once.
+
+Where a business event genuinely concerns both sides, it is now TWO types with
+two audiences rather than one type with two. The capture is the example:
+
+| Event | Type | Audience |
+|---|---|---|
+| A payment was captured | `PAYMENT_SUCCEEDED` | trader |
+| An order was created from it | `ORDER_CREATED` | supplier |
+
+Both are emitted from the same `handleSuccessEvent`, on the same transaction
+client, so they commit together.
+
+**Consequence for 8E.** The five supplier-facing types
+(`ORDER_CREATED`, `DISPUTE_OPENED`, `REPLACEMENT_REQUIRED`,
+`SETTLEMENT_EXECUTED`, and any supplier counterpart added later) are WRITTEN by
+8D's producers but have no supplier-facing read surface. 8E therefore owns four
+more endpoints — the supplier's list, unread count, mark-read and read-all —
+mirroring the trader's four. That moves the Phase 8 endpoint total from **208 to
+212**.
 
 ---
 
@@ -1005,18 +1037,46 @@ objects from any other drift and fail on anything else, and must assert them
 positively against `pg_indexes.indexdef` and `pg_get_constraintdef`. A unit test
 guards offline that no later migration drops either.
 
-### 8D — Trader portal
+### 8D — Trader portal *(delivered)*
 
 | | |
 |---|---|
 | Backend | `GET trader/orders/:id/documents` (1); notifications (4) |
 | Schema | **migration 90** `notifications` + `notification_recipients` + `NotificationType` |
-| Frontend | `(trader)/{dashboard,company,locations,bank-account,tax-profile,opportunities,checkout,payment,orders,orders/[id],disputes,replacements,product-reports,documents,notifications}` |
-| Shared types | `OrderSummary`, `DocumentSummary` + `NOT_A_TAX_INVOICE`, `NotificationItem`, `NotificationType`, `CreateCheckoutSessionRequest` |
+| Frontend | `trader/{dashboard,account/{company,locations,bank-account,tax-profile},opportunities,opportunities/[id],checkout/[checkoutSessionId],payment/[checkoutSessionId],orders,orders/[id],orders/[id]/allocations/[allocationId]/dispute,disputes,disputes/[id],replacements,replacements/[id],product-reports,notifications}` — a real `trader/` segment, not a route group. `documents` is **deferred**, see §12 |
+| Shared types | `OrderSummary`/`OrderDetail`, `DocumentSummary` + `NOT_A_TAX_INVOICE`, `NotificationItem`, `NotificationType`, `CreateCheckoutSessionRequest`, `CheckoutSessionView`, `PaymentAttemptView`, `TraderDisputeDetailView`, `TraderOpportunityItem`/`Detail`, `MoneyString` |
 | Tests | full purchase e2e; repeated `Idempotency-Key` yields the same result; another company's documents → 404; **`COMMISSION_DRAFT` withheld from the trader**; no `snapshotData`; one user's read does not affect a colleague's unread count; relay restart produces no duplicate notification (`dedupeKey` collision); the legal notice is present; affirmative claims are absent |
-| Acceptance gate | zero PDF/QR/ZATCA; **it is documented explicitly that no email is delivered while `EMAIL_PROVIDER_MODE=mock`** |
+| Acceptance gate | zero PDF/QR/ZATCA — **met**; no email delivered under `EMAIL_PROVIDER_MODE=mock` — **documented**, see below |
 | Depends on | 8D0 |
 | Risks | counterparty data leakage is the sharpest risk in this batch |
+
+Delivered in six batches: 8D.1 the notifications foundation, 8D.2 the producer
+matrix, 8D.3 the trader read APIs, 8D.4 the buying journey and the purchase
+composer, 8D.5 the order/dispute/replacement/notification screens, 8D.6 closure.
+
+**Email delivery under the mock provider.** Nothing in 8D sends an email. Every
+notification type marked "yes" above writes an `EMAIL_NOTIFICATION_V1` outbox
+row, and the relay hands it to the configured provider — which is
+`EMAIL_PROVIDER_MODE=mock`, the only supported mode, and which **sends
+nothing**. `PUBLISHED` means the mock accepted the command; it is a log line.
+No trader screen mentions email, delivery status or the outbox, and none may:
+the notification feed is an in-app feed and must never read as a delivery
+dashboard. See §9 and §13.
+
+**On the `●` marker in the Next.js build report.** Every `/[locale]/trader/*`
+route prints `●  (SSG)` in `next build`. That marker reports
+`generateStaticParams` ELIGIBILITY, not that anything was prerendered, and the
+distinction matters because these pages carry one signed-in company's orders and
+notifications. The real evidence that nothing is prerendered is measured, not
+read off the marker:
+
+1. `.next/server/app/` contains **no `.html` or `.rsc` file** under `[locale]`;
+2. `.next/prerender-manifest.json` `routes` contains **only `/_not-found`**.
+
+Both are checked on every verification pass. `generateStaticParams` is kept —
+it is what enumerates the two locales — and `export const dynamic =
+"force-dynamic"` on `app/[locale]/trader/layout.tsx` is what makes the segment
+per-request. Do not "fix" the marker; check the two artefacts instead.
 
 ### 8E — Supplier portal
 
@@ -1088,9 +1148,9 @@ the caching decision 8G owes.
 | Metric | Value |
 |---|---|
 | Migrations | **87 → 90** (88 banners, 89 outbox relay, 90 notifications) |
-| Migrations on disk now | **89** — 88 banners, 89 `20260824000100_8d0_add_outbox_relay_fields` |
-| Endpoints | **178 → 208** (+30; 8D0 adds zero) |
-| Endpoints measured now (after 8D0) | **195** |
+| Migrations on disk now | **90** — 88 banners, 89 outbox relay, 90 `20260825000100_8d_create_notifications` |
+| Endpoints | **178 → 212** (+34; 8D0 adds zero, 8E gains +4 from Option A) |
+| Endpoints measured now (after 8D) | **203** |
 | Batches | **7** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G |
 | Notification types | 18, of which **13** emit `EMAIL_NOTIFICATION_V1` |
 | Legacy outbox event types left outside the relay | 13 |
@@ -1105,19 +1165,25 @@ New endpoints by group:
 | Banners — public 2 + admin 6 + admin image 3 | 11 | 8C | delivered |
 | Opportunity image — public | 1 | 8C | delivered |
 | Outbox relay | **0** | 8D0 | delivered |
-| Notifications | 4 | 8D | planned |
-| Trader documents | 1 | 8D | planned |
-| Trader disputes + replacements list/detail | 3 | 8D | planned |
+| Notifications — trader | 4 | 8D | delivered |
+| Trader documents | 1 | 8D | delivered |
+| Trader disputes + replacements list/detail | 3 | 8D | delivered |
+| Notifications — supplier | 4 | 8E | planned (Option A) |
 | Supplier documents | 1 | 8E | planned |
 | Supplier settlements | 2 | 8E | planned |
 | Audit log viewer | 1 | 8F | planned |
 | Outbox stats | 1 | 8F | planned |
-| **Total** | **30** | | |
+| **Total** | **34** | | |
 
 **How the totals reconcile.** 178 measured before Phase 8, +5 delivered in
-8B/8B.1, +12 delivered in 8C, **+0 in 8D0** = **195 measured today**. The
-remaining 13 planned endpoints (8 in 8D, 3 in 8E, 2 in 8F) bring the phase to
-**208**.
+8B/8B.1, +12 delivered in 8C, **+0 in 8D0**, **+8 in 8D** = **203 measured
+today**. The remaining 9 planned endpoints (7 in 8E — 1 documents, 2
+settlements, 4 supplier notifications — and 2 in 8F) bring the phase to **212**.
+
+The +34 figure supersedes +30. The four added are the supplier notification
+routes that Option A made necessary: 8D's producers write supplier-targeted
+notifications, and until 8E builds a supplier read surface there is nowhere to
+read them.
 
 The +30 figure supersedes the earlier +27. Three revisions produced it: 8B.1
 added the four admin brand-theme routes; 8C came in at 12 against an estimate of 8
@@ -1301,6 +1367,16 @@ described as proven duplicate-free.
 - **Real email provider.** See §13.
 - `User.preferredLocale` — a prerequisite for the real provider.
 - Manual outbox retry and delete. No safe endpoint exists today, so none is reused.
+- **A standalone trader document index at `/[locale]/trader/documents`.**
+  Documents are exposed only as `GET /trader/orders/:id/documents` — per
+  order, with no flat, paginated list across a company. A top-level page could
+  therefore only be built by fanning out over the orders list, which is an N+1
+  and cannot paginate correctly: the page boundaries would be the ORDERS' and
+  the counts would be wrong, so a reader would see a document list that skips
+  and repeats rows as they page. In 8D.5 the documents render inside
+  `/[locale]/trader/orders/[id]`, from that order's own endpoint. The index
+  waits for a genuinely paginated documents endpoint; until one exists there is
+  no Documents entry in the trader navigation, inert or otherwise.
 - Processing the 13 legacy outbox event types.
 - Per-entity allowlists for audit detail views.
 - Signed uploads (the storage service exposes `upload`/`read`/`delete` only).
