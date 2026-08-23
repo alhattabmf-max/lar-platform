@@ -54,14 +54,39 @@ function readControllers(): ControllerInfo[] {
 const CONTROLLERS = readControllers();
 const SUPPLIER = CONTROLLERS.filter((c) => c.basePath.startsWith("supplier/"));
 
-describe("the API is exactly the size 8E leaves it", () => {
-  it("has 215 endpoints", () => {
-    // 203 after 8D, +12 in 8E: one product image, three supplier order reads,
-    // two settlements, four notifications, two replacement reads, one dispute
-    // list, one product detail — minus the two legacy raw-row supplier order
-    // routes this batch deleted. 12 net additions, 14 gross.
+describe("the API is exactly the size 8F leaves it", () => {
+  it("has 233 endpoints", () => {
+    // 215 after 8E, +18 in 8F, all additions and no deletions:
+    //
+    //   Admin identity and lifecycle (7)
+    //     GET  admin/auth/me
+    //     POST admin/auth/password/change
+    //     POST admin/auth/recovery-codes/regenerate
+    //     GET  admin/admin-users
+    //     POST admin/admin-users/:id/disable
+    //     POST admin/admin-users/:id/enable
+    //     POST admin/admin-users/:id/reset-2fa
+    //
+    //   Reads decision E named (7)
+    //     GET admin/audit-logs
+    //     GET admin/companies
+    //     GET admin/products
+    //     GET admin/bank-accounts/history
+    //     GET admin/refund-obligations
+    //     GET admin/settlements
+    //     GET admin/outbox/stats
+    //
+    //   Two vocabularies read from the data rather than hardcoded (2)
+    //     GET admin/audit-logs/actions          — the audit filter
+    //     GET admin/refund-obligations/providers — the refund providers
+    //
+    //   Supporting reads for the portal and the supplier forms (2)
+    //     GET companies/me/policy-limits
+    //     GET public/site-content
+    //
+    // 215 + 18 = 233 gross, 233 net.
     const total = CONTROLLERS.reduce((sum, c) => sum + c.methods.length, 0);
-    expect(total).toBe(215);
+    expect(total).toBe(233);
   });
 
   it("added no schema change — the migration count is unchanged", () => {

@@ -43,7 +43,7 @@ export class AdminBankAccountsController {
     @CurrentAdminSession() session: AdminSessionData,
     @Req() req: Request
   ) {
-    await this.adminBankAccounts.reject(id, dto.reason ?? "No reason provided", session.adminUserId, ctxFrom(req));
+    await this.adminBankAccounts.reject(id, dto.reason, session.adminUserId, ctxFrom(req));
     return { status: "REJECTED" };
   }
 }

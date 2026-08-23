@@ -1,7 +1,8 @@
 import type { PrismaService } from "../../src/database/prisma.service";
+import { Prisma } from "@prisma/client";
 import { seedFulfillmentFixture, fulfillmentFixturePrisma } from "./fulfillment.fixture";
 import { OrderAllocationService } from "../../src/fulfillment/order-allocation.service";
-import { computeDisputeRefundReversal } from "@platform/domain";
+import { computeDisputeRefundReversalExact, isPositiveExact } from "@platform/domain";
 import { notificationEvents } from "./notifications.fixture";
 
 const prisma = fulfillmentFixturePrisma;
@@ -62,7 +63,16 @@ export async function seedSettlementFixture(prefix: string, disputeWindowOffsetM
  */
 export async function seedHistoricalDisputeRefundFixture(
   prefix: string,
-  refundSpec: { decisionType: "FULL_REFUND" | "PARTIAL_REFUND"; productRefundAmountInclTax: number; shippingRefundAmount: number }
+  refundSpec: {
+    decisionType: "FULL_REFUND" | "PARTIAL_REFUND";
+    /**
+     * Canonical two-place decimal STRINGS, matching what the service
+     * accepts. A historical fixture that seeded floats would compute its
+     * ledger a different way from production and quietly disagree.
+     */
+    productRefundAmountInclTax: string;
+    shippingRefundAmount: string;
+  }
 ): Promise<SettlementFixture & { disputeId: string; disputeDecisionId: string; refundObligationId: string }> {
   const base = await seedFulfillmentFixture(prefix);
   const traderUserId = base.traderUserId;
@@ -122,8 +132,8 @@ export async function seedHistoricalDisputeRefundFixture(
         disputeId: dispute.id,
         sequenceNumber: 1,
         decisionType: refundSpec.decisionType,
-        productRefundAmountInclTax: refundSpec.productRefundAmountInclTax,
-        shippingRefundAmount: refundSpec.shippingRefundAmount,
+        productRefundAmountInclTax: new Prisma.Decimal(refundSpec.productRefundAmountInclTax),
+        shippingRefundAmount: new Prisma.Decimal(refundSpec.shippingRefundAmount),
         reasonNote: "Historical fixture decision.",
         decidedByAdminUserId: adminUserId,
         decidedAt,
@@ -131,13 +141,12 @@ export async function seedHistoricalDisputeRefundFixture(
     });
 
     const snapshot = await tx.orderAllocationFinancialSnapshot.findUniqueOrThrow({ where: { orderAllocationId: deliveredId } });
-    const reversal = computeDisputeRefundReversal({
+    const reversal = computeDisputeRefundReversalExact({
       productRefundAmountInclTax: refundSpec.productRefundAmountInclTax,
       shippingRefundAmount: refundSpec.shippingRefundAmount,
-      snapshotProductAmountInclTax: Number(snapshot.productAmountInclTax),
-      snapshotCommissionShareAmount: Number(snapshot.commissionShareAmount),
-      snapshotCommissionShareTaxAmount: Number(snapshot.commissionShareTaxAmount),
-      snapshotSupplierPayableShareAmount: Number(snapshot.supplierPayableShareAmount),
+      snapshotProductAmountInclTax: snapshot.productAmountInclTax.toFixed(2),
+      snapshotCommissionShareAmount: snapshot.commissionShareAmount.toFixed(2),
+      snapshotCommissionShareTaxAmount: snapshot.commissionShareTaxAmount.toFixed(2),
     });
 
     const masterOrder = await tx.masterOrder.findUniqueOrThrow({ where: { id: base.masterOrderId } });
@@ -147,29 +156,36 @@ export async function seedHistoricalDisputeRefundFixture(
         source: "DISPUTE",
         disputeDecisionId: decision.id,
         reasonCode: refundSpec.decisionType === "FULL_REFUND" ? "DISPUTE_FULL_REFUND" : "DISPUTE_PARTIAL_REFUND",
-        productRefundAmountInclTax: refundSpec.productRefundAmountInclTax,
-        shippingRefundAmount: refundSpec.shippingRefundAmount,
-        amount: reversal.totalRefundAmount,
+        productRefundAmountInclTax: new Prisma.Decimal(refundSpec.productRefundAmountInclTax),
+        shippingRefundAmount: new Prisma.Decimal(refundSpec.shippingRefundAmount),
+        amount: new Prisma.Decimal(reversal.totalRefundAmount),
       },
     });
 
     const journal = await tx.journalEntry.create({
       data: { eventType: "DISPUTE_REFUND_OBLIGATION", referenceType: "refund_obligation", referenceId: refund.id, idempotencyKey: `dispute-refund:${refund.id}` },
     });
-    const postings: { journalEntryId: string; account: "SUPPLIER_PAYABLE" | "PLATFORM_COMMISSION_REVENUE" | "COMMISSION_TAX_PAYABLE" | "SHIPPING_LIABILITY" | "CUSTOMER_REFUND_PAYABLE"; direction: "DEBIT" | "CREDIT"; amount: number }[] = [];
-    if (reversal.supplierPayableDebitAmount > 0) {
-      postings.push({ journalEntryId: journal.id, account: "SUPPLIER_PAYABLE", direction: "DEBIT", amount: reversal.supplierPayableDebitAmount });
+    // Mirrors the service exactly: Decimal amounts, and a zero-amount
+    // posting omitted rather than written.
+    const postings: {
+      journalEntryId: string;
+      account: "SUPPLIER_PAYABLE" | "PLATFORM_COMMISSION_REVENUE" | "COMMISSION_TAX_PAYABLE" | "SHIPPING_LIABILITY" | "CUSTOMER_REFUND_PAYABLE";
+      direction: "DEBIT" | "CREDIT";
+      amount: Prisma.Decimal;
+    }[] = [];
+    if (isPositiveExact(reversal.supplierPayableDebitAmount)) {
+      postings.push({ journalEntryId: journal.id, account: "SUPPLIER_PAYABLE", direction: "DEBIT", amount: new Prisma.Decimal(reversal.supplierPayableDebitAmount) });
     }
-    if (reversal.commissionReversalAmount > 0) {
-      postings.push({ journalEntryId: journal.id, account: "PLATFORM_COMMISSION_REVENUE", direction: "DEBIT", amount: reversal.commissionReversalAmount });
+    if (isPositiveExact(reversal.commissionReversalAmount)) {
+      postings.push({ journalEntryId: journal.id, account: "PLATFORM_COMMISSION_REVENUE", direction: "DEBIT", amount: new Prisma.Decimal(reversal.commissionReversalAmount) });
     }
-    if (reversal.commissionTaxReversalAmount > 0) {
-      postings.push({ journalEntryId: journal.id, account: "COMMISSION_TAX_PAYABLE", direction: "DEBIT", amount: reversal.commissionTaxReversalAmount });
+    if (isPositiveExact(reversal.commissionTaxReversalAmount)) {
+      postings.push({ journalEntryId: journal.id, account: "COMMISSION_TAX_PAYABLE", direction: "DEBIT", amount: new Prisma.Decimal(reversal.commissionTaxReversalAmount) });
     }
-    if (refundSpec.shippingRefundAmount > 0) {
-      postings.push({ journalEntryId: journal.id, account: "SHIPPING_LIABILITY", direction: "DEBIT", amount: refundSpec.shippingRefundAmount });
+    if (isPositiveExact(refundSpec.shippingRefundAmount)) {
+      postings.push({ journalEntryId: journal.id, account: "SHIPPING_LIABILITY", direction: "DEBIT", amount: new Prisma.Decimal(refundSpec.shippingRefundAmount) });
     }
-    postings.push({ journalEntryId: journal.id, account: "CUSTOMER_REFUND_PAYABLE", direction: "CREDIT", amount: reversal.totalRefundAmount });
+    postings.push({ journalEntryId: journal.id, account: "CUSTOMER_REFUND_PAYABLE", direction: "CREDIT", amount: new Prisma.Decimal(reversal.totalRefundAmount) });
     await tx.ledgerPosting.createMany({ data: postings });
 
     await tx.$executeRawUnsafe(

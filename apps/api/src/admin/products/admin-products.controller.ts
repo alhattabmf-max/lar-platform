@@ -53,7 +53,7 @@ export class AdminProductsController {
     @CurrentAdminSession() session: AdminSessionData,
     @Req() req: Request
   ) {
-    await this.adminProducts.reject(id, dto.reason ?? "No reason provided", session.adminUserId, ctxFrom(req));
+    await this.adminProducts.reject(id, dto.reason, session.adminUserId, ctxFrom(req));
     return { status: "REJECTED" };
   }
 

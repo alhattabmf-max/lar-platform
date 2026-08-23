@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { DisputeService } from "../src/disputes/dispute.service";
 import { seedDisputeFixture, disputeFixturePrisma } from "./fixtures/dispute.fixture";
@@ -165,8 +166,16 @@ describe("DisputeService — races, decision sequencing, ledger precision (integ
     const adminCtx = { userId: crypto.randomUUID(), requestId: "r3" };
 
     const snapshot = await prisma.orderAllocationFinancialSnapshot.findUniqueOrThrow({ where: { orderAllocationId: fixture.deliveredOrderAllocationId } });
-    const partialProduct = Math.floor((Number(snapshot.productAmountInclTax) / 3) * 100) / 100;
-    const partialShipping = Math.floor((Number(snapshot.shippingFeeAmount) / 3) * 100) / 100;
+    // A third of the snapshot, floored to whole cents — computed with
+    // Decimal so the value the test asks for is the value it means. The
+    // float version of this line produced a number that then had to be
+    // re-parsed, which is the very conversion this path removed.
+    const partialProduct = snapshot.productAmountInclTax
+      .dividedBy(3)
+      .toFixed(2, Prisma.Decimal.ROUND_DOWN);
+    const partialShipping = snapshot.shippingFeeAmount
+      .dividedBy(3)
+      .toFixed(2, Prisma.Decimal.ROUND_DOWN);
 
     const dispute = await service.openDispute(fixture.deliveredOrderAllocationId, { reasonCode: "QUANTITY_SHORTAGE", description: "Testing ledger precision on partial refund." }, traderCtx);
     await service.supplierRespond(dispute.id, { responseType: "PARTIAL_ACCEPT", description: "We accept partial responsibility." }, supplierCtx);

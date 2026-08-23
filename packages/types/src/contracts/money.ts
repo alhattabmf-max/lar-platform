@@ -91,3 +91,49 @@ export function assertMoneyString(value: unknown, field: string): asserts value 
     );
   }
 }
+
+/**
+ * The largest value each money column in this system can hold.
+ *
+ * PostgreSQL `numeric(p,s)` allows `p - s` digits before the point, so
+ * `Decimal(14,2)` tops out at twelve integer digits and `Decimal(12,2)`
+ * at ten. Exceeding it is not a rounding problem — it is
+ * `numeric field overflow`, a 500 raised by the driver after the
+ * request has already been accepted.
+ *
+ * Declared here so the API can refuse an over-large amount with a 400
+ * that names the field, and so a test can assert the boundary against
+ * the same literal the validator uses.
+ *
+ * The dispute refund columns — `DisputeDecision.productRefundAmountInclTax`,
+ * `.shippingRefundAmount` and `RefundObligation.amount` — are
+ * `Decimal(14,2)`. The allocation snapshot's `shippingFeeAmount` is
+ * `Decimal(12,2)`, and it is the tighter of the two bounds a shipping
+ * refund actually has to satisfy.
+ */
+export const DECIMAL_14_2_MAX = "999999999999.99";
+export const DECIMAL_12_2_MAX = "9999999999.99";
+
+/** Integer digits each precision allows, for a bound check without parsing. */
+export const DECIMAL_14_2_INTEGER_DIGITS = 12;
+export const DECIMAL_12_2_INTEGER_DIGITS = 10;
+
+/**
+ * True when a canonical money string fits a column with
+ * `integerDigits` digits before the point.
+ *
+ * Works on the STRING, deliberately. Parsing to compare would put a
+ * float back on a path whose whole purpose is to keep one out, and the
+ * digit count is the exact question `numeric(p,s)` asks.
+ *
+ * Leading zeros are counted as written: `"0000000000001.00"` has
+ * thirteen integer characters but is one riyal. It is rejected anyway,
+ * because a canonical amount does not carry them and accepting one
+ * would mean this function disagrees with `MONEY_STRING_PATTERN` about
+ * what canonical means.
+ */
+export function fitsDecimalPrecision(value: string, integerDigits: number): boolean {
+  if (!isMoneyString(value)) return false;
+  const digits = value.replace("-", "").split(".")[0];
+  return digits.length <= integerDigits;
+}

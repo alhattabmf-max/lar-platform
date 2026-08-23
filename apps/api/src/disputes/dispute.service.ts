@@ -1,11 +1,18 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType, Prisma } from "@prisma/client";
-import { computeDisputeRefundReversal } from "@platform/domain";
+import {
+  computeDisputeRefundReversalExact,
+  isPositiveExact,
+  isWithinExact,
+  type ExactMoney,
+} from "@platform/domain";
 import { PrismaService } from "../database/prisma.service";
 import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES, MAX_TRADER_PAGE_SIZE } from "@platform/types";
 import type {
+  AdminDisputeDetail,
+  AdminDisputeItem,
   Paginated,
   SupplierDisputeDetailView,
   SupplierDisputeSummary,
@@ -53,8 +60,18 @@ export interface SupplierRespondInput {
 
 export interface AdminDecisionInput {
   decisionType: DisputeDecisionType;
-  productRefundAmountInclTax?: number;
-  shippingRefundAmount?: number;
+  /**
+   * Canonical two-place decimal STRINGS, not numbers.
+   *
+   * They were `number`, and the controller reached them by calling
+   * `Number(dto.productRefundAmountInclTax)` on a value the DTO had
+   * already validated as an exact decimal string. That conversion put an
+   * IEEE-754 double in the middle of the one decision that determines how
+   * much money leaves the platform. The digits that arrive are now the
+   * digits that are compared, computed with, and stored.
+   */
+  productRefundAmountInclTax?: ExactMoney;
+  shippingRefundAmount?: ExactMoney;
   replacementQuantity?: number;
   reasonNote: string;
 }
@@ -63,6 +80,15 @@ const MIN_DESCRIPTION_LENGTH = 5;
 
 const HTTP_IDEMPOTENCY_TTL_HOURS = 24;
 const HTTP_MAX_RETRY = 3;
+
+/**
+ * The admin queue's page bounds.
+ *
+ * Capped at 100 like every other admin list: an uncapped page size is a
+ * way to ask the database for the whole table.
+ */
+const DEFAULT_ADMIN_DISPUTE_PAGE_SIZE = 25;
+const MAX_ADMIN_DISPUTE_PAGE_SIZE = 100;
 
 @Injectable()
 export class DisputeService {
@@ -374,22 +400,51 @@ export class DisputeService {
     const snapshot = dispute.orderAllocation.financialSnapshot;
     if (!snapshot) throw new BusinessException(409, ERROR_CODES.CONFLICT, "No financial snapshot for this allocation");
 
-    let productRefund: number | null = null;
-    let shippingRefund: number | null = null;
+    // ------------------------------------------------------------------
+    // MONEY, EXACT.
+    //
+    // Every amount below is a canonical two-place decimal STRING from the
+    // moment it leaves the request body to the moment Prisma writes it.
+    // There is no `Number`, no `parseFloat` and no `toNumber` on this
+    // path, and `dispute-money.spec.ts` asserts that by reading the
+    // source rather than trusting the reviewer.
+    //
+    // The frozen snapshot's own columns are `Prisma.Decimal`, so they are
+    // rendered with `toFixed(2)` — the same producer every money surface
+    // in this system uses — rather than converted.
+    // ------------------------------------------------------------------
+    const snapshotProduct = snapshot.productAmountInclTax.toFixed(2);
+    const snapshotShipping = snapshot.shippingFeeAmount.toFixed(2);
+
+    let productRefund: string | null = null;
+    let shippingRefund: string | null = null;
 
     if (input.decisionType === "FULL_REFUND") {
-      productRefund = Number(snapshot.productAmountInclTax);
-      shippingRefund = Number(snapshot.shippingFeeAmount);
+      // A full refund IS the snapshot, digit for digit. Recomputing it
+      // would be a second source of truth for a figure already frozen.
+      productRefund = snapshotProduct;
+      shippingRefund = snapshotShipping;
     } else if (input.decisionType === "PARTIAL_REFUND") {
-      if (input.productRefundAmountInclTax === undefined || input.shippingRefundAmount === undefined) {
+      // `== null` rather than `=== undefined`: it catches both, so a
+      // null that ever gets past the DTO stops here as a 400 instead of
+      // reaching the Decimal parser and surfacing as a 500.
+      if (input.productRefundAmountInclTax == null || input.shippingRefundAmount == null) {
         throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, "productRefundAmountInclTax and shippingRefundAmount are required for a partial refund");
       }
-      if (input.productRefundAmountInclTax < 0 || input.productRefundAmountInclTax > Number(snapshot.productAmountInclTax)) {
+
+      // The DTO already refused a negative, a third decimal place,
+      // scientific notation, NaN, Infinity and anything too large for
+      // the column. What remains is the bound against the FROZEN
+      // snapshot, compared as Decimals — `Number(a) > Number(b)` here
+      // would be a float re-entering the one comparison that decides
+      // how much money leaves the platform.
+      if (!isWithinExact(input.productRefundAmountInclTax, snapshotProduct)) {
         throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, "productRefundAmountInclTax is out of bounds");
       }
-      if (input.shippingRefundAmount < 0 || input.shippingRefundAmount > Number(snapshot.shippingFeeAmount)) {
+      if (!isWithinExact(input.shippingRefundAmount, snapshotShipping)) {
         throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, "shippingRefundAmount is out of bounds");
       }
+
       productRefund = input.productRefundAmountInclTax;
       shippingRefund = input.shippingRefundAmount;
     } else if (input.decisionType === "REPLACEMENT") {
@@ -406,8 +461,10 @@ export class DisputeService {
         disputeId,
         sequenceNumber,
         decisionType: input.decisionType,
-        productRefundAmountInclTax: productRefund,
-        shippingRefundAmount: shippingRefund,
+        // Constructed from the ORIGINAL string, so the digits stored are
+        // the digits that arrived.
+        productRefundAmountInclTax: productRefund === null ? null : new Prisma.Decimal(productRefund),
+        shippingRefundAmount: shippingRefund === null ? null : new Prisma.Decimal(shippingRefund),
         reasonNote: input.reasonNote.trim(),
         decidedByAdminUserId: ctx.userId!,
       },
@@ -431,13 +488,18 @@ export class DisputeService {
       await tx.dispute.update({ where: { id: disputeId }, data: { status: "AWAITING_REPLACEMENT" } });
     } else {
       // FULL_REFUND / PARTIAL_REFUND
-      const reversal = computeDisputeRefundReversal({
+      //
+      // The reversal balances BY CONSTRUCTION: the supplier debit is
+      // derived as `productRefund − commissionReversal −
+      // commissionTaxReversal`, so those two cancel out of the debit
+      // total and the entry equals `productRefund + shippingRefund`
+      // exactly, for every input rather than for the ones anybody tried.
+      const reversal = computeDisputeRefundReversalExact({
         productRefundAmountInclTax: productRefund!,
         shippingRefundAmount: shippingRefund!,
-        snapshotProductAmountInclTax: Number(snapshot.productAmountInclTax),
-        snapshotCommissionShareAmount: Number(snapshot.commissionShareAmount),
-        snapshotCommissionShareTaxAmount: Number(snapshot.commissionShareTaxAmount),
-        snapshotSupplierPayableShareAmount: Number(snapshot.supplierPayableShareAmount),
+        snapshotProductAmountInclTax: snapshotProduct,
+        snapshotCommissionShareAmount: snapshot.commissionShareAmount.toFixed(2),
+        snapshotCommissionShareTaxAmount: snapshot.commissionShareTaxAmount.toFixed(2),
       });
 
       const refund = await tx.refundObligation.create({
@@ -446,9 +508,9 @@ export class DisputeService {
           source: "DISPUTE",
           disputeDecisionId: decision.id,
           reasonCode: input.decisionType === "FULL_REFUND" ? "DISPUTE_FULL_REFUND" : "DISPUTE_PARTIAL_REFUND",
-          productRefundAmountInclTax: productRefund!,
-          shippingRefundAmount: shippingRefund!,
-          amount: reversal.totalRefundAmount,
+          productRefundAmountInclTax: new Prisma.Decimal(productRefund!),
+          shippingRefundAmount: new Prisma.Decimal(shippingRefund!),
+          amount: new Prisma.Decimal(reversal.totalRefundAmount),
         },
       });
 
@@ -461,20 +523,29 @@ export class DisputeService {
         },
       });
 
-      const postings: { journalEntryId: string; account: "SUPPLIER_PAYABLE" | "PLATFORM_COMMISSION_REVENUE" | "COMMISSION_TAX_PAYABLE" | "SHIPPING_LIABILITY" | "CUSTOMER_REFUND_PAYABLE"; direction: "DEBIT" | "CREDIT"; amount: number }[] = [];
-      if (reversal.supplierPayableDebitAmount > 0) {
-        postings.push({ journalEntryId: journal.id, account: "SUPPLIER_PAYABLE", direction: "DEBIT", amount: reversal.supplierPayableDebitAmount });
+      // A zero-amount posting is omitted rather than written: the ledger
+      // records movements, and a debit of nothing is not one. The test
+      // for the zero case asserts the entry still balances without it.
+      const postings: {
+        journalEntryId: string;
+        account: "SUPPLIER_PAYABLE" | "PLATFORM_COMMISSION_REVENUE" | "COMMISSION_TAX_PAYABLE" | "SHIPPING_LIABILITY" | "CUSTOMER_REFUND_PAYABLE";
+        direction: "DEBIT" | "CREDIT";
+        amount: Prisma.Decimal;
+      }[] = [];
+
+      if (isPositiveExact(reversal.supplierPayableDebitAmount)) {
+        postings.push({ journalEntryId: journal.id, account: "SUPPLIER_PAYABLE", direction: "DEBIT", amount: new Prisma.Decimal(reversal.supplierPayableDebitAmount) });
       }
-      if (reversal.commissionReversalAmount > 0) {
-        postings.push({ journalEntryId: journal.id, account: "PLATFORM_COMMISSION_REVENUE", direction: "DEBIT", amount: reversal.commissionReversalAmount });
+      if (isPositiveExact(reversal.commissionReversalAmount)) {
+        postings.push({ journalEntryId: journal.id, account: "PLATFORM_COMMISSION_REVENUE", direction: "DEBIT", amount: new Prisma.Decimal(reversal.commissionReversalAmount) });
       }
-      if (reversal.commissionTaxReversalAmount > 0) {
-        postings.push({ journalEntryId: journal.id, account: "COMMISSION_TAX_PAYABLE", direction: "DEBIT", amount: reversal.commissionTaxReversalAmount });
+      if (isPositiveExact(reversal.commissionTaxReversalAmount)) {
+        postings.push({ journalEntryId: journal.id, account: "COMMISSION_TAX_PAYABLE", direction: "DEBIT", amount: new Prisma.Decimal(reversal.commissionTaxReversalAmount) });
       }
-      if (shippingRefund! > 0) {
-        postings.push({ journalEntryId: journal.id, account: "SHIPPING_LIABILITY", direction: "DEBIT", amount: shippingRefund! });
+      if (isPositiveExact(shippingRefund!)) {
+        postings.push({ journalEntryId: journal.id, account: "SHIPPING_LIABILITY", direction: "DEBIT", amount: new Prisma.Decimal(shippingRefund!) });
       }
-      postings.push({ journalEntryId: journal.id, account: "CUSTOMER_REFUND_PAYABLE", direction: "CREDIT", amount: reversal.totalRefundAmount });
+      postings.push({ journalEntryId: journal.id, account: "CUSTOMER_REFUND_PAYABLE", direction: "CREDIT", amount: new Prisma.Decimal(reversal.totalRefundAmount) });
 
       await tx.ledgerPosting.createMany({ data: postings });
 
@@ -620,27 +691,166 @@ export class DisputeService {
     return { items: rows.map(toSupplierDisputeSummary), page, pageSize, total };
   }
 
-  async getForAdmin(disputeId: string) {
+  /**
+   * One dispute, for an operator.
+   *
+   * A CLOSED projection. Until this replaced it, the read was
+   * `include: { evidence: true, ... }`, which shipped
+   * `DisputeEvidence.storageObjectKey` — a direct address in the object
+   * store — to the browser, along with whole `RefundObligation` and
+   * `ReplacementObligation` rows for every decision. Evidence is now
+   * metadata plus an id; the file itself is fetched through its own
+   * authorised endpoint, and the obligations are two ids the operator
+   * can follow.
+   *
+   * The two refund figures on a decision are `Decimal(12,2)` columns
+   * and are serialised with `toFixed(2)`, not handed over raw: a
+   * `Decimal` stringifies as `"100"` rather than `"100.00"`, which is
+   * not the money contract this system reconciles against.
+   */
+  async getForAdmin(disputeId: string): Promise<AdminDisputeDetail> {
     const dispute = await this.prisma.dispute.findUnique({
       where: { id: disputeId },
-      include: {
-        evidence: true,
-        supplierResponse: true,
-        decisions: { include: { refundObligation: true, replacementObligation: true } },
-        orderAllocation: { select: { id: true, status: true, masterOrderId: true } },
+      select: {
+        id: true,
+        orderAllocationId: true,
+        reasonCode: true,
+        status: true,
+        description: true,
+        supplierResponseDueAt: true,
+        openedAt: true,
+        orderAllocation: {
+          select: {
+            masterOrderId: true,
+            masterOrder: { select: { paymentAttempt: { select: { currency: true } } } },
+          },
+        },
+        evidence: {
+          select: { id: true, uploadedAt: true },
+          orderBy: [{ uploadedAt: "asc" }, { id: "asc" }],
+        },
+        supplierResponse: {
+          select: { responseType: true, description: true, respondedAt: true },
+        },
+        decisions: {
+          select: {
+            id: true,
+            sequenceNumber: true,
+            decisionType: true,
+            productRefundAmountInclTax: true,
+            shippingRefundAmount: true,
+            reasonNote: true,
+            decidedAt: true,
+            refundObligation: { select: { id: true } },
+            replacementObligation: { select: { id: true } },
+          },
+          orderBy: [{ sequenceNumber: "asc" }, { id: "asc" }],
+        },
       },
     });
     if (!dispute) throw new NotFoundException("Dispute not found");
-    return dispute;
+
+    return {
+      id: dispute.id,
+      orderAllocationId: dispute.orderAllocationId,
+      masterOrderId: dispute.orderAllocation.masterOrderId,
+      reasonCode: dispute.reasonCode,
+      status: dispute.status,
+      description: dispute.description,
+      currency: dispute.orderAllocation.masterOrder.paymentAttempt.currency,
+      supplierResponseDueAt: dispute.supplierResponseDueAt.toISOString(),
+      openedAt: dispute.openedAt.toISOString(),
+      evidence: dispute.evidence.map((item) => ({
+        id: item.id,
+        uploadedAt: item.uploadedAt.toISOString(),
+      })),
+      supplierResponse: dispute.supplierResponse
+        ? {
+            responseType: dispute.supplierResponse.responseType,
+            description: dispute.supplierResponse.description,
+            respondedAt: dispute.supplierResponse.respondedAt.toISOString(),
+          }
+        : null,
+      decisions: dispute.decisions.map((decision) => ({
+        id: decision.id,
+        sequenceNumber: decision.sequenceNumber,
+        decisionType: decision.decisionType,
+        // null means the decision awarded nothing under that head,
+        // which is not the same as zero and is not rendered as "0.00".
+        productRefundAmountInclTax:
+          decision.productRefundAmountInclTax === null
+            ? null
+            : decision.productRefundAmountInclTax.toFixed(2),
+        shippingRefundAmount:
+          decision.shippingRefundAmount === null ? null : decision.shippingRefundAmount.toFixed(2),
+        reasonNote: decision.reasonNote,
+        decidedAt: decision.decidedAt.toISOString(),
+        refundObligationId: decision.refundObligation?.id ?? null,
+        replacementObligationId: decision.replacementObligation?.id ?? null,
+      })),
+    };
   }
 
-  async listForAdmin(filters?: { status?: string }) {
-    return this.prisma.dispute.findMany({
-      where: filters?.status ? { status: filters.status as never } : undefined,
-      select: { id: true, orderAllocationId: true, reasonCode: true, status: true, supplierResponseDueAt: true, openedAt: true },
-      orderBy: { openedAt: "desc" },
-      take: 200,
-    });
+  /**
+   * The operator's queue.
+   *
+   * Paginated rather than `take: 200`. A hard take silently hides
+   * everything past the two-hundredth open dispute, and hiding a case
+   * from the only screen that can decide it is worse than showing a
+   * second page.
+   *
+   * `description` is not selected: a queue is scanned, and free text
+   * written by a counterparty does not belong in a scannable column.
+   */
+  async listForAdmin(
+    filters: { status?: string; page?: number; pageSize?: number } = {}
+  ): Promise<Paginated<AdminDisputeItem>> {
+    const page = Math.max(1, Math.trunc(filters.page ?? 1));
+    const pageSize = Math.min(
+      MAX_ADMIN_DISPUTE_PAGE_SIZE,
+      Math.max(1, Math.trunc(filters.pageSize ?? DEFAULT_ADMIN_DISPUTE_PAGE_SIZE))
+    );
+
+    const where: Prisma.DisputeWhereInput = filters.status
+      ? { status: filters.status as never }
+      : {};
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.dispute.findMany({
+        where,
+        select: {
+          id: true,
+          orderAllocationId: true,
+          reasonCode: true,
+          status: true,
+          supplierResponseDueAt: true,
+          openedAt: true,
+          orderAllocation: { select: { masterOrderId: true } },
+        },
+        // Terminating in `id` so two disputes opened in the same
+        // millisecond cannot swap places between pages and hide one of
+        // themselves.
+        orderBy: [{ openedAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.dispute.count({ where }),
+    ]);
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        orderAllocationId: row.orderAllocationId,
+        masterOrderId: row.orderAllocation.masterOrderId,
+        reasonCode: row.reasonCode,
+        status: row.status,
+        supplierResponseDueAt: row.supplierResponseDueAt.toISOString(),
+        openedAt: row.openedAt.toISOString(),
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   private assertDescription(description: string): void {

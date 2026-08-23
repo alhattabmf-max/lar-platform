@@ -143,6 +143,30 @@ export function computeOrderAllocationFinancialSnapshots(input: FinancialSnapsho
 // Dispute refund math — commission reversal computed from the PRODUCT
 // portion only, never shipping.
 // -----------------------------------------------------------------------
+
+/**
+ * SUPERSEDED. Use `computeDisputeRefundReversalExact` instead.
+ *
+ * This is the FLOAT version. It takes `number` and rounds with
+ * `Math.round(n * 100) / 100`, which loses cents at values this system
+ * routinely handles — `0.29 * 100` is `28.999999999999996` and
+ * `Math.round(1.005 * 100) / 100` is `1.00`.
+ *
+ * Nothing in production calls it any more: the dispute service and the
+ * settlement fixture both moved to the exact version in 8F. It is left
+ * here only because its own spec documents the reversal RULE — that
+ * commission is reversed from the product ratio and shipping never
+ * touches it — and that rule is unchanged.
+ *
+ * It stays exported and therefore reachable, which is the hazard worth
+ * naming: two functions of nearly the same name sit side by side and
+ * autocomplete offers this one first. If you are writing new code that
+ * moves money, you want the other one.
+ *
+ * @deprecated Use `computeDisputeRefundReversalExact` from
+ * `dispute-refund-exact.ts` — decimal strings in, decimal strings out,
+ * and a journal entry that balances by construction.
+ */
 export function computeDisputeRefundReversal(input: {
   productRefundAmountInclTax: number;
   shippingRefundAmount: number;

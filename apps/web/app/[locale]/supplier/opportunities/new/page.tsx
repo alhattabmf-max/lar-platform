@@ -2,7 +2,11 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
-import { loadSupplierLocations, loadSupplierProducts } from "@/lib/supplier-data";
+import {
+  loadPolicyLimits,
+  loadSupplierLocations,
+  loadSupplierProducts,
+} from "@/lib/supplier-data";
 import { referenceFailureRequestId } from "@/lib/reference-data";
 import { EMPTY_OPPORTUNITY_FORM } from "@/lib/opportunity-form";
 import { ErrorState } from "@/components/ui/states";
@@ -35,9 +39,10 @@ export default async function NewSupplierOpportunityPage({
   const t = await getTranslations({ locale: appLocale, namespace: "supplier.opportunities" });
   const states = await getTranslations({ locale: appLocale, namespace: "states" });
 
-  const [products, locations] = await Promise.all([
+  const [products, locations, policyLimits] = await Promise.all([
     loadSupplierProducts(),
     loadSupplierLocations(),
+    loadPolicyLimits(),
   ]);
 
   const backHref = `/${appLocale}/supplier/opportunities`;
@@ -83,13 +88,16 @@ export default async function NewSupplierOpportunityPage({
         />
       ) : (
         <OpportunityForm
+          // Undefined when the policy read failed — the form then
+          // states that bounds exist without naming figures.
+          limits={policyLimits.ok ? policyLimits.data.opportunity : undefined}
           mode="create"
           locale={appLocale}
           initialValues={EMPTY_OPPORTUNITY_FORM}
           products={publishable}
           locations={locations.data}
           backHref={backHref}
-          labels={await opportunityFormLabels(appLocale)}
+          labels={await opportunityFormLabels(appLocale, policyLimits.ok ? policyLimits.data.opportunity : undefined)}
         />
       )}
     </div>

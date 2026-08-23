@@ -1,10 +1,18 @@
 import { getTranslations } from "next-intl/server";
+import type { OpportunityLimits } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import type { OpportunityFormLabels } from "./opportunity-form";
 
-/** Every string the opportunity form needs, translated on the SERVER. */
+/**
+ * Every string the opportunity form needs, translated on the SERVER.
+ *
+ * `limits` is optional because the policy read can fail. When it is
+ * absent the bounds hint has no figures in it and the four warnings are
+ * never shown — the form does not invent a bound it could not read.
+ */
 export async function opportunityFormLabels(
-  locale: AppLocale
+  locale: AppLocale,
+  limits?: OpportunityLimits
 ): Promise<OpportunityFormLabels> {
   const t = await getTranslations({ locale, namespace: "supplier.opportunities.form" });
   const common = await getTranslations({ locale, namespace: "common" });
@@ -36,7 +44,33 @@ export async function opportunityFormLabels(
     },
     hints: {
       boundsUnknown: t("hints.boundsUnknown"),
+      // Interpolated here rather than in the client component: the
+      // figures then format for the reader's locale, and the message
+      // catalogue keeps real ICU arguments instead of a template the
+      // browser has to fill by substitution.
+      bounds: limits
+        ? t("hints.bounds", {
+            minHours: limits.minDurationHours,
+            maxDays: limits.maxDurationDays,
+            minQuantity: limits.minTargetQuantity,
+            maxQuantity: limits.maxTargetQuantity,
+          })
+        : t("hints.boundsUnknown"),
       frozenAtPublish: t("hints.frozenAtPublish"),
+    },
+    warnings: {
+      quantityTooLow: limits
+        ? t("warnings.quantityTooLow", { minQuantity: limits.minTargetQuantity })
+        : "",
+      quantityTooHigh: limits
+        ? t("warnings.quantityTooHigh", { maxQuantity: limits.maxTargetQuantity })
+        : "",
+      durationTooShort: limits
+        ? t("warnings.durationTooShort", { minHours: limits.minDurationHours })
+        : "",
+      durationTooLong: limits
+        ? t("warnings.durationTooLong", { maxDays: limits.maxDurationDays })
+        : "",
     },
     placeholderProduct: t("placeholderProduct"),
     placeholderLocation: t("placeholderLocation"),

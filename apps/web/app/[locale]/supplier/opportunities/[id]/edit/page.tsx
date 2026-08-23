@@ -7,6 +7,7 @@ import {
   loadSupplierLocations,
   loadSupplierOpportunity,
   loadSupplierProducts,
+  loadPolicyLimits,
 } from "@/lib/supplier-data";
 import { referenceFailureRequestId } from "@/lib/reference-data";
 import { opportunityActions, opportunityNextStepKey } from "@/lib/opportunity-actions";
@@ -94,9 +95,10 @@ export default async function EditSupplierOpportunityPage({
     );
   }
 
-  const [products, locations] = await Promise.all([
+  const [products, locations, policyLimits] = await Promise.all([
     loadSupplierProducts(),
     loadSupplierLocations(),
+    loadPolicyLimits(),
   ]);
 
   const publishable = products.ok
@@ -156,6 +158,9 @@ export default async function EditSupplierOpportunityPage({
         />
       ) : (
         <OpportunityForm
+          // Undefined when the policy read failed — the form then
+          // states that bounds exist without naming figures.
+          limits={policyLimits.ok ? policyLimits.data.opportunity : undefined}
           mode="edit"
           locale={appLocale}
           opportunityId={opportunity.id}
@@ -164,7 +169,7 @@ export default async function EditSupplierOpportunityPage({
           locations={locations.data}
           backHref={detailHref}
           reasonCode={inlineReason}
-          labels={await opportunityFormLabels(appLocale)}
+          labels={await opportunityFormLabels(appLocale, policyLimits.ok ? policyLimits.data.opportunity : undefined)}
         />
       )}
     </div>

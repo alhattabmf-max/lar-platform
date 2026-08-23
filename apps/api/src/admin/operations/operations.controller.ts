@@ -46,7 +46,7 @@ export class OperationsController {
     await this.operations.rejectSupplier(
       companyId,
       session.adminUserId,
-      dto.reason ?? "No reason provided",
+      dto.reason,
       ctxFrom(req)
     );
     return { status: "REJECTED" };

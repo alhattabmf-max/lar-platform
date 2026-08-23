@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type {
+  PolicyLimits,
   DocumentSummary,
   NotificationItem,
   NotificationUnreadCount,
@@ -301,6 +302,22 @@ export interface SupplierFinancialReadiness {
   hasVerifiedBankAccount: boolean;
   hasTaxProfile: boolean;
   hasInvoicingProfile: boolean;
+}
+
+/**
+ * The two admin-configured limits the supplier forms need.
+ *
+ * A PROJECTION of the media and opportunity settings, not a re-export:
+ * the opportunity settings object also carries an internal display flag
+ * about what anonymous visitors see, and it is deliberately not on this
+ * contract.
+ *
+ * THE SERVER REMAINS THE AUTHORITY. These figures let a form warn before
+ * a submit; they do not let it decide, and every bound is re-checked
+ * server side.
+ */
+export function loadPolicyLimits(): Promise<Loaded<PolicyLimits>> {
+  return load<PolicyLimits>("/companies/me/policy-limits");
 }
 
 export function loadFinancialReadiness(): Promise<Loaded<SupplierFinancialReadiness>> {

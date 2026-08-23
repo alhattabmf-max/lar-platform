@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { AccountType, CompanyVerificationStatus } from "@prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { VerificationService } from "../../verification/verification.service";
+import type { AdminPendingSupplierItem } from "@platform/types";
 
 interface ActorContext {
   requestId: string;
@@ -26,14 +27,40 @@ export class OperationsService {
     private readonly verification: VerificationService
   ) {}
 
-  async listPendingSupplierVerifications() {
-    return this.prisma.company.findMany({
+  /**
+   * Suppliers waiting for verification.
+   *
+   * A CLOSED projection. The previous read was a bare findMany, so it
+   * returned whole Company rows and would silently gain every column
+   * added to that table later. The queue needs the name, the commercial
+   * registration number and how long the company has waited.
+   */
+  async listPendingSupplierVerifications(): Promise<AdminPendingSupplierItem[]> {
+    const rows = await this.prisma.company.findMany({
       where: {
         accountType: AccountType.SUPPLIER,
         verificationStatus: CompanyVerificationStatus.PENDING_VERIFICATION,
       },
-      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        legalName: true,
+        crNumber: true,
+        verificationStatus: true,
+        createdAt: true,
+      },
+      // Oldest first, terminating in id: the company that has waited
+      // longest is the one to act on, and two registered in the same
+      // millisecond must not swap places between reads.
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
+
+    return rows.map((row) => ({
+      id: row.id,
+      legalName: row.legalName,
+      crNumber: row.crNumber,
+      verificationStatus: row.verificationStatus,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   async approveSupplier(companyId: string, adminUserId: string, ctx: ActorContext): Promise<void> {

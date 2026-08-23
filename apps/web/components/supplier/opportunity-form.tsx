@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { ProductSummary, SupplierOpportunityReasonCode } from "@platform/types";
+import type {
+  OpportunityLimits,
+  ProductSummary,
+  SupplierOpportunityReasonCode,
+} from "@platform/types";
 import { apiClient } from "@/lib/api-client";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
 import type { SupplierLocation } from "@/lib/supplier-data";
@@ -38,10 +42,16 @@ import { ErrorSummary, FormSection, useUnsavedChangesWarning } from "@/component
  * would produce a second figure that eventually disagrees with what traders
  * were charged.
  *
- * The duration and quantity bounds are NOT stated. They are
- * admin-configured in `OpportunitySettingsService` and no endpoint exposes
- * them, so a number here would be one this app invented — the server
- * refuses and names the bound instead.
+ * THE DURATION AND QUANTITY BOUNDS ARE STATED, and warned about before a
+ * submit. They are admin-configured in `OpportunitySettingsService` and
+ * reach this form through `GET /companies/me/policy-limits`. When that
+ * read fails the form says the bounds exist without naming figures — a
+ * number invented here would be worse than no number, because it would
+ * refuse a listing the server would have accepted.
+ *
+ * The warnings never block. The server re-checks every bound against the
+ * live policy at the moment of the request, and this component's copy
+ * may be a minute old.
  */
 export interface OpportunityFormProps {
   mode: "create" | "edit";
@@ -54,6 +64,20 @@ export interface OpportunityFormProps {
   backHref: string;
   /** Present in edit mode when the listing is blocked; drives the inline fix. */
   reasonCode?: SupplierOpportunityReasonCode | null;
+  /**
+   * The admin-configured listing limits, when they could be read.
+   *
+   * OPTIONAL on purpose. `GET /companies/me/policy-limits` can fail, and
+   * a failed read degrades to the figure-free hint that was here before
+   * — never to invented defaults, which would state a bound this app
+   * made up and reject a listing the server would have accepted.
+   *
+   * THE SERVER REMAINS THE AUTHORITY. These figures let the form warn
+   * before a submit; they do not let it decide. Every bound is
+   * re-checked server side, and a listing that passed these warnings can
+   * still be refused.
+   */
+  limits?: OpportunityLimits;
   labels: OpportunityFormLabels;
 }
 
@@ -61,7 +85,20 @@ export interface OpportunityFormLabels {
   sections: { what: string; terms: string; window: string; description: string };
   sectionHints: { what: string; terms: string; window: string; description: string };
   fields: Record<keyof OpportunityFormValues, string>;
-  hints: { boundsUnknown: string; frozenAtPublish: string };
+  hints: {
+    /** Shown when the limits could not be read — no figures. */
+    boundsUnknown: string;
+    /** Already interpolated by the caller, with the real figures. */
+    bounds: string;
+    frozenAtPublish: string;
+  };
+  /** Pre-submit warnings, already interpolated. Shown, never blocking. */
+  warnings: {
+    quantityTooLow: string;
+    quantityTooHigh: string;
+    durationTooShort: string;
+    durationTooLong: string;
+  };
   placeholderProduct: string;
   placeholderLocation: string;
   noProducts: string;
@@ -92,6 +129,7 @@ export function OpportunityForm({
   locations,
   backHref,
   reasonCode,
+  limits,
   labels,
 }: OpportunityFormProps) {
   const router = useRouter();
@@ -107,6 +145,27 @@ export function OpportunityForm({
 
   const dirty = isOpportunityDirty(values, initialValues);
   useUnsavedChangesWarning(dirty && !submitting);
+
+  /**
+   * What the admin-configured policy would refuse, checked as the reader
+   * types.
+   *
+   * WARNINGS, NOT VALIDATION. Nothing here blocks a submit. The server
+   * re-checks every bound against the live policy at the moment of the
+   * request, and this component's copy may be a minute old — a form that
+   * refused a value the server would accept is a worse failure than one
+   * that warns and lets the server answer.
+   *
+   * Silent when the policy could not be read: with no limits there is
+   * nothing to compare against, and warning on a guess would be
+   * inventing a bound.
+   */
+  const warnings = limits
+    ? [
+        ...quantityWarnings(values.targetQuantity, limits, labels.warnings),
+        ...durationWarnings(values.startAt, values.endAt, limits, labels.warnings),
+      ]
+    : [];
 
   // The field a blocking reason points at, when there is one. Four of the
   // ten reasons are fixed elsewhere entirely and resolve to null.
@@ -330,6 +389,28 @@ export function OpportunityForm({
       <FormSection title={labels.sections.terms} description={labels.sectionHints.terms}>
         {textField("unitPriceAmount", { required: true, inputMode: "decimal" })}
         {textField("targetQuantity", { required: true, inputMode: "numeric" })}
+
+        {/* PRE-SUBMIT WARNINGS, not validation.
+            They appear as the reader types, and they never disable the
+            submit button: the server re-checks every bound against the
+            live policy, and a form that refused a value the server would
+            accept is worse than one that warns and lets it through.
+            Announced politely so a screen reader hears the warning
+            appear rather than discovering it after a failed submit. */}
+        {warnings.length > 0 ? (
+          <ul
+            role="status"
+            aria-live="polite"
+            className="flex list-none flex-col gap-1 rounded-md border border-warning bg-warning-surface p-3"
+          >
+            {warnings.map((warning) => (
+              <li key={warning} className="text-xs text-warning-text">
+                {warning}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         {/* Said once: the tax split and the share size are the server's,
             frozen at publish. Nothing on this form estimates them. */}
         <p className="text-xs text-content-muted">{labels.hints.frozenAtPublish}</p>
@@ -339,9 +420,12 @@ export function OpportunityForm({
         {textField("startAt", { required: true, type: "datetime-local" })}
         {textField("endAt", { required: true, type: "datetime-local" })}
         {textField("expectedPreparationDays", { required: true, inputMode: "numeric" })}
-        {/* The duration and quantity limits are admin-configured and no
-            endpoint exposes them, so none is stated here. */}
-        <p className="text-xs text-content-muted">{labels.hints.boundsUnknown}</p>
+        {/* The real figures when the policy could be read; the
+            figure-free hint when it could not. A number invented here
+            would be worse than no number at all. */}
+        <p className="text-xs text-content-muted">
+          {limits ? labels.hints.bounds : labels.hints.boundsUnknown}
+        </p>
       </FormSection>
 
       <FormSection title={labels.sections.description} description={labels.sectionHints.description}>
@@ -407,4 +491,53 @@ export function OpportunityForm({
       </div>
     </form>
   );
+}
+
+/**
+ * Whether the typed quantity sits inside the configured range.
+ *
+ * A blank or non-numeric field produces no warning: that is what the
+ * form's own required-field validation is for, and stacking a bounds
+ * warning on top of "this field is required" tells the reader nothing
+ * they do not already know.
+ */
+function quantityWarnings(
+  raw: string,
+  limits: OpportunityLimits,
+  labels: OpportunityFormLabels["warnings"]
+): string[] {
+  const quantity = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(quantity)) return [];
+
+  if (quantity < limits.minTargetQuantity) return [labels.quantityTooLow];
+  if (quantity > limits.maxTargetQuantity) return [labels.quantityTooHigh];
+  return [];
+}
+
+/**
+ * Whether the listing window sits inside the configured duration range.
+ *
+ * Both bounds are compared in HOURS, because the policy states a minimum
+ * in hours and a maximum in days: converting the maximum to hours once
+ * is one conversion, whereas comparing each in its own unit would be two
+ * places for a unit mistake to hide.
+ *
+ * An incomplete or reversed window produces no warning — an end before a
+ * start is a different error, and the form reports that one itself.
+ */
+function durationWarnings(
+  startAt: string,
+  endAt: string,
+  limits: OpportunityLimits,
+  labels: OpportunityFormLabels["warnings"]
+): string[] {
+  const start = Date.parse(startAt);
+  const end = Date.parse(endAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+
+  const hours = (end - start) / 3_600_000;
+
+  if (hours < limits.minDurationHours) return [labels.durationTooShort];
+  if (hours > limits.maxDurationDays * 24) return [labels.durationTooLong];
+  return [];
 }

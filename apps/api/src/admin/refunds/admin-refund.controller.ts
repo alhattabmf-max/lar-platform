@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import { RefundExecutionService } from "../../refunds/refund-execution.service";
+import { RefundProviderRegistry } from "../../refunds/providers/refund-provider.registry";
 import { StartRefundAttemptDto } from "../../refunds/dto/start-refund-attempt.dto";
 import { AdminSessionAuthGuard } from "../admin-auth/admin-session-auth.guard";
 import { CsrfGuard } from "../../common/security/csrf.guard";
@@ -15,7 +16,22 @@ import { getRequestId } from "../../common/logger/request-id.util";
 @Controller("admin/refund-obligations")
 @UseGuards(AdminSessionAuthGuard, CsrfGuard)
 export class AdminRefundController {
-  constructor(private readonly execution: RefundExecutionService) {}
+  constructor(
+    private readonly execution: RefundExecutionService,
+    private readonly providers: RefundProviderRegistry
+  ) {}
+
+  /**
+   * The refund providers this deployment actually has.
+   *
+   * Declared BEFORE the `:id` route: Nest matches in declaration order,
+   * so `@Get(":id")` above this would swallow "providers" as an id and
+   * answer 404 for a path that exists.
+   */
+  @Get("providers")
+  listProviders(): string[] {
+    return this.providers.codes();
+  }
 
   @Get(":id")
   get(@Param("id") id: string) {

@@ -104,8 +104,8 @@ describe("E2E — sensitive data isolation across the full 7E surface (real HTTP
 
     const fixture = await seedHistoricalDisputeRefundFixture("E2ESENSITIVE", {
       decisionType: "FULL_REFUND",
-      productRefundAmountInclTax: Number(probeSnapshot.productAmountInclTax),
-      shippingRefundAmount: Number(probeSnapshot.shippingFeeAmount),
+      productRefundAmountInclTax: probeSnapshot.productAmountInclTax.toFixed(2),
+      shippingRefundAmount: probeSnapshot.shippingFeeAmount.toFixed(2),
     });
     const bankAccount = await prisma.supplierBankAccount.findFirstOrThrow({ where: { companyId: fixture.supplierCompanyId } });
 

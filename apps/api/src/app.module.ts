@@ -19,6 +19,7 @@ import { VerificationModule } from "./verification/verification.module";
 import { CompaniesModule } from "./companies/companies.module";
 import { AuthModule } from "./auth/auth.module";
 import { AdminModule } from "./admin/admin.module";
+import { SiteContentModule } from "./site-content/site-content.module";
 import { TaxonomyModule } from "./taxonomy/taxonomy.module";
 import { SalesUnitsModule } from "./sales-units/sales-units.module";
 import { ProductsModule } from "./products/products.module";
@@ -72,6 +73,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     CompaniesModule,
     AuthModule,
     AdminModule,
+    SiteContentModule,
     TaxonomyModule,
     SalesUnitsModule,
     ProductsModule,

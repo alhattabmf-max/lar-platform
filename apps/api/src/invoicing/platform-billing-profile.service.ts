@@ -3,6 +3,7 @@ import { AuditActorType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { AdminPlatformBillingProfile } from "@platform/types";
 import { normalizeDigitsAndWhitespace } from "../common/text/normalize-digits.util";
 
 interface AdminActorContext {
@@ -28,8 +29,42 @@ export class PlatformBillingProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** The CURRENT (highest-version) profile, or null if none has ever been created. */
-  async getCurrent() {
-    return this.prisma.platformBillingProfileVersion.findFirst({ orderBy: { version: "desc" } });
+  /**
+   * The platform's current billing identity.
+   *
+   * A CLOSED projection. `addressSnapshot` and `createdByAdminUserId`
+   * are not selected: the address blob has no validated shape and is
+   * kept for document generation, and who created a version is an
+   * audit-log question rather than a field to mirror onto every read.
+   *
+   * Returns null when no version has been created yet — a real state on
+   * a fresh installation, and the screen says so rather than inventing
+   * an empty profile.
+   */
+  async getCurrent(): Promise<AdminPlatformBillingProfile | null> {
+    const row = await this.prisma.platformBillingProfileVersion.findFirst({
+      select: {
+        id: true,
+        version: true,
+        legalName: true,
+        crNumber: true,
+        isVatRegistered: true,
+        vatNumber: true,
+        createdAt: true,
+      },
+      orderBy: { version: "desc" },
+    });
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      version: row.version,
+      legalName: row.legalName,
+      crNumber: row.crNumber,
+      isVatRegistered: row.isVatRegistered,
+      vatNumber: row.vatNumber,
+      createdAt: row.createdAt.toISOString(),
+    };
   }
 
   async listAll() {

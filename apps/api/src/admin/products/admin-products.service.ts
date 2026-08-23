@@ -5,6 +5,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { AuditService } from "../../audit/audit.service";
 import { BusinessException } from "../../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { AdminPendingProductItem } from "@platform/types";
 import { buildProductSnapshotPayload } from "../../products/product-snapshot.util";
 import { releaseActiveLocksForOpportunityTx } from "../../checkout/checkout-lock-release.util";
 
@@ -21,12 +22,56 @@ export class AdminProductsService {
     private readonly audit: AuditService
   ) {}
 
-  async listPendingReview() {
-    return this.prisma.product.findMany({
+  /**
+   * Products waiting for review.
+   *
+   * A CLOSED projection. The previous read was
+   * `include: { media: true, company: true }`, which shipped every
+   * `ProductMedia` row — including `objectKey` and
+   * `thumbnailObjectKey` — to the browser, plus the whole supplier
+   * `Company` row. A storage key is a direct address in the object
+   * store; handing one to a client turns a bucket path into a
+   * credential, and an administrator is no exception to that.
+   *
+   * The queue needs to know whether images exist, not where they live:
+   * `mediaCount` and `hasMainImage` answer that, and the images
+   * themselves are viewed through the product's own authorised media
+   * endpoint.
+   */
+  async listPendingReview(): Promise<AdminPendingProductItem[]> {
+    const rows = await this.prisma.product.findMany({
       where: { approvalStatus: ProductApprovalStatus.PENDING_REVIEW },
-      include: { media: true, company: true },
-      orderBy: { updatedAt: "asc" },
+      select: {
+        id: true,
+        companyId: true,
+        nameAr: true,
+        nameEn: true,
+        taxonomyNodeId: true,
+        createdAt: true,
+        updatedAt: true,
+        company: { select: { legalName: true } },
+        _count: { select: { media: true } },
+        // One row at most, and only its `isMain` flag: enough to answer
+        // "has a main image been chosen" without selecting a key.
+        media: { where: { isMain: true }, select: { id: true }, take: 1 },
+      },
+      // Oldest submission first, terminating in `id` so two products
+      // submitted in the same millisecond cannot swap places.
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     });
+
+    return rows.map((row) => ({
+      id: row.id,
+      companyId: row.companyId,
+      companyLegalName: row.company.legalName,
+      nameAr: row.nameAr,
+      nameEn: row.nameEn,
+      taxonomyNodeId: row.taxonomyNodeId,
+      mediaCount: row._count.media,
+      hasMainImage: row.media.length > 0,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    }));
   }
 
   async approve(productId: string, adminUserId: string, ctx: ActorContext) {

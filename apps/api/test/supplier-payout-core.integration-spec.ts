@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { SupplierPayoutService } from "../src/settlement/supplier-payout.service";
 import { RefundExecutionService } from "../src/refunds/refund-execution.service";
@@ -66,7 +66,7 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
       idemKey("std")
     );
     expect(result.outcome).toBe("EXECUTED");
-    expect(result.netAmount).toBe(Number(snapshot.supplierPayableShareAmount) + Number(snapshot.shippingFeeAmount));
+    expect(result.netAmount).toBe(Number(snapshot.supplierPayableShareAmount) + snapshot.shippingFeeAmount.toFixed(2));
 
     const journal = await prisma.journalEntry.findFirstOrThrow({ where: { referenceType: "supplier_payout", referenceId: result.supplierPayoutId } });
     const postings = await prisma.ledgerPosting.findMany({ where: { journalEntryId: journal.id } });
@@ -82,12 +82,12 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
   it("product-only refund: shippingNet stays full, productNet reduced by the executed DEBIT SUPPLIER_PAYABLE", async () => {
     const snapshotProbe = await seedSettlementFixture("PAYOUTPRODUCTONLYPROBE");
     const probeSnapshot = await prisma.orderAllocationFinancialSnapshot.findUniqueOrThrow({ where: { orderAllocationId: snapshotProbe.deliveredOrderAllocationId } });
-    const partialProduct = Math.floor((Number(probeSnapshot.productAmountInclTax) / 4) * 100) / 100;
+    const partialProduct = probeSnapshot.productAmountInclTax.dividedBy(4).toFixed(2, Prisma.Decimal.ROUND_DOWN);
 
     const fixture = await seedHistoricalDisputeRefundFixture("PAYOUTPRODUCTONLY", {
       decisionType: "PARTIAL_REFUND",
       productRefundAmountInclTax: partialProduct,
-      shippingRefundAmount: 0,
+      shippingRefundAmount: "0.00",
     });
     await completeRefundViaRealPath(fixture.refundObligationId);
 
@@ -112,14 +112,14 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
     const settlementJournal = await prisma.journalEntry.findFirstOrThrow({ where: { referenceType: "supplier_payout", referenceId: result.supplierPayoutId } });
     const postings = await prisma.ledgerPosting.findMany({ where: { journalEntryId: settlementJournal.id } });
     const shippingPosting = postings.find((p) => p.account === "SHIPPING_LIABILITY");
-    expect(Number(shippingPosting!.amount)).toBe(Number(snapshot.shippingFeeAmount));
+    expect(Number(shippingPosting!.amount)).toBe(snapshot.shippingFeeAmount.toFixed(2));
   }, 30_000);
 
   it("shipping-only refund: productNet stays full, shippingNet reduced by the executed DEBIT SHIPPING_LIABILITY", async () => {
     const fixture = await seedHistoricalDisputeRefundFixture("PAYOUTSHIPONLY", {
       decisionType: "PARTIAL_REFUND",
-      productRefundAmountInclTax: 0,
-      shippingRefundAmount: 5,
+      productRefundAmountInclTax: "0.00",
+      shippingRefundAmount: "5.00",
     });
     await completeRefundViaRealPath(fixture.refundObligationId);
 
@@ -143,8 +143,8 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
 
     const fixture = await seedHistoricalDisputeRefundFixture("PAYOUTFULLREFUND", {
       decisionType: "FULL_REFUND",
-      productRefundAmountInclTax: Number(probeSnapshot.productAmountInclTax),
-      shippingRefundAmount: Number(probeSnapshot.shippingFeeAmount),
+      productRefundAmountInclTax: probeSnapshot.productAmountInclTax.toFixed(2),
+      shippingRefundAmount: probeSnapshot.shippingFeeAmount.toFixed(2),
     });
     await completeRefundViaRealPath(fixture.refundObligationId);
 
@@ -203,8 +203,8 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
   it("a PENDING_EXECUTION DISPUTE refund obligation (execution not yet started) BLOCKS settlement", async () => {
     const fixture = await seedHistoricalDisputeRefundFixture("PAYOUTBLOCKEDREFUND", {
       decisionType: "FULL_REFUND",
-      productRefundAmountInclTax: 1,
-      shippingRefundAmount: 0,
+      productRefundAmountInclTax: "1.00",
+      shippingRefundAmount: "0.00",
     });
     // Deliberately never executed — RefundObligation stays PENDING_EXECUTION.
 

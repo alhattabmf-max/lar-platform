@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
-import { loadSupplierProduct } from "@/lib/supplier-data";
+import { loadPolicyLimits, loadSupplierProduct } from "@/lib/supplier-data";
 import { productActions, productNextStepKey } from "@/lib/product-actions";
 import { localized, formatDate } from "@/lib/localized";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,12 @@ export default async function SupplierProductDetailPage({
   const states = await getTranslations({ locale: appLocale, namespace: "states" });
   const common = await getTranslations({ locale: appLocale, namespace: "common" });
 
-  const result = await loadSupplierProduct(id);
+  // Fetched together: the policy read does not depend on the product,
+  // and doing them in sequence is two round trips for no benefit.
+  const [result, policyLimits] = await Promise.all([
+    loadSupplierProduct(id),
+    loadPolicyLimits(),
+  ]);
 
   if (!result.ok && result.notFound) notFound();
 
@@ -145,6 +150,9 @@ export default async function SupplierProductDetailPage({
       <ProductMediaManager
         productId={product.id}
         media={product.media}
+        // Undefined when the policy read failed — the component then
+        // shows a hint with no figures rather than invented ones.
+        limits={policyLimits.ok ? policyLimits.data.media : undefined}
         canEdit={gate.canEditMedia}
         productName={name}
         labels={{
@@ -165,6 +173,35 @@ export default async function SupplierProductDetailPage({
           working: t("actions.working"),
           addImage: t("media.addImage"),
           addImageHint: t("media.addImageHint"),
+          // Interpolated HERE, where the translator lives, so the
+          // figures are formatted for the reader's locale and the
+          // Arabic catalogue holds no Latin placeholder names.
+          //
+          // Megabytes to one decimal place: a byte count is not a
+          // number anybody reads. The types are the policy's own list
+          // with the "image/" prefix dropped.
+          addImageLimits: policyLimits.ok
+            ? t("media.addImageLimits", {
+                count: policyLimits.data.media.maxImagesPerProduct,
+                megabytes: (policyLimits.data.media.maxSizeBytes / 1_000_000).toFixed(1),
+                types: policyLimits.data.media.allowedTypes
+                  .map((type) => type.replace(/^image\//, ""))
+                  .join("، "),
+              })
+            : t("media.addImageHint"),
+          addImageFull: t("media.addImageFull"),
+          fileTooLarge: policyLimits.ok
+            ? t("media.fileTooLarge", {
+                megabytes: (policyLimits.data.media.maxSizeBytes / 1_000_000).toFixed(1),
+              })
+            : t("media.addImageHint"),
+          fileTypeNotAllowed: policyLimits.ok
+            ? t("media.fileTypeNotAllowed", {
+                types: policyLimits.data.media.allowedTypes
+                  .map((type) => type.replace(/^image\//, ""))
+                  .join("، "),
+              })
+            : t("media.addImageHint"),
           openFull: t("media.openFull"),
           errorTitle: states("errorTitle"),
           requestIdLabel: states("requestIdLabel"),

@@ -772,7 +772,7 @@ describe("message parity for the supplier namespace", () => {
     // — so the argument names and keywords are stripped before the
     // check, and what remains must be the message text alone.
     const ICU =
-      /[{}#]|=\d+|\b(count|company|items|name|index|price|unit|funded|target|max|min|scale|reason|quantity|delivered|total|plural|select|selectordinal|one|two|few|many|other)\b/g;
+      /[{}#]|=\d+|\b(count|company|items|name|index|price|unit|funded|target|max|min|scale|reason|quantity|delivered|total|megabytes|types|minHours|maxDays|minQuantity|maxQuantity|plural|select|selectordinal|one|two|few|many|other)\b/g;
 
     // Image format names. They are written in Latin in Arabic prose
     // too — "الصيغ المقبولة: JPEG" is correct, and transliterating them

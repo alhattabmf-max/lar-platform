@@ -1,4 +1,14 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
 import { IsDecimalString } from "../../common/validation/is-decimal-string.validator";
 
 export enum DisputeDecisionTypeDto {
@@ -12,13 +22,23 @@ export class AdminDecideDisputeDto {
   @IsEnum(DisputeDecisionTypeDto)
   decisionType!: DisputeDecisionTypeDto;
 
-  // Required only for PARTIAL_REFUND — validated at the service layer
-  // against the frozen financial snapshot, never trusted at face value.
-  @IsOptional()
+  /**
+   * Required only for PARTIAL_REFUND, and validated against the frozen
+   * financial snapshot in the service — never trusted at face value.
+   *
+   * `@ValidateIf(… !== undefined)` rather than `@IsOptional()`, because
+   * `@IsOptional()` skips validation for `null` as well as `undefined`.
+   * A caller sending `productRefundAmountInclTax: null` therefore passed
+   * validation, slipped past the service's `=== undefined` guard, and
+   * reached the Decimal parser — which throws, producing a 500 for what
+   * is plainly a bad request. `@ValidateIf` lets `undefined` through and
+   * makes `null` fail here, with a 400 that names the field.
+   */
+  @ValidateIf((object: AdminDecideDisputeDto) => object.productRefundAmountInclTax !== undefined)
   @IsDecimalString()
   productRefundAmountInclTax?: string;
 
-  @IsOptional()
+  @ValidateIf((object: AdminDecideDisputeDto) => object.shippingRefundAmount !== undefined)
   @IsDecimalString()
   shippingRefundAmount?: string;
 

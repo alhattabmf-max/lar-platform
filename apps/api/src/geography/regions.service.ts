@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import type { AdminRegionItem } from "@platform/types";
 import { AuditService } from "../audit/audit.service";
 import type { CreateRegionDto } from "./dto/create-region.dto";
 import type { UpdateRegionDto } from "./dto/update-region.dto";
@@ -19,8 +20,26 @@ export class RegionsService {
     private readonly audit: AuditService
   ) {}
 
-  async listAll() {
-    return this.prisma.region.findMany({ orderBy: [{ createdAt: "asc" }] });
+  /**
+   * Every region, active or not. ADMIN ONLY.
+   *
+   * A CLOSED projection rather than a bare `findMany`, so a column
+   * added to this table later reaches a screen only when someone puts
+   * it here on purpose.
+   */
+  async listAll(): Promise<AdminRegionItem[]> {
+    const rows = await this.prisma.region.findMany({
+      select: { id: true, nameAr: true, nameEn: true, isActive: true, createdAt: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      nameAr: row.nameAr,
+      nameEn: row.nameEn,
+      isActive: row.isActive,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   async listActive() {

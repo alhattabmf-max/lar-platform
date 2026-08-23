@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import type { AdminTaxonomyNodeItem } from "@platform/types";
 import { AuditService } from "../audit/audit.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
@@ -21,8 +22,41 @@ export class TaxonomyService {
     private readonly audit: AuditService
   ) {}
 
-  async listAll() {
-    return this.prisma.taxonomyNode.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
+  /**
+   * Every taxonomy node, active or not. ADMIN ONLY.
+   *
+   * A CLOSED projection rather than a bare `findMany`. These rows hold
+   * no secrets, so this is not about concealment — it is about the
+   * contract. A screen built against `findMany()` silently gains every
+   * column added to the table later, and a column added for an internal
+   * reason then has to be un-shipped. Naming the fields makes that
+   * addition a deliberate act.
+   */
+  async listAll(): Promise<AdminTaxonomyNodeItem[]> {
+    const rows = await this.prisma.taxonomyNode.findMany({
+      select: {
+        id: true,
+        parentId: true,
+        nameAr: true,
+        nameEn: true,
+        iconUrl: true,
+        sortOrder: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      parentId: row.parentId,
+      nameAr: row.nameAr,
+      nameEn: row.nameEn,
+      iconUrl: row.iconUrl,
+      sortOrder: row.sortOrder,
+      isActive: row.isActive,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   async listActive() {

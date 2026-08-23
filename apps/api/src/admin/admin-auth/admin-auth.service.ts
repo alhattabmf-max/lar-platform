@@ -6,7 +6,7 @@ import { AuditService } from "../../audit/audit.service";
 import { APP_ENV } from "../../config/app-config.module";
 import { SecuritySettingsService } from "../../settings/security-settings.service";
 import { DynamicRateLimiter } from "../../common/security/dynamic-rate-limiter";
-import { verifyPassword } from "../../common/security/argon2.util";
+import { hashPassword, verifyPassword } from "../../common/security/argon2.util";
 import { hashToken } from "../../common/security/token.util";
 import { encryptSecret, decryptSecret } from "../../common/security/crypto.util";
 import { generateTotpEnrollment, verifyTotpCode } from "../../common/security/totp.util";
@@ -14,7 +14,7 @@ import { generateRecoveryCodes } from "../../common/security/recovery-codes.util
 import { AdminSessionService } from "./admin-session.service";
 import { AdminLoginTicketService, type LoginTicketData } from "./admin-login-ticket.service";
 import { BusinessException } from "../../common/errors/business-exception";
-import { ERROR_CODES } from "@platform/types";
+import { ERROR_CODES, type AdminMe } from "@platform/types";
 
 interface RequestContext {
   requestId: string;
@@ -238,6 +238,172 @@ export class AdminAuthService {
     return { sessionId, ttlSeconds };
   }
 
+  /**
+   * Who the caller is — the whole basis of the admin portal's guard.
+   *
+   * A CLOSED shape: an id, an email to greet them by, the status the
+   * guard checks, and whether 2FA is enrolled. `twoFactorEnabled` is
+   * derived from the timestamp; neither the timestamp, the encrypted
+   * secret, the password hash nor any recovery-code hash is selected.
+   *
+   * Re-reads the ROW rather than trusting the session blob. A session
+   * created before an administrator was disabled would otherwise keep
+   * working until it expired.
+   */
+  async me(adminUserId: string): Promise<AdminMe> {
+    const admin = await this.prisma.adminUser.findUnique({
+      where: { id: adminUserId },
+      select: { id: true, email: true, status: true, twoFactorEnabledAt: true },
+    });
+    if (!admin) {
+      throw new BusinessException(401, ERROR_CODES.UNAUTHORIZED, "Admin account no longer exists");
+    }
+    if (admin.status !== AdminUserStatus.ACTIVE) {
+      throw new BusinessException(401, ERROR_CODES.UNAUTHORIZED, "Admin account is not active");
+    }
+
+    return {
+      id: admin.id,
+      email: admin.email,
+      status: admin.status as AdminMe["status"],
+      twoFactorEnabled: admin.twoFactorEnabledAt !== null,
+    };
+  }
+
+  /**
+   * Changes the caller's OWN password.
+   *
+   * Requires the current password and a session that already completed
+   * MFA — this route sits behind `AdminSessionAuthGuard`, and a session
+   * only exists after `2fa/verify` or `2fa/setup/confirm`.
+   *
+   * Every OTHER session for this admin is revoked. A password change is
+   * how someone responds to a suspected compromise, and leaving the
+   * attacker's session alive would defeat the point. The caller's own
+   * session survives, so they are not logged out of the tab they are
+   * standing in.
+   */
+  async changeOwnPassword(
+    adminUserId: string,
+    currentSessionId: string,
+    currentPassword: string,
+    newPassword: string,
+    ctx: RequestContext
+  ): Promise<void> {
+    const limit = await this.securitySettings.getAdminLoginRateLimit();
+    await this.rateLimiter.enforce("admin-password-change", adminUserId, limit);
+
+    const admin = await this.prisma.adminUser.findUniqueOrThrow({ where: { id: adminUserId } });
+
+    if (!(await verifyPassword(admin.passwordHash, currentPassword))) {
+      await this.audit.log({
+        actorType: AuditActorType.ADMIN,
+        actorId: adminUserId,
+        action: "ADMIN_PASSWORD_CHANGE_FAILED",
+        entityType: "admin_user",
+        entityId: adminUserId,
+        requestId: ctx.requestId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+      });
+      throw new BusinessException(
+        401,
+        ERROR_CODES.INVALID_CREDENTIALS,
+        "Current password is incorrect"
+      );
+    }
+
+    if (await verifyPassword(admin.passwordHash, newPassword)) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        "The new password must differ from the current one"
+      );
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    // The write and its audit record together, so a password that
+    // changed without a trace is not a reachable state.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.adminUser.update({ where: { id: adminUserId }, data: { passwordHash } });
+      await tx.auditLog.create({
+        data: {
+          actorType: AuditActorType.ADMIN,
+          actorId: adminUserId,
+          action: "ADMIN_PASSWORD_CHANGED",
+          entityType: "admin_user",
+          entityId: adminUserId,
+          requestId: ctx.requestId,
+          ipAddress: ctx.ipAddress,
+          userAgent: ctx.userAgent,
+        },
+      });
+    });
+
+    await this.sessions.revokeAllForAdminExcept(adminUserId, currentSessionId);
+  }
+
+  /**
+   * Replaces the caller's recovery codes.
+   *
+   * The old codes are deleted and new ones issued in ONE transaction, so
+   * there is no window in which an admin has none. The plaintext is
+   * returned exactly once and stored nowhere — only hashes are written —
+   * which is why this response is the only place the codes ever exist
+   * readable.
+   *
+   * Requires the current password: possession of a live session is not
+   * enough to mint a fresh set of bearer credentials.
+   */
+  async regenerateOwnRecoveryCodes(
+    adminUserId: string,
+    currentPassword: string,
+    ctx: RequestContext
+  ): Promise<{ codes: string[]; count: number }> {
+    const limit = await this.securitySettings.getAdmin2faRateLimit();
+    await this.rateLimiter.enforce("admin-recovery-regenerate", adminUserId, limit);
+
+    const admin = await this.prisma.adminUser.findUniqueOrThrow({ where: { id: adminUserId } });
+    if (!(await verifyPassword(admin.passwordHash, currentPassword))) {
+      throw new BusinessException(
+        401,
+        ERROR_CODES.INVALID_CREDENTIALS,
+        "Current password is incorrect"
+      );
+    }
+    if (!admin.twoFactorSecretEncrypted) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        "Recovery codes require an enrolled authenticator"
+      );
+    }
+
+    const recovery = generateRecoveryCodes();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.adminRecoveryCode.deleteMany({ where: { adminUserId } });
+      for (const hash of recovery.hashes) {
+        await tx.adminRecoveryCode.create({ data: { adminUserId, codeHash: hash } });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorType: AuditActorType.ADMIN,
+          actorId: adminUserId,
+          action: "ADMIN_RECOVERY_CODES_REGENERATED",
+          entityType: "admin_user",
+          entityId: adminUserId,
+          requestId: ctx.requestId,
+          ipAddress: ctx.ipAddress,
+          userAgent: ctx.userAgent,
+        },
+      });
+    });
+
+    return { codes: recovery.plaintext, count: recovery.plaintext.length };
+  }
+
   async logout(sessionId: string, adminUserId: string, ctx: RequestContext): Promise<void> {
     await this.sessions.revoke(sessionId);
     await this.audit.log({
@@ -269,6 +435,25 @@ export class AdminAuthService {
     ctx: RequestContext,
     auditAction: string
   ): Promise<{ sessionId: string; ttlSeconds: number }> {
+    /**
+     * The account is re-checked HERE, at the last moment before a session
+     * exists.
+     *
+     * A login ticket is issued at stage 1 and consumed at stage 2, and
+     * tickets carry no per-admin index — so an administrator disabled
+     * between the two stages could otherwise complete 2FA and receive a
+     * working session. Checking the row here closes that without needing
+     * ticket revocation, and it holds for every path that issues a
+     * session rather than for the ones someone remembered to guard.
+     */
+    const admin = await this.prisma.adminUser.findUnique({
+      where: { id: adminUserId },
+      select: { status: true },
+    });
+    if (!admin || admin.status !== AdminUserStatus.ACTIVE) {
+      throw new BusinessException(401, ERROR_CODES.UNAUTHORIZED, "Admin account is not active");
+    }
+
     const ttlSeconds = await this.securitySettings.getAdminSessionDurationSeconds();
     const sessionId = await this.sessions.create({ adminUserId }, ttlSeconds);
     await this.audit.log({

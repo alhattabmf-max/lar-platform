@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query
 import type { Request } from "express";
 import { DisputeService } from "../../disputes/dispute.service";
 import { AdminDecideDisputeDto } from "../../disputes/dto/admin-decide-dispute.dto";
+import { AdminDisputesQueryDto } from "./dto/admin-disputes-query.dto";
 import { AdminSessionAuthGuard } from "../admin-auth/admin-session-auth.guard";
 import { CsrfGuard } from "../../common/security/csrf.guard";
 import { CurrentAdminSession } from "../admin-auth/current-admin-session.decorator";
@@ -16,8 +17,8 @@ export class AdminDisputeController {
   constructor(private readonly disputes: DisputeService) {}
 
   @Get()
-  list(@Query("status") status?: string) {
-    return this.disputes.listForAdmin(status ? { status } : undefined);
+  list(@Query() query: AdminDisputesQueryDto) {
+    return this.disputes.listForAdmin(query);
   }
 
   @Get(":id")
@@ -34,10 +35,16 @@ export class AdminDisputeController {
     @Req() req: Request
   ) {
     if (!idempotencyKey) throw new BadRequestException("Idempotency-Key header is required");
+    // The two amounts pass through UNCONVERTED. They arrive as
+    // canonical two-place decimal strings, the DTO has already refused
+    // anything else, and the service compares and computes with them as
+    // Decimals. The `Number(...)` that used to be here turned a
+    // validated decimal into a float on its way into a refund
+    // calculation.
     const input = {
       decisionType: dto.decisionType,
-      productRefundAmountInclTax: dto.productRefundAmountInclTax !== undefined ? Number(dto.productRefundAmountInclTax) : undefined,
-      shippingRefundAmount: dto.shippingRefundAmount !== undefined ? Number(dto.shippingRefundAmount) : undefined,
+      productRefundAmountInclTax: dto.productRefundAmountInclTax,
+      shippingRefundAmount: dto.shippingRefundAmount,
       replacementQuantity: dto.replacementQuantity,
       reasonNote: dto.reasonNote,
     };

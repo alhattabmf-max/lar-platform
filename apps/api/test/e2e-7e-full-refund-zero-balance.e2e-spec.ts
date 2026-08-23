@@ -45,8 +45,8 @@ describe("E2E — Full Refund dispute -> ZERO_BALANCE settlement (real HTTP for 
 
     const fixture = await seedHistoricalDisputeRefundFixture("E2EFULLREF", {
       decisionType: "FULL_REFUND",
-      productRefundAmountInclTax: Number(probeSnapshot.productAmountInclTax),
-      shippingRefundAmount: Number(probeSnapshot.shippingFeeAmount),
+      productRefundAmountInclTax: probeSnapshot.productAmountInclTax.toFixed(2),
+      shippingRefundAmount: probeSnapshot.shippingFeeAmount.toFixed(2),
     });
     const adminCookie = await mintAdminCookie(app);
     const refundObligation = await prisma.refundObligation.findUniqueOrThrow({ where: { id: fixture.refundObligationId } });

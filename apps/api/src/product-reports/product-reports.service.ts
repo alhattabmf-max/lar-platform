@@ -35,9 +35,25 @@ const REPORT_SELECT = {
   resolvedAt: true,
 } satisfies Prisma.ProductReportSelect;
 
+/**
+ * The admin view: the report, plus its evidence as METADATA.
+ *
+ * `objectKey` is deliberately absent. It is a direct address in the
+ * object store, and handing one to a browser turns a bucket path into a
+ * credential — an administrator is no exception to that. The screen
+ * needs to know what was attached and how large it is; the file itself
+ * is fetched through its own authorised endpoint using the id.
+ *
+ * `resolvedByAdminId` stays because it is on the report row itself and
+ * is what the trader-facing history is built from; who decided is
+ * otherwise an audit-log question.
+ */
 const ADMIN_REPORT_SELECT = {
   ...REPORT_SELECT,
-  evidence: { select: { id: true, objectKey: true, contentType: true, sizeBytes: true, createdAt: true } },
+  evidence: {
+    select: { id: true, contentType: true, sizeBytes: true, createdAt: true },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  },
 } satisfies Prisma.ProductReportSelect;
 
 /**

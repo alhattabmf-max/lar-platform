@@ -6,6 +6,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, LoadingState } from "@/components/ui/states";
 import { BannerSlot } from "@/components/banners/banner-slot";
 import { loadOpportunities } from "@/lib/marketplace-data";
+import { getSiteContent, siteText } from "@/lib/site-content";
 import { MARKETPLACE_DEFAULT_SORT } from "@/lib/marketplace-query";
 import {
   OpportunityCard,
@@ -28,6 +29,18 @@ const FEATURED_COUNT = 6;
  * The landing page is also the site's front door, and refusing to
  * render it because a listing query failed would be a strictly worse
  * outcome than showing it without the preview.
+ *
+ * FIVE PIECES OF WORDING ARE OPERATOR-EDITABLE — the hero title and
+ * description, the featured heading, and the policies heading and
+ * description. Each resolves to the operator's value when one is saved
+ * and to the shipped message when it is not, so a blank field means
+ * "use the default" rather than "show nothing".
+ *
+ * Every one is rendered as a TEXT NODE. There is no markup path for this
+ * content anywhere in the app, which is what makes storing
+ * operator-written text safe in the first place. A failed settings read
+ * resolves to the empty shape and the whole page falls back — the front
+ * door renders either way.
  */
 export default async function HomePage({
   params,
@@ -42,11 +55,21 @@ export default async function HomePage({
   const login = await getTranslations({ locale: appLocale, namespace: "auth.login" });
   const register = await getTranslations({ locale: appLocale, namespace: "register" });
 
+  // Deduplicated with the header's own read by React's request cache, so
+  // the two share one fetch.
+  const content = await getSiteContent();
+  const heroTitle = siteText(content, "heroTitle", appLocale) ?? t("title");
+  const heroDescription = siteText(content, "heroDescription", appLocale) ?? t("description");
+  const featuredTitle = siteText(content, "featuredTitle", appLocale) ?? t("featuredTitle");
+  const policiesTitle = siteText(content, "policiesTitle", appLocale) ?? t("policiesTitle");
+  const policiesDescription =
+    siteText(content, "policiesDescription", appLocale) ?? t("policiesDescription");
+
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-6">
-        <h1 className="text-2xl font-semibold text-content sm:text-3xl">{t("title")}</h1>
-        <p className="max-w-2xl text-sm text-content-muted sm:text-base">{t("description")}</p>
+        <h1 className="text-2xl font-semibold text-content sm:text-3xl">{heroTitle}</h1>
+        <p className="max-w-2xl text-sm text-content-muted sm:text-base">{heroDescription}</p>
 
         <div className="flex flex-wrap gap-3">
           <ButtonLink href={`/${appLocale}/opportunities`} variant="accentInteractive">
@@ -68,7 +91,7 @@ export default async function HomePage({
       <section aria-labelledby="featured-heading" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="featured-heading" className="text-xl font-semibold text-content">
-            {t("featuredTitle")}
+            {featuredTitle}
           </h2>
           <Link
             href={`/${appLocale}/opportunities`}
@@ -84,8 +107,8 @@ export default async function HomePage({
       </section>
 
       <section className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-6">
-        <h2 className="text-lg font-semibold text-content">{t("policiesTitle")}</h2>
-        <p className="text-sm text-content-muted">{t("policiesDescription")}</p>
+        <h2 className="text-lg font-semibold text-content">{policiesTitle}</h2>
+        <p className="text-sm text-content-muted">{policiesDescription}</p>
         <p>
           <Link href={`/${appLocale}/policies`} className="text-sm text-secondary hover:opacity-90">
             {t("readPolicies")}

@@ -4,6 +4,7 @@ import { isValidOpportunityTransition, type OpportunityStatus } from "@platform/
 import { PrismaService } from "../../database/prisma.service";
 import { BusinessException } from "../../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { MoneyString } from "@platform/types";
 import type { ListAdminOpportunitiesQueryDto } from "./dto/list-admin-opportunities-query.dto";
 import { releaseActiveLocksForOpportunityTx } from "../../checkout/checkout-lock-release.util";
 
@@ -14,6 +15,32 @@ interface ActorContext {
   userAgent?: string;
 }
 
+/**
+ * Money leaves this service as a fixed-scale decimal STRING.
+ *
+ * Until this replaced them, the four monetary fields below were mapped
+ * with `Decimal.toNumber()` — the same defect proved and fixed on the
+ * supplier opportunity surface in 8E.4, still present here because the
+ * admin view has its own mapper. JSON has one numeric type, IEEE-754
+ * binary double, in which `125.50` is not representable exactly, so a
+ * figure that left a `Decimal(12,2)` column and the figure the operator
+ * saw were different numbers that merely printed the same. These are
+ * the amounts an operator reconciles against a supplier's expectation
+ * of what an opportunity was worth.
+ *
+ * `taxRatePercent` is a RATE, not money, and is given the same
+ * fixed-scale string treatment for the same reason: it is a
+ * `Decimal(5,2)` and a double cannot hold every value that column can.
+ *
+ * `sharePercentage` stays a number. It is derived from
+ * `shareBasisPoints`, an INTEGER column, and integer-over-100 is exact
+ * in a double for every value this system can store — there is no
+ * decimal to lose.
+ */
+const money = (amount: Prisma.Decimal): MoneyString => amount.toFixed(2);
+const moneyOrNull = (amount: Prisma.Decimal | null): MoneyString | null =>
+  amount === null ? null : amount.toFixed(2);
+
 export interface AdminOpportunityView {
   id: string;
   companyId: string;
@@ -21,7 +48,7 @@ export interface AdminOpportunityView {
   fulfillmentLocationId: string;
   targetQuantity: number;
   fundedQuantity: number;
-  unitPriceAmount: number;
+  unitPriceAmount: MoneyString;
   currency: string;
   startAt: Date;
   endAt: Date;
@@ -41,10 +68,10 @@ export interface AdminOpportunityView {
   fulfillmentCityNameEn: string | null;
   fulfillmentRegionNameAr: string | null;
   fulfillmentRegionNameEn: string | null;
-  taxRatePercent: number | null;
-  unitPriceExclTaxAmount: number | null;
-  unitTaxAmount: number | null;
-  totalValueInclTaxAmount: number | null;
+  taxRatePercent: string | null;
+  unitPriceExclTaxAmount: MoneyString | null;
+  unitTaxAmount: MoneyString | null;
+  totalValueInclTaxAmount: MoneyString | null;
   sharePercentage: number | null;
   shareQuantity: number | null;
   salesUnitNameAr: string | null;
@@ -117,7 +144,7 @@ function toAdminOpportunityView(row: AdminRow): AdminOpportunityView {
     fulfillmentLocationId: row.fulfillmentLocationId,
     targetQuantity: row.targetQuantity,
     fundedQuantity: row.fundedQuantity,
-    unitPriceAmount: row.unitPriceAmount.toNumber(),
+    unitPriceAmount: money(row.unitPriceAmount),
     currency: row.currency,
     startAt: row.startAt,
     endAt: row.endAt,
@@ -137,10 +164,10 @@ function toAdminOpportunityView(row: AdminRow): AdminOpportunityView {
     fulfillmentCityNameEn: row.fulfillmentCityNameEn,
     fulfillmentRegionNameAr: row.fulfillmentRegionNameAr,
     fulfillmentRegionNameEn: row.fulfillmentRegionNameEn,
-    taxRatePercent: row.taxRatePercent?.toNumber() ?? null,
-    unitPriceExclTaxAmount: row.unitPriceExclTaxAmount?.toNumber() ?? null,
-    unitTaxAmount: row.unitTaxAmount?.toNumber() ?? null,
-    totalValueInclTaxAmount: row.totalValueInclTaxAmount?.toNumber() ?? null,
+    taxRatePercent: row.taxRatePercent === null ? null : row.taxRatePercent.toFixed(2),
+    unitPriceExclTaxAmount: moneyOrNull(row.unitPriceExclTaxAmount),
+    unitTaxAmount: moneyOrNull(row.unitTaxAmount),
+    totalValueInclTaxAmount: moneyOrNull(row.totalValueInclTaxAmount),
     sharePercentage: row.shareBasisPoints !== null ? row.shareBasisPoints / 100 : null,
     shareQuantity: row.shareQuantity,
     salesUnitNameAr: row.salesUnitNameAr,

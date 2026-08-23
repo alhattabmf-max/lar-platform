@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import type { SalesUnitItem } from "@platform/types";
+import type { AdminSalesUnitItem } from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import type { CreateSalesUnitDto } from "./dto/create-sales-unit.dto";
@@ -20,8 +21,34 @@ export class SalesUnitsService {
     private readonly audit: AuditService
   ) {}
 
-  async listAll() {
-    return this.prisma.salesUnit.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
+  /**
+   * Every sales unit, active or not. ADMIN ONLY.
+   *
+   * A CLOSED projection: same reason as `listActiveProjected` below —
+   * not selecting is stronger than not mapping — applied to the admin
+   * read so a column added later cannot appear on a screen by default.
+   */
+  async listAll(): Promise<AdminSalesUnitItem[]> {
+    const rows = await this.prisma.salesUnit.findMany({
+      select: {
+        id: true,
+        nameAr: true,
+        nameEn: true,
+        sortOrder: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      nameAr: row.nameAr,
+      nameEn: row.nameEn,
+      sortOrder: row.sortOrder,
+      isActive: row.isActive,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   /**

@@ -7,6 +7,7 @@ import type { ProductMediaView } from "@platform/types";
 import { apiClient, uploadFile } from "@/lib/api-client";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
 import { mediaUrl } from "@/lib/media-url";
+import type { MediaPolicyLimits } from "@platform/types";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -34,6 +35,19 @@ import { Button } from "@/components/ui/button";
  */
 export interface ProductMediaManagerProps {
   productId: string;
+  /**
+   * The admin-configured media policy, when it could be read.
+   *
+   * OPTIONAL on purpose. `GET /companies/me/policy-limits` can fail, and
+   * a failed read degrades to a hint with no figures — never to invented
+   * defaults, which would state a limit this app made up.
+   *
+   * THE SERVER REMAINS THE AUTHORITY. These figures let the form warn
+   * before an upload; they do not let it decide. Every bound is
+   * re-checked server side and an upload that passed here can still be
+   * refused.
+   */
+  limits?: MediaPolicyLimits;
   media: readonly ProductMediaView[];
   /** True when the API's edit guard would accept a media mutation. */
   canEdit: boolean;
@@ -54,7 +68,16 @@ export interface ProductMediaManagerProps {
     cancel: string;
     working: string;
     addImage: string;
+    /** Shown when the policy could not be read — no figures. */
     addImageHint: string;
+    /** Already interpolated by the caller, with the real figures. */
+    addImageLimits: string;
+    /** Shown when the product already holds the maximum number of images. */
+    addImageFull: string;
+    /** The chosen file is larger than the policy allows. Already interpolated. */
+    fileTooLarge: string;
+    /** The chosen file is not one of the policy accepted types. Already interpolated. */
+    fileTypeNotAllowed: string;
     openFull: string;
     errorTitle: string;
     requestIdLabel: string;
@@ -70,6 +93,7 @@ export function ProductMediaManager({
   media,
   canEdit,
   productName,
+  limits,
   labels,
 }: ProductMediaManagerProps) {
   const router = useRouter();
@@ -77,6 +101,11 @@ export function ProductMediaManager({
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [busy, setBusy] = useState(false);
+  // A file this component refused before uploading it. Separate from
+  // `failure`, which holds what the SERVER refused — conflating the two
+  // would let a local rejection be cleared by a successful later
+  // request, or vice versa.
+  const [localRejection, setLocalRejection] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [failure, setFailure] = useState<UserFacingError | null>(null);
 
@@ -141,11 +170,40 @@ export function ProductMediaManager({
     event.target.value = "";
     if (!file) return;
 
+    // PRE-UPLOAD CHECKS, against the admin-configured policy.
+    //
+    // Both are things this component can know before spending the
+    // reader's bandwidth: an over-sized file would upload in full and
+    // then be refused, and a browser's file picker honours `accept` as a
+    // filter rather than a rule — a person can always choose "all files".
+    //
+    // Skipped entirely when the policy could not be read. THE SERVER
+    // REMAINS THE AUTHORITY either way: it re-checks both, and a file
+    // that passes here can still be refused.
+    if (limits) {
+      if (file.size > limits.maxSizeBytes) {
+        setLocalRejection(labels.fileTooLarge);
+        return;
+      }
+      if (!limits.allowedTypes.includes(file.type)) {
+        setLocalRejection(labels.fileTypeNotAllowed);
+        return;
+      }
+    }
+
+    setLocalRejection(null);
+
     // The existing multipart helper: it sets no Content-Type, because
     // setting one on a FormData body destroys the boundary the browser
     // generates and the request arrives unparseable.
     void mutate(() => uploadFile(`/companies/me/products/${productId}/media`, file, "file"));
   }
+
+  // Whether the product already holds as many images as the policy
+  // allows. Unknown limits mean not at capacity: the server still
+  // decides, and disabling the control on a guess would block a valid
+  // upload.
+  const atCapacity = limits !== undefined && media.length >= limits.maxImagesPerProduct;
 
   return (
     <section
@@ -310,7 +368,13 @@ export function ProductMediaManager({
           <input
             ref={fileInput}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            // The policy's OWN accepted types when they are known. The
+            // hardcoded triple was this file's guess at what the image
+            // processor takes, and the two could drift the day a format
+            // is added or withdrawn.
+            accept={
+              limits ? limits.allowedTypes.join(",") : "image/jpeg,image/png,image/webp"
+            }
             className="sr-only"
             onChange={onFileChosen}
           />
@@ -318,17 +382,31 @@ export function ProductMediaManager({
             type="button"
             size="sm"
             className="min-h-11"
-            disabled={busy}
+            // Disabled at the policy's ceiling, so the button is never
+            // one that opens a file picker for an upload the server will
+            // refuse. Below the ceiling — or with no policy read — it
+            // stays live and the server decides.
+            disabled={busy || atCapacity}
             isLoading={busy}
             onClick={() => fileInput.current?.click()}
           >
             {busy ? labels.working : labels.addImage}
           </Button>
-          {/* No numeric limit is stated: the maximum count and size are
-              admin-configured and no endpoint exposes them, so a number
-              here would be a value this app invented. The server's
-              refusal names the reason instead. */}
-          <p className="text-xs text-content-muted">{labels.addImageHint}</p>
+          {/* The real figures when the policy could be read; the
+              figure-free hint when it could not. A number invented here
+              would be worse than no number at all. */}
+          <p className="text-xs text-content-muted">
+            {atCapacity ? labels.addImageFull : limits ? labels.addImageLimits : labels.addImageHint}
+          </p>
+
+          {/* A file this component refused before uploading it.
+              Announced, because the reader chose a file and the visible
+              result is otherwise nothing happening at all. */}
+          {localRejection ? (
+            <p role="alert" className="text-xs text-danger-text">
+              {localRejection}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

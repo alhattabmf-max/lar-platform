@@ -1,6 +1,12 @@
 import { SETTINGS_KEYS } from "../../settings/settings-keys.constants";
+import {
+  HEADER_NAV_MAX_ITEMS,
+  SITE_CONTENT_FIELDS,
+  SITE_CONTENT_LIMITS,
+  isSiteContentText,
+} from "@platform/types";
 
-export type SettingValueType = "boolean" | "enum";
+export type SettingValueType = "boolean" | "enum" | "json";
 
 export interface SettingDefinition {
   key: string;
@@ -34,6 +40,70 @@ export interface SettingDefinition {
  * unvalidated way to write the same value — exactly what this
  * registry exists to prevent.
  */
+
+/**
+ * Homepage text: a bilingual pair per field, each within its own bound.
+ *
+ * Unknown keys are REJECTED rather than ignored. A settings value is
+ * arbitrary JSON, and quietly accepting extra keys is how a settings row
+ * becomes a place to stash something that was never reviewed.
+ *
+ * Length is enforced here as well as at read time. Validating on write
+ * gives the operator an error they can act on; validating on read means
+ * a bad value degrades safely even if it arrived another way.
+ */
+function validateHomepageContent(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+
+  const allowed = new Set<string>(SITE_CONTENT_FIELDS);
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    if (!allowed.has(key)) return false;
+  }
+
+  for (const field of SITE_CONTENT_FIELDS) {
+    const entry = (value as Record<string, unknown>)[field];
+    if (entry === undefined) continue;
+    if (!isSiteContentText(entry)) return false;
+
+    const limit = SITE_CONTENT_LIMITS[field];
+    const { ar, en } = entry;
+    if (typeof ar === "string" && ar.length > limit) return false;
+    if (typeof en === "string" && en.length > limit) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Header navigation: an ordered array of taxonomy node IDS.
+ *
+ * IDS ONLY — never a URL, never a label. An operator cannot type a
+ * destination, so there is nothing to allowlist and no way to point the
+ * navigation off-site. Whether each id still exists and is active is
+ * resolved at read time, because a category can be retired after it was
+ * chosen.
+ *
+ * Shape is checked here; existence is not. A validator that queried the
+ * database would make writing a setting depend on the taxonomy being
+ * reachable, and the read path already drops anything unusable.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function validateHeaderNav(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length > HEADER_NAV_MAX_ITEMS) return false;
+
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== "string" || !UUID_PATTERN.test(entry)) return false;
+    // The same category twice in a menu is a mistake, not an intention.
+    if (seen.has(entry)) return false;
+    seen.add(entry);
+  }
+  return true;
+}
+
 export const SETTINGS_REGISTRY: Record<string, SettingDefinition> = {
   [SETTINGS_KEYS.EMAIL_VERIFICATION_ENABLED]: {
     key: SETTINGS_KEYS.EMAIL_VERIFICATION_ENABLED,
@@ -53,6 +123,24 @@ export const SETTINGS_REGISTRY: Record<string, SettingDefinition> = {
     failSafeBehavior: "throw-on-malformed",
     allowedValues: ["MANUAL", "AUTOMATIC"],
     validate: (value) => value === "MANUAL" || value === "AUTOMATIC",
+  },
+  [SETTINGS_KEYS.HOMEPAGE_CONTENT]: {
+    key: SETTINGS_KEYS.HOMEPAGE_CONTENT,
+    type: "json",
+    description:
+      "Homepage copy, per field, in Arabic and English. Every field is optional and a missing or malformed one falls back to the shipped message catalogue. Rendered as text nodes only — never HTML or Markdown.",
+    adminWritable: true,
+    failSafeBehavior: "safe-default-on-failure",
+    validate: validateHomepageContent,
+  },
+  [SETTINGS_KEYS.HEADER_NAV]: {
+    key: SETTINGS_KEYS.HEADER_NAV,
+    type: "json",
+    description:
+      "Ordered taxonomy node ids shown in the public header. Ids only, never URLs. A node that is later deleted or deactivated is dropped from the header rather than breaking it.",
+    adminWritable: true,
+    failSafeBehavior: "safe-default-on-failure",
+    validate: validateHeaderNav,
   },
 };
 

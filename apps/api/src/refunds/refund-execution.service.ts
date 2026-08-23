@@ -4,6 +4,7 @@ import { PrismaService } from "../database/prisma.service";
 import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { AdminRefundDetail } from "@platform/types";
 import { RefundProviderRegistry } from "./providers/refund-provider.registry";
 
 interface ActorContext {
@@ -29,11 +30,89 @@ export class RefundExecutionService {
     private readonly notifications: NotificationEventsService
   ) {}
 
-  async getObligation(refundObligationId: string) {
-    return this.prisma.refundObligation.findUnique({
+  /**
+   * One refund obligation and every attempt made on it.
+   *
+   * A CLOSED projection. The previous read was
+   * `include: { attempts: true }`, which shipped each attempt's
+   * `idempotencyKey` to the browser. That key is the token deciding
+   * whether a replayed refund executes once or twice; anyone holding it
+   * can collide with — or replay — a real settlement instruction, so it
+   * never leaves the server. `providerReference` does travel: it is the
+   * provider's own handle for the transfer and is what an operator
+   * quotes when reconciling.
+   *
+   * Money is serialised with `toFixed(2)`. A raw Prisma `Decimal`
+   * stringifies as `"100"`, not `"100.00"`, which fails the money
+   * contract these figures are reconciled under.
+   *
+   * Returns null when the obligation does not exist, which is what the
+   * previous shape did — the controller decides how that is reported.
+   */
+  async getObligation(refundObligationId: string): Promise<AdminRefundDetail | null> {
+    const row = await this.prisma.refundObligation.findUnique({
       where: { id: refundObligationId },
-      include: { attempts: { orderBy: { createdAt: "asc" } } },
+      select: {
+        id: true,
+        paymentAttemptId: true,
+        source: true,
+        reasonCode: true,
+        status: true,
+        amount: true,
+        productRefundAmountInclTax: true,
+        shippingRefundAmount: true,
+        disputeDecisionId: true,
+        createdAt: true,
+        paymentAttempt: {
+          select: {
+            currency: true,
+            checkoutSession: { select: { order: { select: { id: true } } } },
+          },
+        },
+        attempts: {
+          select: {
+            id: true,
+            providerCode: true,
+            status: true,
+            providerReference: true,
+            failureReason: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        },
+      },
     });
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      paymentAttemptId: row.paymentAttemptId,
+      masterOrderId: row.paymentAttempt.checkoutSession.order?.id ?? null,
+      source: row.source,
+      reasonCode: row.reasonCode,
+      status: row.status,
+      amount: row.amount.toFixed(2),
+      currency: row.paymentAttempt.currency,
+      attemptCount: row.attempts.length,
+      createdAt: row.createdAt.toISOString(),
+      // null means nothing was awarded under that head, which is not
+      // the same as zero and is not rendered as "0.00".
+      productRefundAmountInclTax:
+        row.productRefundAmountInclTax === null ? null : row.productRefundAmountInclTax.toFixed(2),
+      shippingRefundAmount:
+        row.shippingRefundAmount === null ? null : row.shippingRefundAmount.toFixed(2),
+      disputeDecisionId: row.disputeDecisionId,
+      attempts: row.attempts.map((attempt) => ({
+        id: attempt.id,
+        providerCode: attempt.providerCode,
+        status: attempt.status,
+        providerReference: attempt.providerReference,
+        failureReason: attempt.failureReason,
+        createdAt: attempt.createdAt.toISOString(),
+        updatedAt: attempt.updatedAt.toISOString(),
+      })),
+    };
   }
 
   /**

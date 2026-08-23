@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import type { AdminCityItem } from "@platform/types";
 import { AuditService } from "../audit/audit.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
@@ -21,11 +22,40 @@ export class CitiesService {
     private readonly audit: AuditService
   ) {}
 
-  async listAll() {
-    return this.prisma.city.findMany({
-      include: { region: true },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  /**
+   * Every city, active or not, with its region's names. ADMIN ONLY.
+   *
+   * A CLOSED projection. The previous read used
+   * `include: { region: true }`, which nested the whole `Region` row
+   * inside every city; the screen needs the region's two names, so
+   * those are what it gets.
+   */
+  async listAll(): Promise<AdminCityItem[]> {
+    const rows = await this.prisma.city.findMany({
+      select: {
+        id: true,
+        regionId: true,
+        nameAr: true,
+        nameEn: true,
+        sortOrder: true,
+        isActive: true,
+        createdAt: true,
+        region: { select: { nameAr: true, nameEn: true } },
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
+
+    return rows.map((row) => ({
+      id: row.id,
+      regionId: row.regionId,
+      regionNameAr: row.region.nameAr,
+      regionNameEn: row.region.nameEn,
+      nameAr: row.nameAr,
+      nameEn: row.nameEn,
+      sortOrder: row.sortOrder,
+      isActive: row.isActive,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   async listActive() {

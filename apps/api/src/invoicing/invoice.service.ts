@@ -3,6 +3,7 @@ import { AuditActorType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import type { AdminInvoiceDocumentItem } from "@platform/types";
 import { InternalDraftInvoiceProvider } from "./internal-draft-invoice.provider";
 
 interface AdminActorContext {
@@ -32,8 +33,50 @@ export class InvoiceService {
     private readonly referenceProvider: InternalDraftInvoiceProvider
   ) {}
 
-  async list(masterOrderId: string) {
-    return this.prisma.invoiceDocument.findMany({ where: { masterOrderId }, orderBy: { createdAt: "asc" } });
+  /**
+   * Every invoice document raised against one order.
+   *
+   * A CLOSED projection. The previous read was a bare `findMany`, which
+   * returned `snapshotData` — the full frozen computation behind each
+   * document, carrying line items, policy versions and both parties'
+   * billing details. That blob is retained so a figure can be
+   * re-derived years later, not so it can be shipped to a screen that
+   * shows a total.
+   *
+   * `amount` is a `Decimal(14,2)` column serialised with `toFixed(2)`;
+   * handed over raw it stringifies as `"100"` rather than `"100.00"`.
+   */
+  async list(masterOrderId: string): Promise<AdminInvoiceDocumentItem[]> {
+    const rows = await this.prisma.invoiceDocument.findMany({
+      where: { masterOrderId },
+      select: {
+        id: true,
+        documentType: true,
+        masterOrderId: true,
+        relatedInvoiceDocumentId: true,
+        amount: true,
+        currency: true,
+        internalDocumentReference: true,
+        issuedAt: true,
+        createdAt: true,
+      },
+      // Terminating in `id`: an adjustment raised in the same
+      // millisecond as the document it corrects must not appear before
+      // it.
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      documentType: row.documentType,
+      masterOrderId: row.masterOrderId,
+      relatedInvoiceDocumentId: row.relatedInvoiceDocumentId,
+      amount: row.amount.toFixed(2),
+      currency: row.currency,
+      internalDocumentReference: row.internalDocumentReference,
+      issuedAt: row.issuedAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   async createProductDraft(masterOrderId: string, ctx: AdminActorContext, idempotencyKey: string) {
