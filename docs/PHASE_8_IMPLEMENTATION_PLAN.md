@@ -1078,18 +1078,100 @@ it is what enumerates the two locales — and `export const dynamic =
 "force-dynamic"` on `app/[locale]/trader/layout.tsx` is what makes the segment
 per-request. Do not "fix" the marker; check the two artefacts instead.
 
-### 8E — Supplier portal
+### 8E — Supplier portal — **DELIVERED**
+
+Planned as one batch; delivered as eight, because three defects and one
+financial correctness problem were found on the way and each needed its own
+decision before the UI could be built on it.
 
 | | |
 |---|---|
-| Backend | `GET supplier/orders/:id/documents` (1); `GET supplier/settlements` + `/:id` (2) |
-| Schema | none |
-| Frontend | `(supplier)/{dashboard,products,products/[id],media,opportunities,orders,orders/[id],fulfillment,disputes,replacements,settlements,documents,notifications,company}` |
-| Shared types | `SettlementSummary`, `SupplierPayoutOutcome`, `ProductSummary`, `OrderAllocationStatus` |
-| Tests | product → review → ship e2e; another supplier's settlement → 404; `externalTransferReference` and `executedByAdminUserId` absent; no ledger; no full IBAN |
-| Acceptance gate | isolation proven per route; exact key equality on the settlement response |
-| Depends on | 8C (notifications from 8D) |
-| Risks | low |
+| Backend | 12 endpoints (see below); `GET /sales-units/active` reprojected; `GET /companies/me/products` reprojected |
+| Schema | **none** — 90 migrations before and after |
+| Frontend | `/[locale]/supplier/{,account/*,products/*,opportunities/*,orders/*,disputes/*,replacement-obligations/*,settlements/*,notifications}` — 23 pages |
+| Shared types | `SupplierOrder*`, `SupplierOpportunity*`, `SupplierDispute*`, `SupplierReplacement*`, `Settlement*`, `Product*`, `SalesUnitItem`, `CreateProductRequest`, `UpdateProductRequest` |
+| Acceptance gate | met — isolation proven per route, exact key equality on every projection |
+
+#### Batches as delivered
+
+| Batch | Scope |
+|---|---|
+| 8E.1 | Five supplier contracts in `@platform/types` |
+| 8E.2 | 12 endpoints, four closed projections, three data leaks closed |
+| 8E.3 | Real `/supplier` segment, layout, guard, nav, data layer, dashboard, account |
+| 8E.4 | Supplier opportunities read surface + the money-contract fix |
+| — | **Financial Precision Delta** (see §Financial precision below) |
+| 8E.5a | Product request contracts, decimal/text bounds, null-clearing, closed check codes |
+| 8E.5b+c | Product create/edit forms, media reorder |
+| 8E.6–8 | Opportunity forms, orders & fulfilment, disputes, replacements, settlements, notifications, nav closure |
+
+#### Endpoints added (12; 203 → 215)
+
+| Method | Path |
+|---|---|
+| GET | `/companies/me/products/:productId/media/:mediaId/image` |
+| GET | `/companies/me/products/:id` |
+| GET | `/supplier/orders`, `/supplier/orders/:id`, `/supplier/orders/:id/documents` |
+| GET | `/supplier/settlements`, `/supplier/settlements/:id` |
+| GET | `/supplier/replacement-obligations`, `/supplier/replacement-obligations/:id` |
+| GET | `/supplier/disputes` |
+| GET/POST | `/supplier/notifications` ×4 |
+
+Two legacy raw-row routes on `/supplier/orders` were **deleted**, so the net
+is +12 on a gross of +14.
+
+#### Defects found and closed
+
+1. **Three supplier data leaks (8E.2).** `OrdersService.listForSupplier`
+   returned the ADMIN's SELECT — `traderCompanyId` and a Decimal
+   `totalAmount` serialising as a JSON number. `getForSupplier` on disputes
+   returned every evidence row including the TRADER's, each with its
+   `storageObjectKey`, plus the administrator's `reasonNote`. The settlement
+   read exposed `externalTransferReference`, `executedByAdminUserId` and
+   `supplierBankAccountId`.
+2. **Opportunity money as JSON numbers (8E.4).** `toSupplierOpportunityView`
+   sent four `Decimal(12,2)`/`(14,2)` columns through `.toNumber()`, and
+   mapped a raw row with no `select` at all.
+3. **`listMine` on products returned raw rows** with every media
+   `objectKey`.
+4. **Reorder accepted a duplicated media id** — `[a,a]` passed against
+   `[a,b]`, writing one row twice and leaving the other stale, reported as
+   success.
+5. **`undefined` and `null` were indistinguishable** on product update, so
+   an optional field could be set but never cleared.
+6. **Technical-check failures were joined English sentences** no client could
+   map to a field.
+
+#### Financial precision
+
+A gate run before 8E.5 traced the three surviving `Decimal.toNumber()` calls
+in `opportunities.service.ts`. Two fed `computeTaxSnapshot`, whose rounding
+helper — `Math.round((v + Number.EPSILON) * 100) / 100` — is wrong: EPSILON is
+below one ULP for any value above ~2, and `2.175 * 100` is
+`217.49999999999997`. Measured over 500,000 two-decimal prices per rate: **0
+wrong at 15%, 3,038 (0.61%) at 20%, 16,390 (3.28%) at 100%**. Both figures are
+written to frozen `Decimal(12,2)` columns.
+
+`computeTaxSnapshot` is now Decimal end-to-end (`decimal.js`, ROUND_HALF_UP,
+scale 2), `@platform/domain` gained it as a direct dependency, and the two
+serializer conversions were removed. One `toNumber` remains, for share-tier
+threshold selection only, proven flip-free across 140,000 pairs.
+
+**No historical row was modified.** A read-only audit lives at
+`docs/audits/tax-snapshot-precision-audit.sql`; whether any published
+opportunity is affected is a data question that needs a database.
+
+#### Deliberate omissions
+
+- **No standalone documents page.** `GET /supplier/orders/:id/documents` is
+  per-order with no flat list; a standalone page could only fan out over the
+  orders list, an N+1 whose page boundaries would be the ORDERS'.
+- **No supplier "confirm delivery".** That transition belongs to the trader and
+  has no supplier route.
+- **No SKU field and no per-category attributes.** Neither exists in the schema
+  — recorded in `docs/gaps/post-phase-8-review.md`.
+- **No media-policy or opportunity-bound numbers in the UI.** Both are
+  admin-configured and exposed by no endpoint, so any figure would be invented.
 
 ### 8F — Admin portal
 
@@ -1149,9 +1231,9 @@ the caching decision 8G owes.
 |---|---|
 | Migrations | **87 → 90** (88 banners, 89 outbox relay, 90 notifications) |
 | Migrations on disk now | **90** — 88 banners, 89 outbox relay, 90 `20260825000100_8d_create_notifications` |
-| Endpoints | **178 → 212** (+34; 8D0 adds zero, 8E gains +4 from Option A) |
+| Endpoints | **178 → 215** through 8E (+37). 8D0 adds zero; 8E adds 12 net (14 gross, 2 legacy raw-row routes deleted). Asserted in `apps/api/src/common/contracts/supplier-routes.spec.ts` |
 | Endpoints measured now (after 8D) | **203** |
-| Batches | **7** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G |
+| Batches | **7 planned** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G. 8E was delivered as eight sub-batches plus a Financial Precision Delta |
 | Notification types | 18, of which **13** emit `EMAIL_NOTIFICATION_V1` |
 | Legacy outbox event types left outside the relay | 13 |
 | Shared wire enums | 9 |
@@ -1168,22 +1250,34 @@ New endpoints by group:
 | Notifications — trader | 4 | 8D | delivered |
 | Trader documents | 1 | 8D | delivered |
 | Trader disputes + replacements list/detail | 3 | 8D | delivered |
-| Notifications — supplier | 4 | 8E | planned (Option A) |
-| Supplier documents | 1 | 8E | planned |
-| Supplier settlements | 2 | 8E | planned |
+| Notifications — supplier | 4 | 8E | delivered |
+| Supplier documents | 1 | 8E | delivered |
+| Supplier settlements | 2 | 8E | delivered |
+| Supplier orders — projected reads | 2 | 8E | delivered (replacing 2 deleted raw-row routes) |
+| Supplier replacement reads | 2 | 8E | delivered |
+| Supplier disputes list | 1 | 8E | delivered |
+| Product detail + private media image | 2 | 8E | delivered |
 | Audit log viewer | 1 | 8F | planned |
 | Outbox stats | 1 | 8F | planned |
-| **Total** | **34** | | |
+| **Total** | **39 gross, 37 net** | | |
 
 **How the totals reconcile.** 178 measured before Phase 8, +5 delivered in
-8B/8B.1, +12 delivered in 8C, **+0 in 8D0**, **+8 in 8D** = **203 measured
-today**. The remaining 9 planned endpoints (7 in 8E — 1 documents, 2
-settlements, 4 supplier notifications — and 2 in 8F) bring the phase to **212**.
+8B/8B.1, +12 delivered in 8C, **+0 in 8D0**, **+8 in 8D** = 203, **+12 net in
+8E** = **215 measured today**. The 2 planned 8F endpoints bring the phase to
+**217**.
 
-The +34 figure supersedes +30. The four added are the supplier notification
-routes that Option A made necessary: 8D's producers write supplier-targeted
-notifications, and until 8E builds a supplier read surface there is nowhere to
-read them.
+8E came in at 14 gross rather than the 7 planned. Five of the seven extra were
+reads the supplier portal could not be built without and that no one had
+counted — orders list and detail as CLOSED projections (replacing two legacy
+raw-row routes, which were deleted, so the net is 12), replacement obligations
+list and detail, and a disputes list. The other two were a product detail route
+and a private product-media image route: the product list existed, the detail
+did not, and there was no authorised way to serve a supplier's own image at
+all.
+
+The +34 figure superseded +30 by adding the supplier notification routes Option
+A made necessary. It is itself superseded: the real 8E figure is 14 gross / 12
+net, measured rather than estimated.
 
 The +30 figure supersedes the earlier +27. Three revisions produced it: 8B.1
 added the four admin brand-theme routes; 8C came in at 12 against an estimate of 8
