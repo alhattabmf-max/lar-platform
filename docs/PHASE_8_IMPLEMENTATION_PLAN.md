@@ -866,7 +866,7 @@ Sequence: **8B → 8C → 8D0 → 8D → 8E → 8F → 8G**
 | Tests | hex format and normalisation; WCAG contrast per pair; every default pair passes; unreadable primary/secondary/accent/accent-interactive/focus each rejected at publish; draft never public; publish atomic; reset restores defaults; missing and corrupt settings resolve to defaults; audit on every mutation; no CSS injection |
 | Acceptance gate | zero migrations; public response carries the active theme only; publish refused on any format or contrast issue |
 | Depends on | 8B |
-| Risks | low — no new table, no new UI; the colour picker is deferred to 8F |
+| Risks | low — no new table, no new UI; the colour picker is deferred to 8F (delivered) |
 
 ### 8C — Auth screens, public marketplace, banners *(delivered)*
 
@@ -938,7 +938,8 @@ remember to update.
 
 **Not in 8C — Admin Banner UI is deferred to 8F.** All 9 admin banner endpoints
 exist and are unit-tested; nothing in `apps/web` calls them. The only banner UI
-delivered is the public read-only `BannerSlot`.
+delivered is the public read-only `BannerSlot`. *(DELIVERED in 8F at
+`/admin/banners`.)*
 
 **`requireRoleOrRedirect` is built and unit-tested but not yet consumed.** No
 route group in 8C is role-guarded, because 8C shipped no role-restricted screen.
@@ -1231,9 +1232,9 @@ the caching decision 8G owes.
 |---|---|
 | Migrations | **87 → 90** (88 banners, 89 outbox relay, 90 notifications) |
 | Migrations on disk now | **90** — 88 banners, 89 outbox relay, 90 `20260825000100_8d_create_notifications` |
-| Endpoints | **178 → 215** through 8E (+37). 8D0 adds zero; 8E adds 12 net (14 gross, 2 legacy raw-row routes deleted). Asserted in `apps/api/src/common/contracts/supplier-routes.spec.ts` |
-| Endpoints measured now (after 8D) | **203** |
-| Batches | **7 planned** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G. 8E was delivered as eight sub-batches plus a Financial Precision Delta |
+| Endpoints | **178 → 233** through 8F (+55). 8D0 adds zero; 8E adds 12 net (14 gross, 2 legacy raw-row routes deleted); 8F adds 18, all additions. Asserted in `apps/api/src/common/contracts/supplier-routes.spec.ts` |
+| Endpoints measured now (after 8F) | **233** — counted twice, by the route spec and by an independent script |
+| Batches | **7 planned** — 8B (+8B.1), 8C, 8D0, 8D, 8E, 8F, 8G. 8E was delivered as eight sub-batches plus a Financial Precision Delta; 8F was delivered as one batch |
 | Notification types | 18, of which **13** emit `EMAIL_NOTIFICATION_V1` |
 | Legacy outbox event types left outside the relay | 13 |
 | Shared wire enums | 9 |
@@ -1257,14 +1258,109 @@ New endpoints by group:
 | Supplier replacement reads | 2 | 8E | delivered |
 | Supplier disputes list | 1 | 8E | delivered |
 | Product detail + private media image | 2 | 8E | delivered |
-| Audit log viewer | 1 | 8F | planned |
-| Outbox stats | 1 | 8F | planned |
-| **Total** | **39 gross, 37 net** | | |
+| Admin identity + own credentials | 3 | 8F | delivered |
+| Admin lifecycle (list, disable, enable, reset 2FA) | 4 | 8F | delivered |
+| Audit log viewer + its action vocabulary | 2 | 8F | delivered |
+| Outbox stats | 1 | 8F | delivered |
+| Admin directory (companies, products, bank history) | 3 | 8F | delivered |
+| Admin money reads (refunds, settlements) | 2 | 8F | delivered |
+| Refund provider vocabulary | 1 | 8F | delivered |
+| Supplier policy limits | 1 | 8F | delivered |
+| Public site content | 1 | 8F | delivered |
+| **Total** | **57 gross, 55 net** | | |
 
 **How the totals reconcile.** 178 measured before Phase 8, +5 delivered in
 8B/8B.1, +12 delivered in 8C, **+0 in 8D0**, **+8 in 8D** = 203, **+12 net in
-8E** = **215 measured today**. The 2 planned 8F endpoints bring the phase to
-**217**.
+8E** = 215, **+18 in 8F** = **233 measured today**.
+
+8F was estimated at 2 endpoints and delivered 18 — the largest gap between
+estimate and delivery in Phase 8, and worth stating plainly rather than
+absorbing.
+
+The estimate counted the two screens anyone had thought about: an audit log
+viewer and an outbox stats panel. It did not count the endpoints an admin
+portal cannot exist without.
+
+  - **7 for admin identity and lifecycle.** A Server Component has no cookie
+    jar, so the portal's entire server-side guard rests on `GET
+    /admin/auth/me`; there was no such route, and `/me` describes a company
+    user, which an administrator is not. The six lifecycle routes are decision
+    B, approved before the work started.
+  - **7 reads that decision E named.** Companies, products, bank-account
+    history, refunds, settlements, audit logs and outbox stats each had write
+    endpoints and no way to list what those writes had acted on.
+  - **2 vocabularies read from the data instead of hardcoded.** The audit
+    filter's action list and the refund screen's provider list. Both would
+    otherwise be arrays typed into the browser that drift silently the day the
+    underlying set changes — the filter keeps working and simply never offers
+    the new value.
+  - **2 supporting reads.** `GET /companies/me/policy-limits` exists so the
+    supplier's own upload control can state the image limits before someone
+    discovers them by hitting one; `GET /public/site-content` serves the two
+    operator-editable settings to the public site.
+
+No endpoint was deleted in 8F, so gross and net are the same number.
+
+### Three corrections before 8F closed
+
+The first closing report was refused, correctly, on three grounds. All
+three are now done.
+
+**1 — The dispute refund path is exact, by construction.** The report had
+argued the `Number()` on that path was "practically lossless for
+two-decimal values". That is an argument about the inputs anybody tried,
+not a property of the code, and it is not the standard this system holds
+money to. `AdminDecisionInput` now types both refund amounts as decimal
+STRINGS; the controller passes them through unconverted; the service
+builds `Prisma.Decimal` from the original digits; the frozen-snapshot
+bounds are compared as Decimals; and
+`computeDisputeRefundReversalExact` in `@platform/domain` does the
+arithmetic in `decimal.js` with an explicit `ROUND_HALF_UP`.
+
+The journal entry balances BY CONSTRUCTION rather than by rounding luck:
+the supplier debit is DERIVED as
+`productRefund − commissionReversal − commissionTaxReversal`, so the two
+reversals cancel out of the debit total and it equals
+`productRefund + shippingRefund` for every input. 61 domain tests and 33
+API tests assert it, including the two named values, both real column
+ceilings, and a source guard that reads the files and proves no
+`Number`, `parseFloat` or `toNumber` survives on the path.
+
+Two real defects surfaced while doing it:
+
+  - `@IsOptional()` skips `null` as well as `undefined`, so
+    `productRefundAmountInclTax: null` passed validation, slipped past a
+    `=== undefined` guard, and reached the Decimal parser — a 500 for
+    what is plainly a bad request. Now `@ValidateIf` at the DTO and
+    `== null` at the service.
+  - `IsDecimalString` bounded the SHAPE but not the MAGNITUDE, so a value
+    too large for the column reached PostgreSQL and returned
+    `numeric field overflow` as a 500 after the request was accepted.
+
+A factual correction to the brief that asked for this: the dispute refund
+columns are `Decimal(14,2)`, not `(12,2)`. Twelve integer digits, not
+ten. `(12,2)` is the allocation snapshot's `shippingFeeAmount`, which is
+the tighter bound a SHIPPING refund must satisfy. Both are tested at
+their real boundary.
+
+**2 — Site content reaches the public site.** `/public/site-content` was
+written by the admin console and read by nothing: the homepage used the
+message catalogue directly, so an operator could save a hero title and
+watch the site ignore it. The homepage now resolves all five fields
+through it, and the header renders the configured categories in the
+operator's order. Every one falls back to the shipped message when the
+setting is absent, blank or malformed, and the whole read falls back when
+it fails — the front door renders either way. The header builds each href
+FROM the taxonomy id, so there is still no destination anyone typed.
+
+**3 — Policy limits reach both supplier forms.** The media manager states
+the real count, size and accepted types, refuses an over-sized or
+wrong-typed file BEFORE uploading it, and stops offering an upload at the
+ceiling. The opportunity form states the duration and quantity bounds and
+warns as the reader types. Neither blocks: the server re-checks
+everything, and a form that refused a value the server would accept is
+the worse failure. When the policy read fails, both degrade to the
+figure-free wording they had before — never to an invented default.
 
 8E came in at 14 gross rather than the 7 planned. Five of the seven extra were
 reads the supplier portal could not be built without and that no one had
@@ -1456,8 +1552,11 @@ described as proven duplicate-free.
 
 ## 12. Deferred beyond Phase 8
 
-- **Admin Banner UI → 8F.** The 9 admin banner endpoints are delivered and
-  unit-tested in 8C; no screen calls them yet.
+- **Admin Banner UI → DELIVERED in 8F.** The 9 admin banner endpoints were
+  built and unit-tested in 8C with no screen calling them. `/admin/banners`
+  now does: create, activate, schedule, and keyboard-operable reordering per
+  placement. Image upload stays on its own endpoint and is not managed from
+  that screen.
 - **Real email provider.** See §13.
 - `User.preferredLocale` — a prerequisite for the real provider.
 - Manual outbox retry and delete. No safe endpoint exists today, so none is reused.
@@ -1611,7 +1710,10 @@ of re-verifying an unbounded matrix on every change.
 
 **The colour picker UI ships in 8F, not in 8B.1.** 8B.1 delivers the
 storage, contracts, validation, admin APIs, public exposure, and runtime
-application only.
+application only. *(DELIVERED in 8F at `/admin/branding`: four colours,
+draft, contrast verdict with the failing pairs named, publish and reset.
+The swatch is an alternative input beside a text field, so a brand hex
+can be pasted and a screen-reader user can operate it.)*
 
 #### Storage model
 
@@ -1653,8 +1755,9 @@ Required contrast before publish:
 
 **Draft versus publish policy.** A malformed hex is rejected on save —
 it is structurally invalid, no picker can produce it, and storing it
-would corrupt the row. Contrast failures *are* saved, so the 8F admin
-screen can show an admin exactly which pairs fail while they experiment.
+would corrupt the row. Contrast failures *are* saved, and the 8F admin
+screen shows exactly which pairs fail, with the measured ratio against the
+required one — a verdict alone leaves someone changing colours at random.
 **Publish is refused outright on any issue, format or contrast.**
 
 ---
