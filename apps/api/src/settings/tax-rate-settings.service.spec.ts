@@ -75,6 +75,35 @@ describe("TaxRateSettingsService", () => {
       });
     });
 
+    it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+      "rejects %s",
+      async (rate) => {
+        const service = new TaxRateSettingsService(fakePrisma(), auditStub);
+        await expect(service.setDefaultRate(rate, ctx)).rejects.toMatchObject({
+          response: expect.objectContaining({ code: "VALIDATION_FAILED" }),
+        });
+      }
+    );
+
+    it.each([13.3333, 15.001, 0.125])(
+      "rejects %s — the rate's column is Decimal(5,2)",
+      async (rate) => {
+        // A stored rate the column would round means the snapshot computed
+        // from the setting and one recomputed from the column can differ.
+        const service = new TaxRateSettingsService(fakePrisma(), auditStub);
+        await expect(service.setDefaultRate(rate, ctx)).rejects.toMatchObject({
+          response: expect.objectContaining({ code: "VALIDATION_FAILED" }),
+        });
+      }
+    );
+
+    it.each([15, 15.5, 13.33, 0, 100])("accepts %s, which the column can hold", async (rate) => {
+      const service = new TaxRateSettingsService(fakePrisma(), auditStub);
+      await expect(service.setDefaultRate(rate, ctx)).resolves.toMatchObject({
+        ratePercent: rate,
+      });
+    });
+
     it("accepts a valid rate within bounds (boundary values 0 and 100 included)", async () => {
       const service = new TaxRateSettingsService(fakePrisma(), auditStub);
       await expect(service.setDefaultRate(0, ctx)).resolves.toMatchObject({ ratePercent: 0 });

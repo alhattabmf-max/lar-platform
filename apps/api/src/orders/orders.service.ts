@@ -26,15 +26,11 @@ export class OrdersService {
   // see — and leaving a trader-named method pointing at it is an
   // invitation to call it again.
 
-  async listForSupplier(supplierCompanyId: string) {
-    return this.prisma.masterOrder.findMany({ where: { supplierCompanyId }, select: SELECT, orderBy: { createdAt: "desc" } });
-  }
-
-  async getForSupplier(id: string, supplierCompanyId: string) {
-    const order = await this.prisma.masterOrder.findFirst({ where: { id, supplierCompanyId }, select: SELECT });
-    if (!order) throw new NotFoundException("Order not found");
-    return order;
-  }
+  // The supplier reads moved to SupplierOrdersService in 8E.2. Deleted
+  // rather than left orphaned: the shared SELECT below is the ADMIN's and
+  // carries `traderCompanyId` alongside a Decimal `totalAmount` that
+  // serialises as a JSON number, so a supplier-named method pointing at it is
+  // an invitation to call it again.
 
   async listForAdmin() {
     return this.prisma.masterOrder.findMany({ select: SELECT, orderBy: { createdAt: "desc" }, take: 200 });

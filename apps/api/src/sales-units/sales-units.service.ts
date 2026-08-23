@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
+import type { SalesUnitItem } from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import type { CreateSalesUnitDto } from "./dto/create-sales-unit.dto";
@@ -23,10 +24,34 @@ export class SalesUnitsService {
     return this.prisma.salesUnit.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
   }
 
+  /**
+   * Raw rows. ADMIN ONLY — `listActiveProjected` is what leaves the
+   * server on the public route.
+   */
   async listActive() {
     return this.prisma.salesUnit.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+  }
+
+  /**
+   * The active units, as the closed `SalesUnitItem`.
+   *
+   * A `select` rather than a mapped row: not selecting is stronger than
+   * not mapping, since a later refactor that spreads cannot leak a column
+   * the query never asked for.
+   *
+   * Ordering terminates in the primary key. `sortOrder` is not unique —
+   * every unit defaults to 0 — and `createdAt` alone can tie, so without
+   * `id` two units could swap places between requests and a picker would
+   * reorder itself under the reader.
+   */
+  async listActiveProjected(): Promise<SalesUnitItem[]> {
+    return this.prisma.salesUnit.findMany({
+      where: { isActive: true },
+      select: { id: true, nameAr: true, nameEn: true, sortOrder: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
   }
 

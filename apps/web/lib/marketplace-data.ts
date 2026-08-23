@@ -4,6 +4,7 @@ import type {
   PublicOpportunityDetail,
   PublicOpportunityItem,
   PublicPolicyVersion,
+  SalesUnitItem,
   TaxonomyNodeItem,
 } from "@platform/types";
 import { apiClient } from "./api-client";
@@ -46,6 +47,20 @@ export function loadCities(): Promise<Loaded<CityItem[]>> {
 export function loadTaxonomy(): Promise<Loaded<TaxonomyNodeItem[]>> {
   return load(() =>
     apiClient.get<TaxonomyNodeItem[]>("/taxonomy/active", { revalidate: REFERENCE_DATA_TTL })
+  );
+}
+
+/**
+ * The admin-managed selling units, for the supplier's product form.
+ *
+ * Anonymous, cacheable reference data exactly like cities and categories,
+ * so it lives here rather than in `supplier-data.ts` — that module's whole
+ * guarantee is that every read in it is `no-store` and carries a session
+ * cookie, and this read is neither.
+ */
+export function loadSalesUnits(): Promise<Loaded<SalesUnitItem[]>> {
+  return load(() =>
+    apiClient.get<SalesUnitItem[]>("/sales-units/active", { revalidate: REFERENCE_DATA_TTL })
   );
 }
 

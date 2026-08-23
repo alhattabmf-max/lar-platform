@@ -281,6 +281,10 @@ importers:
         version: 5.9.3
 
   packages/domain:
+    dependencies:
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
     devDependencies:
       '@types/jest':
         specifier: ^29.5.14

@@ -21,7 +21,28 @@ export interface DefaultTaxRateConfig {
 export class MalformedTaxRateSettingError extends Error {}
 
 const KEY = "default_tax_rate";
-const BOUNDS = { min: 0, max: 100 };
+
+/**
+ * The rate's own column is `Decimal(5,2)`, so the setting must fit it.
+ *
+ * The range was already 0..100. The SCALE was not constrained at all,
+ * which let an admin store `13.3333` — a value the column would round on
+ * write, so the snapshot computed from the setting and the snapshot
+ * recomputed from the column could differ. Two decimals, matching the
+ * column exactly.
+ */
+const BOUNDS = { min: 0, max: 100, scale: 2 };
+
+/** True when `value` is finite and carries at most `BOUNDS.scale` decimals. */
+function hasStorableScale(value: number): boolean {
+  if (!Number.isFinite(value)) return false;
+  // `String(n)` is the shortest round-tripping form: 13.33 reads back as
+  // "13.33", 13.3333 as "13.3333".
+  const text = String(value);
+  if (/e/i.test(text)) return false;
+  const fraction = text.split(".")[1];
+  return fraction === undefined || fraction.length <= BOUNDS.scale;
+}
 
 interface ActorContext {
   actorId: string;
@@ -74,15 +95,41 @@ export class TaxRateSettingsService {
       );
       throw new MalformedTaxRateSettingError(`system_settings["${KEY}"] has a malformed value`);
     }
+
+    // A value stored before the scale bound existed is READ, not rejected:
+    // refusing it here would stop every publish on live data an operator
+    // has not been told to fix yet. It is canonicalised to the column's
+    // own scale at the point of use, which is what the column would hold
+    // regardless — so the snapshot is correct either way, and this says
+    // out loud that the setting should be corrected.
+    if (!hasStorableScale(validated.ratePercent)) {
+      this.logger.warn(
+        `system_settings["${KEY}"].ratePercent has more than ${BOUNDS.scale} decimal places ` +
+          `(${validated.ratePercent}) — it is used rounded to the column's scale. Re-save it to remove the ambiguity.`
+      );
+    }
+
     return validated;
   }
 
   async setDefaultRate(ratePercent: number, ctx: ActorContext): Promise<DefaultTaxRateConfig> {
-    if (typeof ratePercent !== "number" || ratePercent < BOUNDS.min || ratePercent > BOUNDS.max) {
+    if (
+      typeof ratePercent !== "number" ||
+      !Number.isFinite(ratePercent) ||
+      ratePercent < BOUNDS.min ||
+      ratePercent > BOUNDS.max
+    ) {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
         `ratePercent must be between ${BOUNDS.min} and ${BOUNDS.max}`
+      );
+    }
+    if (!hasStorableScale(ratePercent)) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        `ratePercent must have at most ${BOUNDS.scale} decimal places`
       );
     }
 

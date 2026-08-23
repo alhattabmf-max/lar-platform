@@ -1,4 +1,10 @@
-import { ERROR_CODES, type ErrorCode, type ErrorEnvelope } from "@platform/types";
+import {
+  ERROR_CODES,
+  readFailedChecks,
+  type ErrorCode,
+  type ErrorEnvelope,
+  type ProductTechnicalCheckCode,
+} from "@platform/types";
 
 /**
  * A single, type-safe representation of every API failure.
@@ -26,6 +32,20 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: ErrorCode;
   readonly requestId: string | null;
+  /**
+   * The ONE piece of `details` this app will read, and only in one shape.
+   *
+   * `details` as a whole stays unexposed: it can carry internal field
+   * paths, and a general accessor would make it a channel into the UI
+   * that nobody has to justify. This is a single named field, populated
+   * exclusively by `readFailedChecks`, which returns a value only when
+   * the error code is `PRODUCT_TECHNICAL_CHECK_FAILED`, the payload is a
+   * non-empty array, and EVERY entry is in the closed
+   * `PRODUCT_TECHNICAL_CHECK_CODES` vocabulary. Anything else — another
+   * code, an object, one unrecognised string — leaves this null and the
+   * caller falls back to the generic message.
+   */
+  readonly failedChecks: readonly ProductTechnicalCheckCode[] | null;
 
   constructor(init: {
     kind: ApiErrorKind;
@@ -33,6 +53,7 @@ export class ApiError extends Error {
     code: ErrorCode;
     requestId: string | null;
     message: string;
+    failedChecks?: readonly ProductTechnicalCheckCode[] | null;
   }) {
     super(init.message);
     this.name = "ApiError";
@@ -40,6 +61,7 @@ export class ApiError extends Error {
     this.status = init.status;
     this.code = init.code;
     this.requestId = init.requestId;
+    this.failedChecks = init.failedChecks ?? null;
   }
 
   /** i18n key for the user-visible message. */
@@ -103,6 +125,9 @@ export function mapApiError(status: number, body: unknown, headerRequestId?: str
       code: body.error.code,
       requestId: body.requestId ?? headerRequestId ?? null,
       message: body.error.message,
+      // Returns null unless the code matches AND every entry is in the
+      // closed vocabulary. Nothing else from `details` is read.
+      failedChecks: readFailedChecks(body),
     });
   }
 

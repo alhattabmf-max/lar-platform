@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, isApiError, kindForStatus, mapApiError, networkError } from "@/lib/errors";
+import { toUserFacingError } from "@/lib/error-messages";
 
 describe("kindForStatus", () => {
   it.each([
@@ -56,6 +57,59 @@ describe("mapApiError", () => {
 
   it("builds a stable translation key from the code", () => {
     expect(mapApiError(404, null).translationKey).toBe("errors.codes.NOT_FOUND");
+  });
+});
+
+describe("failedChecks — the one narrow door into details", () => {
+  const envelope = (details: unknown, code = "PRODUCT_TECHNICAL_CHECK_FAILED") => ({
+    error: { code, message: "Product cannot be auto-approved yet", details },
+    requestId: "req-9",
+    timestamp: "t",
+  });
+
+  it("reads the codes when the code and the shape both match", () => {
+    const error = mapApiError(
+      400,
+      envelope({ failedChecks: ["NAME_AR_REQUIRED", "MAIN_IMAGE_REQUIRED"] })
+    );
+
+    expect(error.failedChecks).toEqual(["NAME_AR_REQUIRED", "MAIN_IMAGE_REQUIRED"]);
+  });
+
+  it.each([
+    ["a different error code", envelope({ failedChecks: ["NAME_AR_REQUIRED"] }, "VALIDATION_FAILED")],
+    ["details as a string", envelope("boom")],
+    ["failedChecks as an object", envelope({ failedChecks: { a: 1 } })],
+    ["an empty array", envelope({ failedChecks: [] })],
+    ["one unrecognised code", envelope({ failedChecks: ["NAME_AR_REQUIRED", "MADE_UP"] })],
+    ["a raw English sentence", envelope({ failedChecks: ["nameAr is required"] })],
+    ["no details", { error: { code: "PRODUCT_TECHNICAL_CHECK_FAILED", message: "x" }, requestId: "r" }],
+  ])("stays null for %s", (_label, body) => {
+    expect(mapApiError(400, body).failedChecks).toBeNull();
+  });
+
+  it("exposes nothing else from details, even alongside valid codes", () => {
+    // The sibling key is not read, and `details` itself is still absent
+    // from the error object entirely.
+    const error = mapApiError(
+      400,
+      envelope({ failedChecks: ["NAME_AR_REQUIRED"], internalPath: "/srv/app/products.ts" })
+    );
+
+    expect(error.failedChecks).toEqual(["NAME_AR_REQUIRED"]);
+    expect(error).not.toHaveProperty("details");
+    expect(JSON.stringify({ ...error })).not.toContain("/srv/app");
+  });
+
+  it("still renders through the closed message map, not the API's text", () => {
+    const error = mapApiError(400, envelope({ failedChecks: ["NAME_AR_REQUIRED"] }));
+
+    expect(error.translationKey).toBe("errors.codes.PRODUCT_TECHNICAL_CHECK_FAILED");
+    expect(toUserFacingError(error).messageKey).toBe(
+      "errors.codes.PRODUCT_TECHNICAL_CHECK_FAILED"
+    );
+    // The developer-facing English never becomes the user's message.
+    expect(toUserFacingError(error)).not.toHaveProperty("message");
   });
 });
 

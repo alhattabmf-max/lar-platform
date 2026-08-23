@@ -1,3 +1,5 @@
+import type { ProductTechnicalCheckCode } from "@platform/types";
+
 export interface ProductTechnicalCheckInput {
   nameAr: string;
   nameEn: string;
@@ -20,14 +22,22 @@ export interface ProductTechnicalCheckInput {
  * positive numbers) is re-checked here too, defensively, since this
  * function is the actual gate for auto-approval and must never trust
  * that the caller already validated its input.
+ *
+ * Returns CODES from the closed `PRODUCT_TECHNICAL_CHECK_CODES`
+ * vocabulary, not sentences. It used to return English strings that the
+ * caller joined into an error message — developer text, in one language,
+ * that no client could map back to a field. A code can be translated and
+ * placed on the input it belongs to; a sentence can only be printed.
  */
-export function runProductTechnicalChecks(input: ProductTechnicalCheckInput): string[] {
-  const errors: string[] = [];
+export function runProductTechnicalChecks(
+  input: ProductTechnicalCheckInput
+): ProductTechnicalCheckCode[] {
+  const failures: ProductTechnicalCheckCode[] = [];
 
-  if (!input.nameAr?.trim()) errors.push("nameAr is required");
-  if (!input.nameEn?.trim()) errors.push("nameEn is required");
-  if (!input.salesUnitNameAr?.trim()) errors.push("salesUnitNameAr is required");
-  if (!input.salesUnitNameEn?.trim()) errors.push("salesUnitNameEn is required");
+  if (!input.nameAr?.trim()) failures.push("NAME_AR_REQUIRED");
+  if (!input.nameEn?.trim()) failures.push("NAME_EN_REQUIRED");
+  if (!input.salesUnitNameAr?.trim()) failures.push("SALES_UNIT_NAME_AR_REQUIRED");
+  if (!input.salesUnitNameEn?.trim()) failures.push("SALES_UNIT_NAME_EN_REQUIRED");
 
   const packageFields = [
     input.packageContentQuantity,
@@ -36,22 +46,22 @@ export function runProductTechnicalChecks(input: ProductTechnicalCheckInput): st
   ];
   const packageFieldsProvided = packageFields.filter((f) => f !== null && f !== undefined).length;
   if (packageFieldsProvided !== 0 && packageFieldsProvided !== 3) {
-    errors.push("package content fields must all be provided together, or not at all");
+    failures.push("PACKAGE_CONTENT_GROUP_INCOMPLETE");
   }
   if (
     input.packageContentQuantity !== null &&
     input.packageContentQuantity !== undefined &&
     input.packageContentQuantity <= 0
   ) {
-    errors.push("packageContentQuantity must be positive");
+    failures.push("PACKAGE_CONTENT_QUANTITY_NOT_POSITIVE");
   }
 
-  if (!(input.weightPerUnit > 0)) errors.push("weightPerUnit must be positive");
-  if (!(input.lengthCm > 0)) errors.push("lengthCm must be positive");
-  if (!(input.widthCm > 0)) errors.push("widthCm must be positive");
-  if (!(input.heightCm > 0)) errors.push("heightCm must be positive");
+  if (!(input.weightPerUnit > 0)) failures.push("WEIGHT_NOT_POSITIVE");
+  if (!(input.lengthCm > 0)) failures.push("LENGTH_NOT_POSITIVE");
+  if (!(input.widthCm > 0)) failures.push("WIDTH_NOT_POSITIVE");
+  if (!(input.heightCm > 0)) failures.push("HEIGHT_NOT_POSITIVE");
 
-  if (!input.hasMainImage) errors.push("at least one main product image is required");
+  if (!input.hasMainImage) failures.push("MAIN_IMAGE_REQUIRED");
 
-  return errors;
+  return failures;
 }

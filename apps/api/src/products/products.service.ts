@@ -8,6 +8,14 @@ import {
   type Product,
 } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import type { ProductDetail, ProductSummary } from "@platform/types";
+import {
+  PRODUCT_DETAIL_SELECT,
+  PRODUCT_SUMMARY_SELECT,
+  ownedProductWhere,
+  toProductDetail,
+  toProductSummary,
+} from "./product.view";
 import { AuditService } from "../audit/audit.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
@@ -43,12 +51,47 @@ export class ProductsService {
     private readonly audit: AuditService
   ) {}
 
-  async listMine(companyId: string) {
-    return this.prisma.product.findMany({
-      where: { companyId },
-      include: { media: true },
-      orderBy: { createdAt: "desc" },
+  /**
+   * The supplier's catalogue, as the closed `ProductSummary`.
+   *
+   * This used to be `include: { media: true }` on a raw Prisma row, so every
+   * response carried each image's `objectKey` and `thumbnailObjectKey` — the
+   * internal storage addresses — alongside Decimal instances that serialise
+   * as JSON numbers. `PRODUCT_SUMMARY_SELECT` and `toProductSummary` were
+   * written in 8E.2 and wired to `getOwned` only; the list was missed.
+   *
+   * Ownership is IN THE QUERY. Ordering terminates in the primary key: two
+   * products created in the same millisecond must not swap places between
+   * requests.
+   */
+  async listMine(companyId: string): Promise<ProductSummary[]> {
+    const rows = await this.prisma.product.findMany({
+      where: ownedProductWhere(companyId),
+      select: PRODUCT_SUMMARY_SELECT,
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     });
+
+    return rows.map(toProductSummary);
+  }
+
+  /**
+   * One of the supplier's own products.
+   *
+   * Ownership is IN THE QUERY, so an unknown id and another company's product
+   * answer with the same 404 — nothing distinguishable by probing.
+   *
+   * Returns the closed `ProductDetail`: no approval snapshots, and no media
+   * storage keys. Images are addressed by the delivery route, which re-checks
+   * ownership itself on every request.
+   */
+  async getOwned(id: string, companyId: string): Promise<ProductDetail> {
+    const row = await this.prisma.product.findFirst({
+      where: { id, ...ownedProductWhere(companyId) },
+      select: PRODUCT_DETAIL_SELECT,
+    });
+    if (!row) throw new NotFoundException("Product not found");
+
+    return toProductDetail(row);
   }
 
   async getOwnedProduct(id: string, companyId: string): Promise<Product> {
@@ -111,15 +154,38 @@ export class ProductsService {
     const product = await this.getOwnedProduct(id, ctx.companyId);
 
     if (dto.taxonomyNodeId) await this.requireActiveTaxonomyNode(dto.taxonomyNodeId);
+    // `null` clears the soft reference and must NOT be looked up.
     if (dto.salesUnitId) await this.requireActiveSalesUnit(dto.salesUnitId);
+
+    // Refused before the transaction opens, so a mixed clear writes
+    // nothing at all.
+    this.requirePackageContentClearIsWholeGroup(dto);
+
+    // The MERGED state, resolving all three intents:
+    //   `undefined` -> keep what the row has
+    //   `null`      -> gone
+    //   a value     -> that value
+    // `??` alone cannot express this, because it treats null and
+    // undefined identically — which is exactly the distinction here.
+    const merged = <T>(sent: T | null | undefined, current: T | null | undefined) =>
+      sent === undefined ? (current ?? undefined) : (sent ?? undefined);
+
     this.requirePackageContentGroupComplete({
-      packageContentQuantity: dto.packageContentQuantity ?? product.packageContentQuantity?.toNumber(),
-      packageContentUnitNameAr: dto.packageContentUnitNameAr ?? product.packageContentUnitNameAr ?? undefined,
-      packageContentUnitNameEn: dto.packageContentUnitNameEn ?? product.packageContentUnitNameEn ?? undefined,
+      packageContentQuantity: merged(
+        dto.packageContentQuantity,
+        product.packageContentQuantity?.toNumber()
+      ),
+      packageContentUnitNameAr: merged(dto.packageContentUnitNameAr, product.packageContentUnitNameAr),
+      packageContentUnitNameEn: merged(dto.packageContentUnitNameEn, product.packageContentUnitNameEn),
     });
 
     const { result, reapproved } = await this.prisma.$transaction(async (tx) => {
       const guard = await this.assertEditableTx(tx, product);
+      // Every field is passed through UNCHANGED, which is what makes the
+      // three intents work: Prisma reads `undefined` as "leave this
+      // column alone" and `null` as "set it to null". Coercing with `??`
+      // anywhere here would collapse the two and make clearing
+      // impossible — which is exactly the state this replaces.
       const updated = await tx.product.update({
         where: { id },
         data: {
@@ -224,10 +290,14 @@ export class ProductsService {
       hasMainImage: media.some((m) => m.isMain),
     });
     if (errors.length > 0) {
+      // The CODES, never the sentences they used to be. `message` stays a
+      // fixed developer-facing string with nothing interpolated into it,
+      // so no check detail can reach a response through it either.
       throw new BusinessException(
         400,
-        ERROR_CODES.VALIDATION_FAILED,
-        `Product cannot be auto-approved yet: ${errors.join("; ")}`
+        ERROR_CODES.PRODUCT_TECHNICAL_CHECK_FAILED,
+        "Product cannot be auto-approved yet",
+        { failedChecks: errors }
       );
     }
 
@@ -366,8 +436,9 @@ export class ProductsService {
     if (errors.length > 0) {
       throw new BusinessException(
         400,
-        ERROR_CODES.VALIDATION_FAILED,
-        `Cannot save — this change would leave the approved product technically incomplete: ${errors.join("; ")}`
+        ERROR_CODES.PRODUCT_TECHNICAL_CHECK_FAILED,
+        "This change would leave the approved product technically incomplete",
+        { failedChecks: errors }
       );
     }
 
@@ -383,9 +454,9 @@ export class ProductsService {
   }
 
   private requirePackageContentGroupComplete(dto: {
-    packageContentQuantity?: number;
-    packageContentUnitNameAr?: string;
-    packageContentUnitNameEn?: string;
+    packageContentQuantity?: number | null;
+    packageContentUnitNameAr?: string | null;
+    packageContentUnitNameEn?: string | null;
   }): void {
     const provided = [dto.packageContentQuantity, dto.packageContentUnitNameAr, dto.packageContentUnitNameEn].filter(
       (v) => v !== undefined && v !== null
@@ -397,6 +468,40 @@ export class ProductsService {
         "packageContentQuantity, packageContentUnitNameAr, and packageContentUnitNameEn must all be provided together, or not at all"
       );
     }
+  }
+
+  /**
+   * The package-content trio clears as a UNIT.
+   *
+   * A supplier removing the group sends all three as `null`. Any mix —
+   * one null beside two values, or two nulls beside one value — is
+   * refused BEFORE the transaction opens, because a quantity with no unit
+   * is not a package description, it is a half-erased one.
+   *
+   * Checked separately from `requirePackageContentGroupComplete`, which
+   * looks at the MERGED result: this one looks only at what the request
+   * said, and is the only place that can see the difference between
+   * "omitted" and "explicitly null".
+   */
+  private requirePackageContentClearIsWholeGroup(dto: {
+    packageContentQuantity?: number | null;
+    packageContentUnitNameAr?: string | null;
+    packageContentUnitNameEn?: string | null;
+  }): void {
+    const group = [
+      dto.packageContentQuantity,
+      dto.packageContentUnitNameAr,
+      dto.packageContentUnitNameEn,
+    ];
+
+    const nulls = group.filter((v) => v === null).length;
+    if (nulls === 0 || nulls === 3) return;
+
+    throw new BusinessException(
+      400,
+      ERROR_CODES.VALIDATION_FAILED,
+      "packageContentQuantity, packageContentUnitNameAr, and packageContentUnitNameEn must be cleared together — send all three as null, or none of them"
+    );
   }
 
   private async requireActiveTaxonomyNode(id: string): Promise<void> {

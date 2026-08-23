@@ -14,6 +14,14 @@ import {
   type ShareTier,
 } from "@platform/domain";
 import { evaluateLiveEligibility, type Blocker } from "@platform/opportunity-lifecycle";
+import type { SupplierOpportunityDetail, SupplierOpportunitySummary } from "@platform/types";
+import {
+  SUPPLIER_OPPORTUNITY_DETAIL_SELECT,
+  SUPPLIER_OPPORTUNITY_SUMMARY_SELECT,
+  ownedOpportunityWhere,
+  toSupplierOpportunityDetail,
+  toSupplierOpportunitySummary,
+} from "./supplier-opportunity.view";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { OpportunitySettingsService } from "../settings/opportunity-settings.service";
@@ -44,12 +52,20 @@ interface SnapshotFields {
   fulfillmentRegionNameAr: string;
   fulfillmentRegionNameEn: string;
   productApprovalSnapshotId: string;
-  taxRatePercent: number;
-  unitPriceExclTaxAmount: number;
-  unitTaxAmount: number;
+  /**
+   * Decimal STRINGS, not numbers.
+   *
+   * Every one of these is written to a `Decimal` column. Prisma accepts a
+   * string for such a column and stores the digits verbatim, so carrying
+   * them as strings from the computation to the write means no binary
+   * double ever holds a value on its way into the database.
+   */
+  taxRatePercent: string;
+  unitPriceExclTaxAmount: string;
+  unitTaxAmount: string;
   taxCalculationRuleCode: string;
   taxCalculationRuleVersion: string;
-  totalValueInclTaxAmount: number;
+  totalValueInclTaxAmount: string;
   shareTierPolicyVersionId: string;
   shareTierIndex: number;
   shareBasisPoints: number;
@@ -71,136 +87,41 @@ const EDITABLE_STATUSES: OpportunityStatus[] = [
 
 class TaxRateUnavailableError extends Error {}
 
+/**
+ * A validated number, as a canonical decimal string at scale 2.
+ *
+ * `String(value)` is JavaScript's shortest round-tripping representation,
+ * so for a value the DTO has already constrained to at most two decimal
+ * places it is the exact digits the supplier typed. `Prisma.Decimal` then
+ * re-reads those digits rather than a binary double.
+ *
+ * Guarded rather than trusted: a non-finite value reaching a money column
+ * would be a defect the DTO should have caught, and it must not be turned
+ * into "NaN" and handed to Prisma.
+ */
+function toCanonicalMoney(value: number, field: string): string {
+  if (!Number.isFinite(value)) {
+    throw new BusinessException(
+      400,
+      ERROR_CODES.VALIDATION_FAILED,
+      `${field} must be a finite amount`
+    );
+  }
+  return new Prisma.Decimal(String(value)).toFixed(2);
+}
+
 class PurchaseQuantityIncompatibleError extends Error {
   constructor(public readonly suggestions: { below: number | null; above: number | null }) {
     super("Purchase quantity is not compatible with the current share-tier policy");
   }
 }
 
-export interface SupplierOpportunityView {
-  id: string;
-  productId: string;
-  fulfillmentLocationId: string;
-  targetQuantity: number;
-  fundedQuantity: number;
-  unitPriceAmount: number;
-  currency: string;
-  startAt: Date;
-  endAt: Date;
-  expectedPreparationDays: number;
-  descriptionAr: string | null;
-  descriptionEn: string | null;
-  status: OpportunityStatus;
-  firstActivatedAt: Date | null;
-  extendedAt: Date | null;
-  pausedAt: Date | null;
-  pauseReason: string | null;
-  cancelReason: string | null;
-  reasonCode: string | null;
-  reasonDetails: string | null;
-  blockedAt: Date | null;
-  fulfillmentCityNameAr: string | null;
-  fulfillmentCityNameEn: string | null;
-  fulfillmentRegionNameAr: string | null;
-  fulfillmentRegionNameEn: string | null;
-  taxRatePercent: number | null;
-  unitPriceExclTaxAmount: number | null;
-  unitTaxAmount: number | null;
-  totalValueInclTaxAmount: number | null;
-  /** Computed from shareBasisPoints — the raw basis points value and shareTierPolicyVersionId are NEVER exposed, even to the owning supplier. */
-  sharePercentage: number | null;
-  shareQuantity: number | null;
-  salesUnitNameAr: string | null;
-  salesUnitNameEn: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
- * Every supplier-facing controller response goes through this — never
- * a raw Prisma row. Deliberately omits: shareTierPolicyVersionId,
- * shareTierIndex, shareBasisPoints (replaced by a computed
- * sharePercentage), fulfillmentCityId, fulfillmentRegionId,
- * fulfillmentRegionId, productApprovalSnapshotId,
- * commissionPolicyVersionId,
- * companyId — internal FKs and raw policy internals with no reason to
- * ever leave the server, even to the opportunity's own owner.
- */
-export function toSupplierOpportunityView(row: {
-  id: string;
-  productId: string;
-  fulfillmentLocationId: string;
-  targetQuantity: number;
-  fundedQuantity: number;
-  unitPriceAmount: Prisma.Decimal;
-  currency: string;
-  startAt: Date;
-  endAt: Date;
-  expectedPreparationDays: number;
-  descriptionAr: string | null;
-  descriptionEn: string | null;
-  status: OpportunityStatus;
-  firstActivatedAt: Date | null;
-  extendedAt: Date | null;
-  pausedAt: Date | null;
-  pauseReason: string | null;
-  cancelReason: string | null;
-  reasonCode: string | null;
-  reasonDetails: string | null;
-  blockedAt: Date | null;
-  fulfillmentCityNameAr: string | null;
-  fulfillmentCityNameEn: string | null;
-  fulfillmentRegionNameAr: string | null;
-  fulfillmentRegionNameEn: string | null;
-  taxRatePercent: Prisma.Decimal | null;
-  unitPriceExclTaxAmount: Prisma.Decimal | null;
-  unitTaxAmount: Prisma.Decimal | null;
-  totalValueInclTaxAmount: Prisma.Decimal | null;
-  shareBasisPoints: number | null;
-  shareQuantity: number | null;
-  salesUnitNameAr: string | null;
-  salesUnitNameEn: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): SupplierOpportunityView {
-  return {
-    id: row.id,
-    productId: row.productId,
-    fulfillmentLocationId: row.fulfillmentLocationId,
-    targetQuantity: row.targetQuantity,
-    fundedQuantity: row.fundedQuantity,
-    unitPriceAmount: row.unitPriceAmount.toNumber(),
-    currency: row.currency,
-    startAt: row.startAt,
-    endAt: row.endAt,
-    expectedPreparationDays: row.expectedPreparationDays,
-    descriptionAr: row.descriptionAr,
-    descriptionEn: row.descriptionEn,
-    status: row.status,
-    firstActivatedAt: row.firstActivatedAt,
-    extendedAt: row.extendedAt,
-    pausedAt: row.pausedAt,
-    pauseReason: row.pauseReason,
-    cancelReason: row.cancelReason,
-    reasonCode: row.reasonCode,
-    reasonDetails: row.reasonDetails,
-    blockedAt: row.blockedAt,
-    fulfillmentCityNameAr: row.fulfillmentCityNameAr,
-    fulfillmentCityNameEn: row.fulfillmentCityNameEn,
-    fulfillmentRegionNameAr: row.fulfillmentRegionNameAr,
-    fulfillmentRegionNameEn: row.fulfillmentRegionNameEn,
-    taxRatePercent: row.taxRatePercent?.toNumber() ?? null,
-    unitPriceExclTaxAmount: row.unitPriceExclTaxAmount?.toNumber() ?? null,
-    unitTaxAmount: row.unitTaxAmount?.toNumber() ?? null,
-    totalValueInclTaxAmount: row.totalValueInclTaxAmount?.toNumber() ?? null,
-    sharePercentage: row.shareBasisPoints !== null ? row.shareBasisPoints / 100 : null,
-    shareQuantity: row.shareQuantity,
-    salesUnitNameAr: row.salesUnitNameAr,
-    salesUnitNameEn: row.salesUnitNameEn,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
+// The supplier-facing projection moved to supplier-opportunity.view.ts in
+// 8E.4. Deleted rather than left in place: it mapped a RAW row — so it was
+// the only thing standing between the supplier and shareTierPolicyVersionId,
+// commissionRateBasisPoints and the admin's free-text pauseReason — and it
+// sent every money field through Decimal.toNumber(), which is the exact
+// defect contracts/money.ts exists to prevent.
 
 @Injectable()
 export class OpportunitiesService {
@@ -213,13 +134,42 @@ export class OpportunitiesService {
     @Inject(TAX_RATE_PROVIDER) private readonly taxRateProvider: TaxRateProvider
   ) {}
 
-  async listMine(companyId: string) {
-    return this.prisma.opportunity.findMany({
-      where: { companyId },
-      orderBy: { createdAt: "desc" },
+  /**
+   * The supplier's own listings, as the closed `SupplierOpportunitySummary`.
+   *
+   * Ownership is IN THE QUERY. Ordering terminates in the primary key: two
+   * listings created in the same millisecond must not swap places between
+   * requests.
+   */
+  async listMineProjected(companyId: string): Promise<SupplierOpportunitySummary[]> {
+    const rows = await this.prisma.opportunity.findMany({
+      where: ownedOpportunityWhere(companyId),
+      select: SUPPLIER_OPPORTUNITY_SUMMARY_SELECT,
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     });
+
+    return rows.map(toSupplierOpportunitySummary);
   }
 
+  /** One listing, as the closed `SupplierOpportunityDetail`. */
+  async getOwnedProjected(id: string, companyId: string): Promise<SupplierOpportunityDetail> {
+    const row = await this.prisma.opportunity.findFirst({
+      where: { id, ...ownedOpportunityWhere(companyId) },
+      select: SUPPLIER_OPPORTUNITY_DETAIL_SELECT,
+    });
+    if (!row) throw new NotFoundException("Opportunity not found");
+
+    return toSupplierOpportunityDetail(row);
+  }
+
+  /**
+   * The FULL row, for this service's own writes.
+   *
+   * Deliberately not a projection: `update`, `publish`, `extend` and
+   * `deleteDraft` need the pinned policy version ids and the snapshot fields
+   * to do their work. It must never be returned from a controller — the
+   * projected reads above are what leave the server.
+   */
   async getOwned(id: string, companyId: string) {
     const opp = await this.prisma.opportunity.findFirst({ where: { id, companyId } });
     if (!opp) throw new NotFoundException("Opportunity not found");
@@ -297,7 +247,14 @@ export class OpportunitiesService {
 
     const productId = dto.productId ?? existing.productId;
     const fulfillmentLocationId = dto.fulfillmentLocationId ?? existing.fulfillmentLocationId;
-    const unitPriceAmount = dto.unitPriceAmount ?? existing.unitPriceAmount.toNumber();
+    // A decimal STRING throughout. The stored value is re-read with
+    // `toFixed(2)` rather than `toNumber()`, and a submitted one goes
+    // through its own canonical form — neither becomes a binary double on
+    // the way to the tax computation or the column.
+    const unitPriceAmount =
+      dto.unitPriceAmount !== undefined
+        ? toCanonicalMoney(dto.unitPriceAmount, "unitPriceAmount")
+        : existing.unitPriceAmount.toFixed(2);
     const targetQuantity = dto.targetQuantity ?? existing.targetQuantity;
     const startAt = dto.startAt ? new Date(dto.startAt) : existing.startAt;
     const endAt = dto.endAt ? new Date(dto.endAt) : existing.endAt;
@@ -471,7 +428,7 @@ export class OpportunitiesService {
       snapshotFields = await this.computeSnapshotFields(this.prisma, {
         productId: existing.productId,
         fulfillmentLocationId: existing.fulfillmentLocationId,
-        unitPriceAmount: existing.unitPriceAmount.toNumber(),
+        unitPriceAmount: existing.unitPriceAmount.toFixed(2),
         targetQuantity: existing.targetQuantity,
         // ACTION_REQUIRED rows already have a pinned version (they were
         // published once before); DRAFT rows have never had one, so
@@ -655,7 +612,8 @@ export class OpportunitiesService {
     params: {
       productId: string;
       fulfillmentLocationId: string;
-      unitPriceAmount: number;
+      /** Canonical decimal string at scale 2. Never a number. */
+      unitPriceAmount: string;
       targetQuantity: number;
       pinnedShareTierPolicyVersionId: string | null;
       pinnedCommissionPolicyVersionId: string | null;
@@ -687,9 +645,12 @@ export class OpportunitiesService {
       throw new TaxRateUnavailableError();
     }
 
+    // Decimal strings in, decimal strings out. The rate is canonicalised
+    // to the scale its own column holds — `Decimal(5,2)` — so a stored
+    // setting of `15` and one of `15.00` produce the same snapshot.
     const tax = computeTaxSnapshot({
       unitPriceInclTax: params.unitPriceAmount,
-      ratePercent: taxResult.ratePercent,
+      ratePercent: new Prisma.Decimal(String(taxResult.ratePercent)).toFixed(2),
       ruleCode: taxResult.ruleCode,
       ruleVersion: taxResult.ruleVersion,
     });
@@ -748,15 +709,37 @@ export class OpportunitiesService {
       : await this.shareTierSettings.getCurrentPolicy();
 
     const totalValueDecimal = new Prisma.Decimal(params.targetQuantity).mul(params.unitPriceAmount);
-    const totalValueNumber = totalValueDecimal.toNumber();
-    const { tierIndex, tier } = selectTier({ tiers: policy.tiers as ShareTier[] }, totalValueNumber);
+
+    /**
+     * THRESHOLD SELECTION ONLY.
+     *
+     * `selectTier` compares the total against the policy's upper bounds
+     * and returns an INDEX. Its result is never written to a money column
+     * and never enters an amount — `totalValueInclTaxAmount` below is
+     * written from `totalValueDecimal`, not from this.
+     *
+     * Safe because the comparison cannot flip: a `Decimal(14,2)` total
+     * tops out near 1e12, and a double represents every 2-decimal value
+     * exactly up to `MAX_SAFE_INTEGER / 100` ≈ 9.0e13 — about ninety times
+     * further out. Verified empirically in
+     * `supplier-opportunity.precision.spec.ts`, which finds zero tier
+     * flips across the quantity and price ranges this platform allows.
+     */
+    const totalValueForTierSelection = totalValueDecimal.toNumber();
+    const { tierIndex, tier } = selectTier(
+      { tiers: policy.tiers as ShareTier[] },
+      totalValueForTierSelection
+    );
     const shareQuantity = computeShareQuantity(params.targetQuantity, tier.shareBasisPoints);
 
     if (shareQuantity === null) {
       const opportunitySettings = await this.opportunitySettings.getConfig();
+      // Also threshold-only: this returns candidate QUANTITIES to suggest
+      // in an error message. No amount is derived from it and nothing it
+      // produces is stored.
       const suggestions = suggestCompatibleQuantities(
         { tiers: policy.tiers as ShareTier[] },
-        params.unitPriceAmount,
+        Number(params.unitPriceAmount),
         params.targetQuantity,
         opportunitySettings.maxTargetQuantity
       );
@@ -784,7 +767,9 @@ export class OpportunitiesService {
       unitTaxAmount: tax.unitTaxAmount,
       taxCalculationRuleCode: tax.taxCalculationRuleCode,
       taxCalculationRuleVersion: tax.taxCalculationRuleVersion,
-      totalValueInclTaxAmount: totalValueNumber,
+      // From the exact Decimal, never from the number used above for tier
+      // selection. This one is a stored amount.
+      totalValueInclTaxAmount: totalValueDecimal.toFixed(2),
       shareTierPolicyVersionId: policy.id,
       shareTierIndex: tierIndex,
       shareBasisPoints: tier.shareBasisPoints,

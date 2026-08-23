@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import { ProductsService } from "./products.service";
+import type { ProductDetail, ProductSummary } from "@platform/types";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { SessionAuthGuard } from "../common/security/session-auth.guard";
@@ -25,8 +26,22 @@ export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
   @Get()
-  listMine(@CurrentSession() session: SessionData) {
+  listMine(@CurrentSession() session: SessionData): Promise<ProductSummary[]> {
     return this.products.listMine(session.companyId);
+  }
+
+  /**
+   * One product, as the closed `ProductDetail`.
+   *
+   * The list existed; the detail did not, so a supplier could see a product
+   * was rejected and had no way to open it and read why.
+   */
+  @Get(":id")
+  getOne(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentSession() session: SessionData
+  ): Promise<ProductDetail> {
+    return this.products.getOwned(id, session.companyId);
   }
 
   @Post()

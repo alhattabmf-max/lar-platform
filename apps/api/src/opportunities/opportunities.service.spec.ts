@@ -1,6 +1,6 @@
 import { NotFoundException } from "@nestjs/common";
 import { AccountType, OpportunityStatus, Prisma } from "@prisma/client";
-import { OpportunitiesService, toSupplierOpportunityView } from "./opportunities.service";
+import { OpportunitiesService } from "./opportunities.service";
 
 function fakePrisma(overrides: Record<string, unknown> = {}) {
   return {
@@ -165,7 +165,7 @@ describe("OpportunitiesService", () => {
             status: OpportunityStatus.ACTION_REQUIRED,
             productId: "p1",
             fulfillmentLocationId: "l1",
-            unitPriceAmount: { toNumber: () => 10 },
+            unitPriceAmount: new Prisma.Decimal(10),
             targetQuantity: 100,
             startAt: new Date(Date.now() + 3600_000),
             endAt: new Date(Date.now() + 30 * 3600_000),
@@ -203,7 +203,7 @@ describe("OpportunitiesService", () => {
             status: OpportunityStatus.SCHEDULED,
             productId: "p1",
             fulfillmentLocationId: "l1",
-            unitPriceAmount: { toNumber: () => 10 },
+            unitPriceAmount: new Prisma.Decimal(10),
             targetQuantity: 100,
             startAt: new Date(Date.now() + 3600_000),
             endAt: new Date(Date.now() + 30 * 3600_000),
@@ -343,96 +343,4 @@ describe("OpportunitiesService", () => {
     });
   });
 
-  describe("toSupplierOpportunityView — never leaks shareTierPolicyVersionId or raw shareBasisPoints, even to the owning supplier", () => {
-    function baseRow(overrides: Record<string, unknown> = {}) {
-      return {
-        id: "opp-1",
-        productId: "p1",
-        fulfillmentLocationId: "l1",
-        targetQuantity: 100,
-        fundedQuantity: 0,
-        unitPriceAmount: new Prisma.Decimal(11.5),
-        currency: "SAR",
-        startAt: new Date("2026-01-01T00:00:00Z"),
-        endAt: new Date("2026-01-10T00:00:00Z"),
-        expectedPreparationDays: 3,
-        descriptionAr: null,
-        descriptionEn: null,
-        status: OpportunityStatus.ACTIVE,
-        firstActivatedAt: new Date(),
-        extendedAt: null,
-        pausedAt: null,
-        pauseReason: null,
-        cancelReason: null,
-        reasonCode: null,
-        reasonDetails: null,
-        blockedAt: null,
-        fulfillmentCityNameAr: "الرياض",
-        fulfillmentCityNameEn: "Riyadh",
-        fulfillmentRegionNameAr: "الرياض",
-        fulfillmentRegionNameEn: "Riyadh",
-        taxRatePercent: new Prisma.Decimal(15),
-        unitPriceExclTaxAmount: new Prisma.Decimal(10),
-        unitTaxAmount: new Prisma.Decimal(1.5),
-        totalValueInclTaxAmount: new Prisma.Decimal(1150),
-        shareBasisPoints: 1000,
-        shareQuantity: 10,
-        salesUnitNameAr: "كرتون",
-        salesUnitNameEn: "Carton",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...overrides,
-      };
-    }
-
-    it("computes sharePercentage from shareBasisPoints and never includes the raw field or the policy version id", () => {
-      const view = toSupplierOpportunityView(baseRow() as never);
-
-      expect(view.sharePercentage).toBe(10);
-      expect(view.shareQuantity).toBe(10);
-      expect(view).not.toHaveProperty("shareBasisPoints");
-      expect(view).not.toHaveProperty("shareTierPolicyVersionId");
-      expect(view).not.toHaveProperty("shareTierIndex");
-      expect(view).not.toHaveProperty("productApprovalSnapshotId");
-      expect(view).not.toHaveProperty("salesUnitId");
-      expect(view).not.toHaveProperty("fulfillmentCityId");
-      expect(view).not.toHaveProperty("companyId");
-    });
-
-    it("still exposes reasonCode/reasonDetails to the owning supplier (unlike trader/public) since that IS meant for them", () => {
-      const view = toSupplierOpportunityView(
-        baseRow({
-          status: OpportunityStatus.ACTION_REQUIRED,
-          reasonCode: "PURCHASE_QUANTITY_NOT_COMPATIBLE",
-          reasonDetails: "The target quantity cannot be evenly split into whole shares under the current policy.",
-        }) as never
-      );
-      expect(view.reasonCode).toBe("PURCHASE_QUANTITY_NOT_COMPATIBLE");
-      expect(view.reasonDetails).toContain("evenly split");
-    });
-
-    it("returns null share fields for a DRAFT row with no snapshot yet", () => {
-      const view = toSupplierOpportunityView(
-        baseRow({
-          status: OpportunityStatus.DRAFT,
-          firstActivatedAt: null,
-          fulfillmentCityNameAr: null,
-          fulfillmentCityNameEn: null,
-          fulfillmentRegionNameAr: null,
-          fulfillmentRegionNameEn: null,
-          taxRatePercent: null,
-          unitPriceExclTaxAmount: null,
-          unitTaxAmount: null,
-          totalValueInclTaxAmount: null,
-          shareBasisPoints: null,
-          shareQuantity: null,
-          salesUnitNameAr: null,
-          salesUnitNameEn: null,
-        }) as never
-      );
-      expect(view.sharePercentage).toBeNull();
-      expect(view.shareQuantity).toBeNull();
-      expect(view.totalValueInclTaxAmount).toBeNull();
-    });
-  });
 });

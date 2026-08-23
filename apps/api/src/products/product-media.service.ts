@@ -156,14 +156,26 @@ export class ProductMediaService {
     const product = await this.products.getOwnedProduct(productId, ctx.companyId);
     const existing = await this.prisma.productMedia.findMany({ where: { productId } });
 
+    // TRUE set equality, checked in both directions.
+    //
+    // The previous guard compared lengths and membership only, which
+    // `[a, a]` satisfies when the product holds `[a, b]`: same length,
+    // every id known. The loop below then wrote `a.sortOrder = 0` and
+    // `a.sortOrder = 1` while `b` kept a stale order — a partial reorder
+    // that reported success. `@ArrayUnique` on the DTO rejects the
+    // duplicate first; this is the second lock, so the invariant does
+    // not depend on a decorator staying attached.
     const existingIds = new Set(existing.map((m) => m.id));
+    const submittedIds = new Set(mediaIds);
     const sameSet =
-      mediaIds.length === existing.length && mediaIds.every((id) => existingIds.has(id));
+      submittedIds.size === mediaIds.length &&
+      submittedIds.size === existingIds.size &&
+      mediaIds.every((id) => existingIds.has(id));
     if (!sameSet) {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
-        "reorder must include exactly the product's current media ids"
+        "reorder must include exactly the product's current media ids, each once"
       );
     }
 

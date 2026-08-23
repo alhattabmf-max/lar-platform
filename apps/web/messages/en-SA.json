@@ -720,6 +720,784 @@
       }
     }
   },
+  "supplier": {
+    "nav": {
+      "label": "Supplier account navigation",
+      "dashboard": "Home",
+      "orders": "Orders",
+      "opportunities": "Listings",
+      "products": "Products",
+      "settlements": "Payouts",
+      "disputes": "Disputes",
+      "replacements": "Replacements",
+      "notifications": "Notifications",
+      "account": "Account",
+      "comingSoon": "Coming soon"
+    },
+    "dashboard": {
+      "title": "Supplier home",
+      "signedInAs": "Signed in as {company}",
+      "goToAccount": "Account details",
+      "listSeparator": ", ",
+      "needsAttention": {
+        "title": "Needs attention",
+        "countedFromRecent": "Counted from your 50 most recent records; there may be more.",
+        "unchecked": "Could not be checked: {items}.",
+        "categories": {
+          "payout": "Payout readiness",
+          "preparation": "Preparation deadlines",
+          "disputes": "Disputes",
+          "replacements": "Replacements"
+        },
+        "payout": {
+          "label": "Your payouts cannot be transferred yet",
+          "action": "Complete your bank and billing details so the platform can transfer what you are owed.",
+          "link": "Open account details"
+        },
+        "preparation": {
+          "label": "{count, plural, one {One shipment is past its preparation deadline} other {# shipments are past their preparation deadline}}",
+          "action": "Prepare the overdue shipments and hand them to the carrier, then record the shipment from the order page.",
+          "link": "Open orders"
+        },
+        "disputes": {
+          "label": "{count, plural, one {One dispute is waiting for your response} other {# disputes are waiting for your response}}",
+          "action": "Read what each dispute reports and send your response before the deadline.",
+          "link": "Open disputes"
+        },
+        "replacements": {
+          "label": "{count, plural, one {One replacement is waiting to be sent} other {# replacements are waiting to be sent}}",
+          "action": "Prepare the replacement and send it to the same address, then record the shipment.",
+          "link": "Open replacements"
+        }
+      },
+      "fulfilment": {
+        "title": "Fulfilment",
+        "totalOrders": "Total orders",
+        "awaitingPreparation": "Shipments awaiting preparation",
+        "emptyTitle": "No orders yet",
+        "emptyDescription": "The first order placed on your products will appear here."
+      },
+      "settlements": {
+        "title": "Latest payout",
+        "latestAmount": "Net amount",
+        "outcome": "Outcome",
+        "executedAt": "Transferred on",
+        "total": "Payouts to date",
+        "emptyTitle": "No payouts yet",
+        "emptyDescription": "Payouts appear here once the first settlement completes."
+      },
+      "notifications": {
+        "title": "Notifications",
+        "unread": "{count, plural, =0 {No unread notifications} one {One unread notification} other {# unread notifications}}"
+      }
+    },
+    "status": {
+      "companyVerification": {
+        "PENDING_VERIFICATION": "Under review",
+        "VERIFIED": "Verified",
+        "REJECTED": "Rejected"
+      },
+      "emailVerification": {
+        "PENDING": "Awaiting confirmation",
+        "VERIFIED": "Confirmed",
+        "WAIVED": "Not required"
+      },
+      "bankAccount": {
+        "PENDING_VERIFICATION": "Under review",
+        "VERIFIED": "Verified",
+        "REJECTED": "Rejected",
+        "SUPERSEDED": "Replaced by a newer account"
+      },
+      "payoutOutcome": {
+        "EXECUTED": "Transferred",
+        "ZERO_BALANCE": "Nothing was owed on this shipment"
+      },
+      "product": {
+        "DRAFT": "Draft",
+        "PENDING_REVIEW": "Under administrative review",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "SUSPENDED": "Temporarily suspended",
+        "CLOSED": "Permanently closed",
+        "ARCHIVED": "Archived"
+      },
+      "productArchived": "Archived",
+      "opportunity": {
+        "DRAFT": "Draft",
+        "SCHEDULED": "Scheduled",
+        "ACTION_REQUIRED": "Needs action",
+        "ACTIVE": "Live",
+        "PAUSED": "Paused",
+        "FUNDED": "Fully sold",
+        "EXPIRED": "Ended",
+        "CANCELLED": "Cancelled"
+      },
+      "opportunityReason": {
+        "SUPPLIER_NOT_VERIFIED": "Your company is no longer a verified supplier",
+        "PRODUCT_NOT_APPROVED": "The linked product is no longer approved",
+        "PRODUCT_ARCHIVED": "The linked product is archived",
+        "LOCATION_INACTIVE": "The shipping location is no longer active",
+        "LOCATION_CITY_INACTIVE": "The shipping location's city is no longer active",
+        "SUPPLIER_NOT_FINANCIALLY_READY": "Your payout details are no longer complete",
+        "TAX_RATE_NOT_CONFIGURED": "The tax configuration required to publish is not available",
+        "PURCHASE_QUANTITY_NOT_COMPATIBLE": "The target quantity does not divide into whole shares",
+        "PRODUCT_SUSPENDED": "The linked product is suspended",
+        "PRODUCT_CLOSED": "The linked product is permanently closed"
+      },
+      "order": {
+        "IN_FULFILLMENT": "In fulfilment",
+        "FULFILLED": "Fulfilled"
+      },
+      "allocation": {
+        "AWAITING_PREPARATION": "Awaiting preparation",
+        "PREPARING": "Being prepared",
+        "READY_TO_SHIP": "Ready to ship",
+        "SHIPPED": "Shipped",
+        "DELIVERED": "Delivered"
+      },
+      "replacement": {
+        "AWAITING_PREPARATION": "Awaiting preparation",
+        "PREPARING": "Being prepared",
+        "READY_TO_SHIP": "Ready to ship",
+        "SHIPPED": "Shipped",
+        "DELIVERED": "Delivered",
+        "FAILED": "Replacement failed"
+      },
+      "dispute": {
+        "OPEN": "Waiting for your response",
+        "SUPPLIER_RESPONDED": "Your response was sent",
+        "AWAITING_REPLACEMENT": "Awaiting the replacement",
+        "RESOLVED_ACCEPTED": "Upheld with a full refund",
+        "RESOLVED_PARTIAL": "Upheld in part with a partial refund",
+        "RESOLVED_REJECTED": "Rejected, with no refund",
+        "RESOLVED_REPLACED": "Upheld with a replacement"
+      },
+      "disputeReason": {
+        "ITEM_NOT_RECEIVED": "Shipment not received",
+        "ITEM_DAMAGED": "Shipment damaged",
+        "ITEM_INCORRECT": "Wrong item",
+        "QUANTITY_SHORTAGE": "Quantity short",
+        "QUALITY_ISSUE": "Quality problem",
+        "OTHER": "Another reason"
+      },
+      "disputeResponse": {
+        "ACCEPT": "Accept the dispute in full",
+        "REJECT": "Reject the dispute",
+        "PARTIAL_ACCEPT": "Accept in part",
+        "REPLACEMENT_OFFER": "Offer a replacement"
+      },
+      "disputeDecision": {
+        "FULL_REFUND": "Full refund",
+        "PARTIAL_REFUND": "Partial refund",
+        "REJECTED": "Rejected, no refund",
+        "REPLACEMENT": "Replacement"
+      }
+    },
+    "account": {
+      "title": "Account",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToAccount": "Back to account",
+      "readOnlyNotice": "These pages are view-only for now.",
+      "readiness": {
+        "title": "Payout readiness",
+        "label": "Status",
+        "readyStatus": "Your details are complete",
+        "readyAction": "The platform can transfer what you are owed after each settlement.",
+        "notReadyStatus": "Your details are incomplete",
+        "notReadyAction": "Complete the items below so the platform can transfer what you are owed.",
+        "missing": {
+          "bankAccount": "A verified bank account",
+          "taxProfile": "Tax profile",
+          "invoicingProfile": "Billing legal name"
+        }
+      },
+      "company": {
+        "title": "Company details",
+        "description": "Legal name, commercial registration number and verification status.",
+        "identity": "Legal identity",
+        "legalName": "Legal name",
+        "crNumber": "Commercial registration number",
+        "verification": "Verification status",
+        "email": "Email",
+        "emailVerification": "Email status"
+      },
+      "bankAccount": {
+        "title": "Bank account",
+        "description": "The account your payouts are transferred to after each settlement.",
+        "emptyTitle": "No bank account",
+        "emptyDescription": "No bank account has been recorded for your company yet, and payouts cannot be transferred until one is recorded and verified.",
+        "statusLabel": "Verification status",
+        "holder": "Account holder name",
+        "iban": "IBAN",
+        "ibanSrLabel": "IBAN ending in",
+        "verifiedAt": "Verified on",
+        "rejectionReason": "Reason for rejection",
+        "action": {
+          "PENDING_VERIFICATION": "The account is under review by the platform team; nothing is needed from you right now.",
+          "VERIFIED": "This account is ready to receive your payouts.",
+          "REJECTED": "This account was not accepted. Review the reason and contact support to record a different one.",
+          "SUPERSEDED": "This account was replaced by a newer one and receives no payouts."
+        }
+      },
+      "billing": {
+        "title": "Billing and tax",
+        "description": "The legal name the platform's internal commission documents are issued to, and your VAT registration status.",
+        "invoicingTitle": "Billing details",
+        "invoicingLegalName": "Billing legal name",
+        "invoicingEmptyTitle": "No billing details recorded",
+        "invoicingEmptyDescription": "Payouts cannot be transferred until a billing legal name is recorded. Contact support to complete it.",
+        "taxTitle": "Tax registration",
+        "taxEmptyTitle": "No tax profile recorded",
+        "taxEmptyDescription": "Payouts cannot be transferred until a tax profile is recorded. Contact support to complete it.",
+        "vatRegistered": "VAT registration",
+        "vatYes": "Registered",
+        "vatNo": "Not registered",
+        "vatNumber": "VAT number"
+      },
+      "locations": {
+        "title": "Company locations",
+        "description": "Your company's recorded locations and the contact details for each one.",
+        "emptyTitle": "No locations",
+        "emptyDescription": "No location has been recorded for your company yet.",
+        "defaultBadge": "Default",
+        "address": "Address",
+        "contactName": "Contact name",
+        "contactPhone": "Contact number"
+      }
+    },
+    "products": {
+      "title": "Products",
+      "description": "Your recorded products and the approval state of each one.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToProducts": "Back to products",
+      "emptyTitle": "No products",
+      "emptyDescription": "No product has been recorded for your company yet.",
+      "allTitle": "All products",
+      "allHandled": "Every one of your products is listed in the section above.",
+      "thumbnailAlt": "Image of {name}",
+      "needsAttention": {
+        "title": "Needs attention",
+        "description": "Products that are not finished, or that need a correction before they can be used in any listing."
+      },
+      "statusTitle": "Approval state",
+      "statusLabel": "Status",
+      "rejectionReason": "Reason for rejection",
+      "specification": "Specification",
+      "weightPerUnit": "Weight per unit",
+      "dimensions": "Dimensions (length × width × height)",
+      "packageContent": "Package content",
+      "createdAt": "Created on",
+      "nextStep": {
+        "status": {
+          "DRAFT": "Complete the product's details, add a main image, then send it for approval. It is checked automatically and approved straight away if it passes.",
+          "PENDING_REVIEW": "This product is under administrative review. It cannot be edited or archived until the review finishes.",
+          "APPROVED": "This product is approved and listings can be built on it. Any later edit re-runs the automatic checks before saving.",
+          "REJECTED": "Review the reason, correct the details or the images, then send the product for approval again.",
+          "SUSPENDED": "The platform has suspended this product. You may correct its details, but reactivating it is a separate administrative decision and does not happen automatically.",
+          "CLOSED": "This product has been permanently closed and cannot be edited. You can only archive it."
+        },
+        "archived": "This product is archived. It cannot be edited or sent for approval."
+      },
+      "actions": {
+        "submit": "Send for approval",
+        "submitPrompt": "The product is checked automatically and approved straight away if it passes. If it does not, nothing changes and you will see the result. Continue?",
+        "archive": "Archive product",
+        "archivePrompt": "Archiving cannot be undone from your account, and the product can no longer be edited or sent for approval. Continue?",
+        "working": "Working…",
+        "edit": "Edit product details"
+      },
+      "media": {
+        "heading": "Product images",
+        "empty": "No images. The product needs a main image before it can be approved.",
+        "imageAlt": "Image {index} of {name}",
+        "mainImageAlt": "Main image of {name}",
+        "mainBadge": "Main image",
+        "setMain": "Make this the main image",
+        "remove": "Remove",
+        "removePrompt": "The file will be deleted permanently.",
+        "addImage": "Add an image",
+        "addImageHint": "Accepted formats: JPEG, PNG and WebP. If the file is rejected for its size, its dimensions or its format, a message will say so.",
+        "openFull": "Open the full-size image",
+        "moveUp": "Move image {index} of {name} up",
+        "moveDown": "Move image {index} of {name} down",
+        "reorderHint": "Use the up and down buttons to order the images. The order is saved after each move."
+      },
+      "newProduct": "Add a product",
+      "backToProduct": "Back to the product",
+      "new": {
+        "title": "Add a product",
+        "description": "Record the product's details first, then add its images and run the automatic checks.",
+        "nextStepsTitle": "Steps",
+        "step1": "Save the product's details. It is saved as a draft and is not approved by saving.",
+        "step2": "Upload the product's images and choose the main one.",
+        "step3": "Run the automatic checks from the product page. If they pass, the product is approved immediately."
+      },
+      "edit": {
+        "title": "Edit the product",
+        "lockedTitle": "This product cannot be edited right now",
+        "approvedNotice": "This product is approved. Saving re-runs the automatic checks, and if the change would leave the product's details incomplete the whole save is refused and nothing changes."
+      },
+      "checks": {
+        "NAME_AR_REQUIRED": "The Arabic product name is required.",
+        "NAME_EN_REQUIRED": "The English product name is required.",
+        "SALES_UNIT_NAME_AR_REQUIRED": "The Arabic selling-unit name is required.",
+        "SALES_UNIT_NAME_EN_REQUIRED": "The English selling-unit name is required.",
+        "PACKAGE_CONTENT_GROUP_INCOMPLETE": "The package contents are incomplete: enter the quantity and both unit names together, or remove all three.",
+        "PACKAGE_CONTENT_QUANTITY_NOT_POSITIVE": "The package content quantity must be greater than zero.",
+        "WEIGHT_NOT_POSITIVE": "The unit weight must be greater than zero.",
+        "LENGTH_NOT_POSITIVE": "The length must be greater than zero.",
+        "WIDTH_NOT_POSITIVE": "The width must be greater than zero.",
+        "HEIGHT_NOT_POSITIVE": "The height must be greater than zero.",
+        "MAIN_IMAGE_REQUIRED": "A main product image is required."
+      },
+      "validation": {
+        "required": "This field is required.",
+        "tooLong": "Maximum {max} characters.",
+        "invalidNumber": "Enter a plain number using Western digits, with no symbols or spaces.",
+        "tooPrecise": "Maximum {scale} decimal places.",
+        "mustBePositive": "The value must be greater than zero.",
+        "tooLarge": "The maximum allowed is {max}.",
+        "packageGroupIncomplete": "Complete all three package-content fields together, or remove all of them."
+      },
+      "form": {
+        "sections": {
+          "identity": "Product details",
+          "classification": "Category and selling unit",
+          "packaging": "Package contents",
+          "dimensions": "Weight and dimensions"
+        },
+        "sectionHints": {
+          "identity": "Name and description in Arabic and English.",
+          "classification": "The product's category and the unit it is sold by.",
+          "packaging": "Optional: what one unit contains, such as 6 boxes.",
+          "dimensions": "Shipping details. Weight in kilograms, dimensions in centimetres."
+        },
+        "fields": {
+          "taxonomyNodeId": "Category",
+          "salesUnitId": "Selling unit from the list",
+          "salesUnitNameAr": "Arabic selling-unit name",
+          "salesUnitNameEn": "English selling-unit name",
+          "nameAr": "Arabic product name",
+          "nameEn": "English product name",
+          "descriptionAr": "Arabic description",
+          "descriptionEn": "English description",
+          "weightPerUnit": "Unit weight",
+          "lengthCm": "Length",
+          "widthCm": "Width",
+          "heightCm": "Height",
+          "packageContentQuantity": "Package content quantity",
+          "packageContentUnitNameAr": "Arabic content unit",
+          "packageContentUnitNameEn": "English content unit"
+        },
+        "hints": {
+          "salesUnitId": "Optional. Choosing one fills both names automatically, and you can clear the selection while keeping the names.",
+          "packageGroup": "Optional, but the three fields are one group: fill in all of them, or leave all of them empty.",
+          "snapshotNames": "These two names are copied onto every listing and order and are never read from the list again, so you can edit them."
+        },
+        "placeholderTaxonomy": "Choose a category",
+        "placeholderSalesUnit": "No selection",
+        "optional": "(optional)",
+        "submitCreate": "Save the product",
+        "submitEdit": "Save changes",
+        "submitting": "Saving…",
+        "cancelPrompt": "You have unsaved changes. Leave without saving them?",
+        "errorSummaryTitle": "Check the following fields",
+        "checkSummaryTitle": "This product does not pass the automatic checks yet",
+        "noChanges": "You have not made any changes yet."
+      }
+    },
+    "opportunities": {
+      "title": "Listings",
+      "description": "Your listings offered to traders, and the state of each one.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to listings",
+      "emptyTitle": "No listings",
+      "emptyDescription": "No listing has been created on your products yet.",
+      "allTitle": "All listings",
+      "allHandled": "Every one of your listings is in the section above.",
+      "needsAttention": {
+        "title": "Needs attention",
+        "description": "Listings that are not published yet, or whose publication stopped for a reason that needs correcting."
+      },
+      "statusTitle": "State",
+      "statusLabel": "Status",
+      "termsTitle": "Commercial terms",
+      "taxTitle": "Price and tax breakdown",
+      "taxFrozenNotice": "These figures are frozen at first publication and are never recalculated afterwards.",
+      "scheduleTitle": "Dates",
+      "originTitle": "Ships from",
+      "descriptionTitle": "Description",
+      "unitPrice": "Unit price",
+      "pricePerUnit": "{price} per {unit}",
+      "unitPriceExclTax": "Unit price excluding tax",
+      "unitTax": "Tax per unit",
+      "taxRate": "Tax rate",
+      "totalValue": "Total value including tax",
+      "targetQuantity": "Target quantity",
+      "funded": "Sold",
+      "fundedOfTarget": "{funded} of {target}",
+      "shareQuantity": "Quantity per share",
+      "sharePercentage": "Share of the target",
+      "preparationDays": "Expected preparation time",
+      "days": "{count, plural, one {One day} other {# days}}",
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "extendedAt": "Extended on",
+      "firstActivatedAt": "First went live",
+      "pausedAt": "Paused on",
+      "blockedAt": "Publication stopped on",
+      "shipsFromCity": "City",
+      "shipsFromRegion": "Region",
+      "originNotFrozenYet": "The shipping origin is frozen at first publication, and this listing has not been published yet.",
+      "nextStep": {
+        "status": {
+          "DRAFT": "Review the terms, then publish the listing to make it available to traders.",
+          "SCHEDULED": "The listing is published and will go live on its start date. Nothing is needed from you now.",
+          "ACTION_REQUIRED": "Publication of this listing stopped. Correct the reason shown, then publish again.",
+          "ACTIVE": "The listing is live. Watch the quantity sold; you can extend it by three days once, before it ends.",
+          "PAUSED": "The platform has paused this listing. Contact support for the details.",
+          "FUNDED": "The target quantity is fully sold. Follow this listing's orders from the orders page.",
+          "EXPIRED": "This listing has ended. You can create a new one on the same product.",
+          "CANCELLED": "This listing was cancelled and is no longer offered."
+        }
+      },
+      "reasonFix": {
+        "SUPPLIER_NOT_VERIFIED": "Listings cannot be published until your company is verified. Contact support to complete verification.",
+        "PRODUCT_NOT_APPROVED": "Open the linked product, send it for approval again, then publish this listing.",
+        "PRODUCT_ARCHIVED": "The linked product is archived and cannot be sold. Create a listing on another product.",
+        "LOCATION_INACTIVE": "The shipping location is no longer active. Edit the listing to ship from an active location.",
+        "LOCATION_CITY_INACTIVE": "The shipping location's city is no longer active on the platform. Edit the listing to ship from another city.",
+        "SUPPLIER_NOT_FINANCIALLY_READY": "Complete your bank and billing details on the account page, then publish this listing again.",
+        "TAX_RATE_NOT_CONFIGURED": "This is on the platform's side and there is nothing for you to correct. Try again later or contact support.",
+        "PURCHASE_QUANTITY_NOT_COMPATIBLE": "Change the target quantity to a number that divides into whole shares, then publish again.",
+        "PRODUCT_SUSPENDED": "The linked product is suspended by the platform. Reactivating it is a separate administrative decision.",
+        "PRODUCT_CLOSED": "The linked product is permanently closed. Create a listing on another product."
+      },
+      "actions": {
+        "publish": "Publish listing",
+        "publishPrompt": "The publication conditions are checked, and if they pass the listing becomes available to traders (or scheduled until its start date). Continue?",
+        "extend": "Extend by three days",
+        "extendPrompt": "A listing can be extended by three days exactly once, and the extension cannot be undone. Continue?",
+        "delete": "Delete draft",
+        "deletePrompt": "This record will be deleted permanently and cannot be recovered. Continue?",
+        "working": "Working…",
+        "edit": "Edit the listing"
+      },
+      "newOpportunity": "Add a listing",
+      "backToOpportunity": "Back to the listing",
+      "new": {
+        "title": "Add a listing",
+        "description": "Choose the product, the selling terms and the window, then publish it.",
+        "nextStepsTitle": "Steps",
+        "step1": "Save the listing. It is saved as a draft and traders do not see it.",
+        "step2": "Review the terms and dates before publishing.",
+        "step3": "Publish it. The conditions are checked, and publication can be refused for a reason shown to you along with how to correct it."
+      },
+      "edit": {
+        "title": "Edit the listing",
+        "lockedTitle": "This listing cannot be edited right now",
+        "blockedTitle": "Publication of this listing stopped",
+        "fixedElsewhere": "This reason cannot be corrected from this form. Follow the step above, then publish again."
+      },
+      "validation": {
+        "required": "This field is required.",
+        "invalidNumber": "Enter a plain number using Western digits, with no symbols or spaces.",
+        "invalidInteger": "Enter a whole positive number, with no fraction.",
+        "tooPrecise": "Maximum {scale} decimal places.",
+        "mustBePositive": "The value must be greater than zero.",
+        "tooLarge": "The maximum allowed is {max}.",
+        "tooLong": "Maximum {max} characters.",
+        "invalidDate": "Enter a valid date and time.",
+        "endBeforeStart": "The end must be after the start."
+      },
+      "form": {
+        "sections": {
+          "what": "Product and shipping origin",
+          "terms": "Commercial terms",
+          "window": "Dates",
+          "description": "Description"
+        },
+        "sectionHints": {
+          "what": "The product on offer and the location it ships from.",
+          "terms": "Unit price including tax, and the quantity offered.",
+          "window": "How long the listing is offered to traders, and how long preparation takes after a sale.",
+          "description": "An optional description shown with the listing."
+        },
+        "fields": {
+          "productId": "Product",
+          "fulfillmentLocationId": "Shipping location",
+          "targetQuantity": "Quantity offered",
+          "unitPriceAmount": "Unit price including tax",
+          "startAt": "Starts",
+          "endAt": "Ends",
+          "expectedPreparationDays": "Expected preparation time in days",
+          "descriptionAr": "Arabic description",
+          "descriptionEn": "English description"
+        },
+        "hints": {
+          "boundsUnknown": "The duration and quantity limits are set by the platform; if they are not met, saving returns a message naming the limit.",
+          "frozenAtPublish": "The tax breakdown and the share size are calculated by the platform and frozen at first publication. Nothing is calculated here."
+        },
+        "placeholderProduct": "Choose a product",
+        "placeholderLocation": "Choose a location",
+        "noProducts": "There is no approved product to list. Get a product approved first from the products page.",
+        "submitCreate": "Save the listing",
+        "submitEdit": "Save changes",
+        "submitting": "Saving…",
+        "cancelPrompt": "You have unsaved changes. Leave without saving them?",
+        "errorSummaryTitle": "Check the following fields",
+        "noChanges": "You have not made any changes yet.",
+        "fixHere": "Publication stopped because: {reason}. Correct this field, then publish again."
+      }
+    },
+    "documents": {
+      "type": {
+        "INTERNAL_COMMISSION_DRAFT": "Internal commission draft",
+        "INTERNAL_SALE_DRAFT": "Internal sale draft",
+        "INTERNAL_REFUND_DRAFT": "Internal refund draft"
+      },
+      "notice": {
+        "NOT_A_TAX_INVOICE": "This document is an internal record and is not a tax invoice."
+      }
+    },
+    "fulfilment": {
+      "action": {
+        "start-preparation": "Start preparation",
+        "mark-ready": "Mark ready to ship",
+        "ship": "Record the shipment"
+      },
+      "prompt": {
+        "start-preparation": "This records that preparation of this shipment has begun. Continue?",
+        "mark-ready": "This records that the shipment is ready to ship. Continue?",
+        "ship": "Enter the carrier and tracking number. Recording a shipment cannot be undone."
+      },
+      "carrierCode": "Carrier",
+      "trackingNumber": "Tracking number",
+      "trackingHint": "Enter the shipping details exactly as the carrier gave them to you.",
+      "working": "Working…",
+      "fieldRequired": "This field is required."
+    },
+    "orders": {
+      "title": "Orders",
+      "description": "Orders placed on your products, and the state of every shipment in them.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to orders",
+      "emptyTitle": "No orders",
+      "emptyDescription": "No order has been placed on your products yet.",
+      "allTitle": "All orders",
+      "allHandled": "Every one of your orders is in the sections above.",
+      "showingRecent": "Showing your 50 most recent orders.",
+      "overdue": {
+        "title": "Past the preparation deadline",
+        "description": "Shipments whose preparation deadline has passed and that have not shipped."
+      },
+      "awaiting": {
+        "title": "Awaiting preparation"
+      },
+      "overdueBadge": "Overdue",
+      "summaryTitle": "Order summary",
+      "shipmentsTitle": "Shipments",
+      "documentsTitle": "Documents",
+      "documentsEmptyTitle": "No documents",
+      "documentsEmptyDescription": "No document has been issued for this order yet.",
+      "documentAmount": "Amount",
+      "documentIssuedAt": "Issued on",
+      "documentReference": "Reference",
+      "statusLabel": "Status",
+      "shipments": "Shipments",
+      "shipmentProgress": "{delivered} of {total} delivered",
+      "awaitingPreparation": "Awaiting preparation",
+      "payable": "Your share of the order",
+      "commission": "Platform commission",
+      "commissionTax": "Tax on the commission",
+      "orderTotal": "Order total",
+      "paidAt": "Paid on",
+      "quantity": "Quantity",
+      "quantityWithUnit": "{quantity} {unit}",
+      "city": "City",
+      "address": "Address",
+      "contactName": "Contact name",
+      "contactPhone": "Contact number",
+      "preparationDueAt": "Preparation deadline",
+      "shippedAt": "Shipped on",
+      "deliveredAt": "Delivered on",
+      "carrierCode": "Carrier",
+      "trackingNumber": "Tracking number",
+      "allocationPayable": "Your share of this shipment",
+      "payoutSettledAt": "Settled on",
+      "openDispute": "Open the dispute",
+      "allocationNextStep": {
+        "SHIPPED": "The shipment is on its way. The trader confirms receipt; nothing is needed from you now.",
+        "DELIVERED": "The shipment was delivered. Its payout follows once the dispute window closes."
+      }
+    },
+    "disputes": {
+      "title": "Disputes",
+      "description": "Disputes raised on your shipments, and the state of each one.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to disputes",
+      "emptyTitle": "No disputes",
+      "emptyDescription": "No dispute has been raised on your shipments.",
+      "allTitle": "All disputes",
+      "allHandled": "Every dispute is in the section above.",
+      "showingRecent": "Showing the 50 most recent disputes.",
+      "awaiting": {
+        "title": "Waiting for your response",
+        "description": "Disputes you have not answered yet. Responding within the deadline protects your position when the decision is made."
+      },
+      "statusTitle": "State",
+      "statusLabel": "Status",
+      "claimTitle": "What the trader reported",
+      "responseTitle": "Your response",
+      "responseType": "Response type",
+      "respondedAt": "Responded on",
+      "decisionsTitle": "Decisions",
+      "decisionType": "Decision",
+      "decidedAt": "Decided on",
+      "evidenceTitle": "Attachments",
+      "evidenceNotice": "Only your company's own attachments appear here, as metadata; they cannot be opened.",
+      "evidenceEmpty": "Your company has uploaded no attachment.",
+      "evidenceUnknownType": "File",
+      "openedAt": "Opened on",
+      "responseDueAt": "Response deadline",
+      "order": "Order",
+      "openOrder": "Open the order",
+      "nextStep": {
+        "OPEN": "Read what the trader reported and send your response before the deadline.",
+        "SUPPLIER_RESPONDED": "Your response was received. The platform reviews the dispute and issues its decision.",
+        "AWAITING_REPLACEMENT": "A replacement was ordered. Follow the replacement obligation and send it.",
+        "RESOLVED_ACCEPTED": "Closed with a full refund to the trader. The effect shows on this shipment's payout.",
+        "RESOLVED_PARTIAL": "Closed with a partial refund. The effect shows on this shipment's payout.",
+        "RESOLVED_REJECTED": "Closed in your favour with no refund. Nothing is needed from you.",
+        "RESOLVED_REPLACED": "Closed with a replacement. Follow the replacement obligation."
+      },
+      "respond": {
+        "heading": "Send your response",
+        "responseType": "Response type",
+        "description": "Response details",
+        "descriptionHint": "Explain your position clearly. This text is shown to the platform when the decision is made.",
+        "placeholder": "Choose a response type",
+        "submit": "Send the response",
+        "submitting": "Sending…",
+        "prompt": "A response cannot be withdrawn once sent. Continue?",
+        "descriptionLength": "The text must be between {min} and {max} characters.",
+        "typeRequired": "Choose a response type."
+      }
+    },
+    "replacements": {
+      "title": "Replacements",
+      "description": "The replacements you owe, and the state of each one.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to replacements",
+      "detailTitle": "Replacement obligation",
+      "quantityLine": "Quantity required: {quantity}",
+      "emptyTitle": "No replacements",
+      "emptyDescription": "You owe no replacement.",
+      "allTitle": "All replacements",
+      "allHandled": "Every replacement is in the section above.",
+      "showingRecent": "Showing the 50 most recent records.",
+      "awaiting": {
+        "title": "Waiting on you",
+        "description": "Replacements that have not shipped yet."
+      },
+      "openDetail": "Open the details",
+      "statusTitle": "State",
+      "statusLabel": "Status",
+      "destinationTitle": "Where to send it",
+      "destinationNotice": "A replacement goes to the same destination as the original shipment.",
+      "timelineTitle": "Dates",
+      "quantity": "Quantity",
+      "locationName": "Location",
+      "city": "City",
+      "region": "Region",
+      "address": "Address",
+      "contactName": "Contact name",
+      "contactPhone": "Contact number",
+      "createdAt": "Created on",
+      "preparationStartedAt": "Preparation started",
+      "readyToShipAt": "Ready to ship",
+      "shippedAt": "Shipped on",
+      "deliveredAt": "Delivered on",
+      "failedAt": "Failed on",
+      "carrierCode": "Carrier",
+      "trackingNumber": "Tracking number",
+      "order": "Order",
+      "openOrder": "Open the order",
+      "openDispute": "Open the dispute",
+      "nextStep": {
+        "AWAITING_PREPARATION": "Begin preparing the replacement, then record it here.",
+        "PREPARING": "Finish preparing it, then mark it ready to ship.",
+        "READY_TO_SHIP": "Hand it to the carrier, then record the shipping details.",
+        "SHIPPED": "The replacement is on its way. The trader confirms receipt; nothing is needed from you now.",
+        "DELIVERED": "The replacement was delivered and the obligation is complete.",
+        "FAILED": "This replacement could not be completed. Contact support for the next steps."
+      }
+    },
+    "settlements": {
+      "title": "Payouts",
+      "description": "The transfers made to you, and how each one was calculated.",
+      "breadcrumbLabel": "Breadcrumb",
+      "backToList": "Back to payouts",
+      "emptyTitle": "No payouts",
+      "emptyDescription": "No settlement has been made yet.",
+      "showingRecent": "Showing the 50 most recent transfers.",
+      "perShipmentNotice": "Payouts are calculated per shipment, so an order delivered to several branches settles more than once.",
+      "openDetail": "Open the details",
+      "outcomeTitle": "Settlement outcome",
+      "statusLabel": "Outcome",
+      "basisTitle": "How it was calculated",
+      "basisNotice": "These figures are frozen when the order is created and are never recalculated, which is what makes them reconcilable.",
+      "executedAt": "Transferred on",
+      "city": "City",
+      "productAmountExclTax": "Goods value excluding tax",
+      "productTaxAmount": "Tax on the goods",
+      "productAmountInclTax": "Goods value including tax",
+      "shippingFeeAmount": "Shipping fee",
+      "commissionShareAmount": "Platform commission on this shipment",
+      "commissionShareTaxAmount": "Tax on the commission",
+      "supplierPayableShareAmount": "Your share of this shipment",
+      "netAmount": "Net transferred",
+      "order": "Order",
+      "openOrder": "Open the order and its documents",
+      "outcomeNextStep": {
+        "EXECUTED": "The amount was transferred to your recorded bank account.",
+        "ZERO_BALANCE": "Nothing was owed on this shipment and no amount was transferred. This is a correct outcome, not an error."
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Updates on your orders, disputes and payouts.",
+      "emptyTitle": "No notifications",
+      "emptyDescription": "You have not received any notifications yet.",
+      "showingRecent": "Showing your 50 most recent notifications.",
+      "unread": "Unread",
+      "markRead": "Mark as read",
+      "markAllRead": "Mark all as read",
+      "working": "Working…",
+      "open": "Open the details",
+      "noDestination": "There is no page linked to this notification.",
+      "type": {
+        "PAYMENT_SUCCEEDED": "A payment was received",
+        "PAYMENT_FAILED": "A payment failed",
+        "ORDER_CREATED": "A new order on your products",
+        "ALLOCATION_PREPARATION_STARTED": "Preparation of a shipment started",
+        "ALLOCATION_READY": "A shipment is ready to ship",
+        "ALLOCATION_SHIPPED": "A shipment was shipped",
+        "ALLOCATION_DELIVERED": "A shipment was delivered",
+        "MASTER_ORDER_FULFILLED": "An order was fulfilled",
+        "DISPUTE_OPENED": "A dispute was raised on one of your shipments",
+        "DISPUTE_SUPPLIER_RESPONDED": "Your dispute response was recorded",
+        "DISPUTE_DECIDED": "A dispute was decided",
+        "REFUND_INITIATED": "A refund started",
+        "REFUND_FAILED": "A refund failed",
+        "REPLACEMENT_REQUIRED": "A replacement is required",
+        "REPLACEMENT_SHIPPED": "A replacement was shipped",
+        "REPLACEMENT_DELIVERED": "A replacement was delivered",
+        "REPLACEMENT_FAILED": "A replacement could not be completed",
+        "SETTLEMENT_EXECUTED": "A payout was transferred"
+      }
+    }
+  },
   "unauthorized": {
     "title": "Access not available",
     "description": "Your account cannot open this page.",
@@ -774,7 +1552,8 @@
       "PAYMENT_ATTEMPT_ALREADY_ACTIVE": "A payment attempt is already active.",
       "INVALID_WEBHOOK_SIGNATURE": "Invalid signature.",
       "INVALID_FULFILLMENT_TRANSITION": "That fulfilment transition is not allowed.",
-      "UNKNOWN_CARRIER": "Unknown carrier."
+      "UNKNOWN_CARRIER": "Unknown carrier.",
+      "PRODUCT_TECHNICAL_CHECK_FAILED": "This product does not pass the automatic checks yet. Review the items listed, then try again."
     }
   }
 }

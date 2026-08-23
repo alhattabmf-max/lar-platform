@@ -70,6 +70,19 @@ export const ERROR_CODES = {
   // Phase 7D — Fulfillment/Shipping
   INVALID_FULFILLMENT_TRANSITION: "INVALID_FULFILLMENT_TRANSITION",
   UNKNOWN_CARRIER: "UNKNOWN_CARRIER",
+  /**
+   * Phase 8E — a product failed the automatic technical checks.
+   *
+   * Its own code rather than `VALIDATION_FAILED` because it is the only
+   * failure that carries machine-readable per-check detail: the response
+   * pairs it with `details.failedChecks`, a list drawn from the closed
+   * `PRODUCT_TECHNICAL_CHECK_CODES` vocabulary. Sharing a code with
+   * ordinary DTO validation would leave a client unable to tell which
+   * shape of `details` it is looking at without guessing.
+   *
+   * The English text the checks used to produce is never sent.
+   */
+  PRODUCT_TECHNICAL_CHECK_FAILED: "PRODUCT_TECHNICAL_CHECK_FAILED",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

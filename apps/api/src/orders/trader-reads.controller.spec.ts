@@ -19,7 +19,6 @@ const CONTROLLER = readFileSync(join(__dirname, "trader-reads.controller.ts"), "
  * explanation and fails on the documentation rather than the code.
  */
 const CODE = CONTROLLER.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
-const ORDERS_CONTROLLER = readFileSync(join(__dirname, "orders.controller.ts"), "utf8");
 const ORDERS_SERVICE = readFileSync(join(__dirname, "orders.service.ts"), "utf8");
 const MODULE = readFileSync(join(__dirname, "orders.module.ts"), "utf8");
 
@@ -90,24 +89,23 @@ describe("there is no standalone allocation endpoint", () => {
 });
 
 describe("the replaced trader order routes", () => {
-  it("no longer exist on the old controller", () => {
-    expect(ORDERS_CONTROLLER).not.toContain('@Controller("trader/orders")');
-    expect(ORDERS_CONTROLLER).not.toContain("TraderOrdersController");
-  });
-
-  it("leaves the supplier controller untouched", () => {
-    expect(ORDERS_CONTROLLER).toContain('@Controller("supplier/orders")');
-    expect(ORDERS_CONTROLLER).toContain("RequireSupplierGuard");
-  });
-
   it("removed the orphaned trader methods rather than leaving them callable", () => {
     // The shared SELECT they used carries supplierPayableAmount.
     expect(ORDERS_SERVICE).not.toMatch(/\blistForTrader\s*\(/);
     expect(ORDERS_SERVICE).not.toMatch(/\bgetForTrader\s*\(/);
   });
 
-  it("still serves the supplier and admin reads from that service", () => {
-    expect(ORDERS_SERVICE).toMatch(/\blistForSupplier\s*\(/);
+  it("no longer serves the SUPPLIER from that service either", () => {
+    // 8E did to the supplier reads what 8D did to the trader's, and for the
+    // same reason: the shared SELECT is the ADMIN's, carrying traderCompanyId
+    // and a Decimal totalAmount. `SupplierOrdersService` replaced them, and
+    // the legacy controller that called them was deleted with them.
+    expect(ORDERS_SERVICE).not.toMatch(/\blistForSupplier\s*\(/);
+    expect(ORDERS_SERVICE).not.toMatch(/\bgetForSupplier\s*\(/);
+  });
+
+  it("still serves the admin reads from that service", () => {
+    // A different audience with a different boundary — those stay.
     expect(ORDERS_SERVICE).toMatch(/\blistForAdmin\s*\(/);
   });
 

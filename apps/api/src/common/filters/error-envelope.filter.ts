@@ -107,10 +107,19 @@ export class ErrorEnvelopeFilter implements ExceptionFilter {
           };
         }
 
+        // A BusinessException may carry `details` — a CLOSED vocabulary
+        // it chose to expose, such as the product technical-check codes.
+        // Passed through as-is; nothing here composes or derives it, so
+        // the exception is the only thing that decides what is in it.
+        const explicitDetails = bodyObj.details;
+
         return {
           status,
           code: resolvedCode,
           message: typeof rawMessage === "string" ? rawMessage : exception.message,
+          ...(typeof explicitDetails === "object" && explicitDetails !== null
+            ? { details: explicitDetails as Record<string, unknown> }
+            : {}),
         };
       }
 

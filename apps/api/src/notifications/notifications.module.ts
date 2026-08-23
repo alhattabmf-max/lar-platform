@@ -3,6 +3,7 @@ import { NotificationsService } from "./notifications.service";
 import { NotificationWriterService } from "./notification-writer.service";
 import { NotificationEventsService } from "./notification-events.service";
 import { TraderNotificationsController } from "./trader-notifications.controller";
+import { SupplierNotificationsController } from "./supplier-notifications.controller";
 
 /**
  * The writer is EXPORTED because 8D.2's business-event producers call
@@ -11,7 +12,7 @@ import { TraderNotificationsController } from "./trader-notifications.controller
  */
 // PrismaModule is @Global, so PrismaService needs no import here.
 @Module({
-  controllers: [TraderNotificationsController],
+  controllers: [TraderNotificationsController, SupplierNotificationsController],
   providers: [NotificationsService, NotificationWriterService, NotificationEventsService],
   exports: [NotificationWriterService, NotificationEventsService],
 })

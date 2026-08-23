@@ -4,7 +4,21 @@ import { computeDisputeRefundReversal } from "@platform/domain";
 import { PrismaService } from "../database/prisma.service";
 import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
-import { ERROR_CODES } from "@platform/types";
+import { ERROR_CODES, MAX_TRADER_PAGE_SIZE } from "@platform/types";
+import type {
+  Paginated,
+  SupplierDisputeDetailView,
+  SupplierDisputeSummary,
+} from "@platform/types";
+import {
+  SUPPLIER_DISPUTE_SELECT,
+  supplierDisputeListWhere,
+  supplierDisputeWhere,
+  supplierEvidenceQuery,
+  toSupplierDisputeDetailView,
+  toSupplierDisputeSummary,
+  type SupplierEvidenceRow,
+} from "./supplier-dispute.view";
 import type { TraderDisputeDetailView } from "@platform/types";
 import {
   TRADER_DISPUTE_SELECT,
@@ -539,29 +553,71 @@ export class DisputeService {
     return toTraderDisputeDetailView(dispute, evidence);
   }
 
-  async getForSupplier(disputeId: string, supplierCompanyId: string) {
-    const dispute = await this.prisma.dispute.findUnique({
-      where: { id: disputeId },
-      select: {
-        id: true,
-        orderAllocationId: true,
-        reasonCode: true,
-        description: true,
-        status: true,
-        supplierResponseDueAt: true,
-        openedAt: true,
-        orderAllocation: { select: { masterOrder: { select: { supplierCompanyId: true } } } },
-        evidence: { select: { id: true, storageObjectKey: true, uploadedAt: true } },
-        supplierResponse: { select: { responseType: true, description: true, respondedAt: true } },
-        decisions: { select: { sequenceNumber: true, decisionType: true, reasonNote: true, decidedAt: true } },
-      },
+  /**
+   * One dispute, as the supplier may see it.
+   *
+   * Ownership is IN THE QUERY, so an unknown id and another supplier's
+   * dispute produce the identical 404 and neither can be distinguished by
+   * probing.
+   *
+   * Evidence is read separately and filtered by COMPANY in the database — the
+   * trader's attachments are never fetched, not fetched and discarded. The
+   * administrator's `reasonNote` and every internal id are absent from the
+   * select entirely.
+   */
+  async getForSupplier(
+    disputeId: string,
+    supplierCompanyId: string
+  ): Promise<SupplierDisputeDetailView> {
+    const dispute = await this.prisma.dispute.findFirst({
+      where: supplierDisputeWhere(disputeId, supplierCompanyId),
+      select: SUPPLIER_DISPUTE_SELECT,
     });
-    if (!dispute || dispute.orderAllocation.masterOrder.supplierCompanyId !== supplierCompanyId) {
-      throw new NotFoundException("Dispute not found");
-    }
-    const { orderAllocation: _oa, ...rest } = dispute;
-    void _oa;
-    return rest;
+    if (!dispute) throw new NotFoundException("Dispute not found");
+
+    const evidence = await this.prisma.$queryRaw<SupplierEvidenceRow[]>(
+      supplierEvidenceQuery(disputeId, supplierCompanyId)
+    );
+
+    return toSupplierDisputeDetailView(dispute, evidence);
+  }
+
+  /**
+   * Every dispute raised against this supplier.
+   *
+   * Ordered with the ones still awaiting THEIR response first — that is the
+   * only thing on the list they can act on — then newest, terminating in the
+   * primary key so a tie cannot serve one row twice across a page boundary.
+   */
+  async listForSupplier(
+    supplierCompanyId: string,
+    query: { page?: number; pageSize?: number }
+  ): Promise<Paginated<SupplierDisputeSummary>> {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(MAX_TRADER_PAGE_SIZE, Math.max(1, query.pageSize ?? 20));
+
+    const where = supplierDisputeListWhere(supplierCompanyId);
+
+    const [rows, total] = await Promise.all([
+      this.prisma.dispute.findMany({
+        where,
+        select: {
+          id: true,
+          orderAllocationId: true,
+          status: true,
+          reasonCode: true,
+          openedAt: true,
+          supplierResponseDueAt: true,
+          orderAllocation: { select: { masterOrderId: true } },
+        },
+        orderBy: [{ openedAt: "desc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.dispute.count({ where }),
+    ]);
+
+    return { items: rows.map(toSupplierDisputeSummary), page, pageSize, total };
   }
 
   async getForAdmin(disputeId: string) {

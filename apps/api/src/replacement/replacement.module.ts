@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { SupplierReplacementReadsService } from "./supplier-replacement-reads.service";
+import { SupplierReplacementReadsController } from "./supplier-replacement-reads.controller";
 import { ReplacementObligationService } from "./replacement-obligation.service";
 import { ReplacementShippingWebhookService } from "./replacement-shipping-webhook.service";
 import { SupplierReplacementController } from "./supplier-replacement.controller";
@@ -8,8 +10,17 @@ import { FulfillmentModule } from "../fulfillment/fulfillment.module";
 
 @Module({
   imports: [FulfillmentModule],
-  controllers: [SupplierReplacementController, TraderReplacementController, ReplacementShippingWebhookController],
-  providers: [ReplacementObligationService, ReplacementShippingWebhookService],
+  controllers: [
+    SupplierReplacementReadsController,
+    SupplierReplacementController,
+    TraderReplacementController,
+    ReplacementShippingWebhookController,
+  ],
+  providers: [
+    ReplacementObligationService,
+    ReplacementShippingWebhookService,
+    SupplierReplacementReadsService,
+  ],
   exports: [ReplacementObligationService],
 })
 export class ReplacementModule {}
