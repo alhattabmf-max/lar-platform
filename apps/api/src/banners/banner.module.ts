@@ -6,6 +6,7 @@ import { BannerController } from "./banner.controller";
 import { ImageDeliveryService } from "../common/media/image-delivery.service";
 import { BannerPolicyService } from "../settings/banner-policy.service";
 import { BannerLinkAllowlistService } from "../settings/banner-link-allowlist.service";
+import { StorageModule } from "../storage/storage.module";
 
 /**
  * Owns the PUBLIC banner surface and every banner service. The admin
@@ -14,6 +15,10 @@ import { BannerLinkAllowlistService } from "../settings/banner-link-allowlist.se
  * exist exactly once.
  */
 @Module({
+  // Provides StorageService, which the image services here inject.
+  // Without it Nest cannot construct them and the application fails to
+  // boot.
+  imports: [StorageModule],
   controllers: [BannerController],
   providers: [
     BannerService,

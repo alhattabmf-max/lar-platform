@@ -2057,7 +2057,7 @@
     "banners": {
       "title": "Banners",
       "description": "Promotional banners on the home page and the opportunities page.",
-      "imageNotice": "Banner images are uploaded through a separate endpoint with its own content-type and size checks, and are not managed from this page.",
+      "imageNotice": "A banner’s image is uploaded from its own card below. The server checks the content type and size and refuses anything that does not match.",
       "placements": {
         "PUBLIC_HOME": "Home page",
         "PUBLIC_OPPORTUNITIES": "Opportunities page"
@@ -2085,7 +2085,12 @@
       "scheduleHint": "Leave a field blank to clear it. The server checks for overlap and for the limit on how many banners run at once.",
       "empty": "No banners in this placement.",
       "working": "Working…",
-      "required": "(required)"
+      "required": "(required)",
+      "uploadImage": "Upload image",
+      "replaceImage": "Replace image",
+      "removeImage": "Remove image",
+      "imageTypes": "JPEG, PNG or WebP",
+      "removeImagePrompt": "Remove this banner’s image?"
     },
     "branding": {
       "title": "Brand and colours",

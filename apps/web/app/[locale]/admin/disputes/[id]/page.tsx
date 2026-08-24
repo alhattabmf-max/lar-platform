@@ -253,7 +253,6 @@ export default async function AdminDisputeDetailPage({
           labels={{
             legend: t("decideLegend"),
             decisionType: t("decisionTypeLabel"),
-            decisionOption: (value) => vocab(`decisionType.${value}`),
             productRefund: t("productRefund"),
             shippingRefund: t("shippingRefund"),
             amountHint: t("amountHint"),

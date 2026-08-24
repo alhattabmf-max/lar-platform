@@ -7,9 +7,10 @@ import { SupplierReplacementController } from "./supplier-replacement.controller
 import { TraderReplacementController } from "./trader-replacement.controller";
 import { ReplacementShippingWebhookController } from "./replacement-shipping-webhook.controller";
 import { FulfillmentModule } from "../fulfillment/fulfillment.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
-  imports: [FulfillmentModule],
+  imports: [NotificationsModule, FulfillmentModule],
   controllers: [
     SupplierReplacementReadsController,
     SupplierReplacementController,

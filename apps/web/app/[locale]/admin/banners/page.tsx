@@ -65,7 +65,6 @@ async function Placement({
   placement: BannerPlacement;
 }) {
   const t = await getTranslations({ locale, namespace: "admin.banners" });
-  const vocab = await getTranslations({ locale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale, namespace: "states" });
 
   const result = await loadAdminBanners(placement);
@@ -91,8 +90,9 @@ async function Placement({
     linkHint: t("linkHint"),
     create: t("create"),
 
-    moveUp: (title: string) => t("moveUp", { title }),
-    moveDown: (title: string) => t("moveDown", { title }),
+    // moveUp / moveDown / stateLabel are deliberately absent: they take
+    // a runtime argument, and a function cannot be serialized across the
+    // server/client boundary. BannerManager translates them itself.
     saveOrder: t("saveOrder"),
     orderChanged: t("orderChanged"),
     orderSaved: t("orderSaved"),
@@ -101,7 +101,6 @@ async function Placement({
     deactivate: t("deactivate"),
     hasImage: t("hasImage"),
     noImage: t("noImage"),
-    stateLabel: (state: string) => vocab(`bannerState.${state}`),
     scheduleFrom: t("scheduleFrom"),
     scheduleTo: t("scheduleTo"),
     saveSchedule: t("saveSchedule"),

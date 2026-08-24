@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import type { BrandThemeColorKey } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminBranding, loadAdminBrandTheme } from "@/lib/admin-data";
@@ -122,15 +121,16 @@ export default async function AdminBrandingPage({
               <BrandThemeEditor
                 view={theme.data}
                 labels={{
-                  colorLabel: (key: BrandThemeColorKey) => t(`colors.${key}`),
+                  // colorLabel / issueContrast / issueFormat are absent
+                  // on purpose: they take a runtime argument, and a
+                  // function cannot be serialized across the
+                  // server/client boundary. BrandThemeEditor resolves
+                  // them itself.
                   draftTitle: t("draftTitle"),
                   activeTitle: t("activeTitle"),
                   noDraft: t("noDraft"),
                   contrastPasses: t("contrastPasses"),
                   contrastFails: t("contrastFails"),
-                  issueContrast: (key, ratio, required) =>
-                    t("issueContrast", { key, ratio, required }),
-                  issueFormat: (key) => t("issueFormat", { key }),
                   saveDraft: t("saveDraft"),
                   publish: t("publish"),
                   publishPrompt: t("publishPrompt"),

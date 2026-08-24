@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import type { SiteContentField } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminTaxonomy, loadSiteContent } from "@/lib/admin-data";
@@ -84,15 +83,15 @@ export default async function AdminContentPage({
           navLegend: t("navLegend"),
           arabic: t("arabic"),
           english: t("english"),
-          fieldLabel: (field: SiteContentField) => t(`fields.${field}`),
+          // fieldLabel / navRemove / navMoveUp / navMoveDown are absent
+          // on purpose: they take a runtime argument, and a function
+          // cannot be serialized across the server/client boundary.
+          // SiteContentEditor resolves them itself.
           blankMeansDefault: t("blankMeansDefault"),
 
           navHint: t("navHint"),
           navAdd: t("navAdd"),
           navChoose: t("navChoose"),
-          navRemove: (label: string) => t("navRemove", { label }),
-          navMoveUp: (label: string) => t("navMoveUp", { label }),
-          navMoveDown: (label: string) => t("navMoveDown", { label }),
           navFull: t("navFull"),
           navEmpty: t("navEmpty"),
           navMissing: t("navMissing"),

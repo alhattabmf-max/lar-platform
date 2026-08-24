@@ -1,5 +1,6 @@
 import { isMoneyString } from "@platform/types";
-import type { AppLocale } from "@/i18n/routing";
+import { routing, type AppLocale } from "@/i18n/routing";
+import { isAppLocale } from "./localized";
 
 /**
  * Money formatting for display.
@@ -60,6 +61,13 @@ export function formatMoney(
   // would format cleanly and look completely fine.
   if (!isMoneyString(amount)) return null;
 
+  // `AppLocale` is a compile-time claim, and every page makes it with an
+  // unchecked cast on a URL segment. A path segment containing a dot
+  // skips the i18n middleware entirely (see `isAppLocale`), so this can
+  // receive something `Intl` refuses — and an uncaught RangeError here
+  // takes down a server-rendered page.
+  if (!isAppLocale(locale)) return null;
+
   const value = Number(amount);
   if (!Number.isFinite(value)) return null;
 
@@ -79,7 +87,14 @@ export function formatMoney(
  * is genuinely hard to read at a glance.
  */
 export function formatQuantity(quantity: number, locale: AppLocale): string {
-  return new Intl.NumberFormat(locale, { numberingSystem: NUMBERING_SYSTEM }).format(quantity);
+  // Falls back rather than returning null, because this one is declared
+  // non-nullable and every caller renders it inline. The only way to
+  // reach it with a locale this app does not ship is the dotted-segment
+  // middleware bypass described in `isAppLocale` — a request that ends
+  // in a 404 regardless, so grouping the digits by the default locale
+  // is a strictly better outcome than throwing the page away.
+  const safe = isAppLocale(locale) ? locale : routing.defaultLocale;
+  return new Intl.NumberFormat(safe, { numberingSystem: NUMBERING_SYSTEM }).format(quantity);
 }
 
 /**

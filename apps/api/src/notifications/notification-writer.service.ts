@@ -236,9 +236,13 @@ export class NotificationWriterService {
       }),
     }));
 
+    // `updated_at` is NOT NULL with no database default — Prisma fills it
+    // from `@updatedAt` in the CLIENT, which a raw INSERT bypasses. Every
+    // other writer uses tx.outboxEvent.create(); this is the only raw one,
+    // so it has to supply the column itself or the insert fails 23502.
     const rows = await tx.$queryRaw<{ id: string }[]>`
-      INSERT INTO outbox_events (event_type, payload, idempotency_key)
-      SELECT ${EMAIL_NOTIFICATION_V1}, payload::jsonb, key
+      INSERT INTO outbox_events (event_type, payload, idempotency_key, updated_at)
+      SELECT ${EMAIL_NOTIFICATION_V1}, payload::jsonb, key, now()
       FROM unnest(${payloads.map((p) => p.payload)}::text[], ${payloads.map((p) => p.key)}::text[])
         AS t(payload, key)
       ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING

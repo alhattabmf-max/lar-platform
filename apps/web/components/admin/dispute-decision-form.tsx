@@ -49,7 +49,11 @@ export interface DisputeDecisionFormProps {
   labels: {
     legend: string;
     decisionType: string;
-    decisionOption: (value: string) => string;
+    // decisionOption is NOT here. It needs the option value at runtime,
+    // and a function cannot cross the server/client boundary — React
+    // serializes these props, and passing one throws "Functions cannot
+    // be passed directly to Client Components", taking the whole page
+    // down. This is a client component with its own translator.
     productRefund: string;
     shippingRefund: string;
     amountHint: string;
@@ -168,7 +172,7 @@ export function DisputeDecisionForm({
           >
             {allowed.map((value) => (
               <option key={value} value={value}>
-                {labels.decisionOption(value)}
+                {root(`admin.vocab.decisionType.${value}`)}
               </option>
             ))}
           </Select>

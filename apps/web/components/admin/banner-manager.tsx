@@ -3,12 +3,27 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, uploadFile } from "@/lib/api-client";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
+import { mediaUrl } from "@/lib/media-url";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
 import { StatusBadge } from "@/components/trader/status-badge";
 import type { AdminBannerRow } from "@/lib/admin-data";
+
+/**
+ * The content types the banner image pipeline actually stores —
+ * `EXTENSION_BY_CONTENT_TYPE` in `apps/api/src/banners/banner-image.service.ts`
+ * and the processor's own encoder list. Used for the file picker's
+ * `accept`, so the operator is not offered a format the server will
+ * reject.
+ *
+ * NO SIZE LIMIT IS STATED. The maximum is admin-configurable
+ * (`BannerPolicyService.maxSizeBytes`) and no endpoint exposes it to
+ * this client, so any number printed here would be invented. The server
+ * refuses an oversized file and its refusal is what the operator sees.
+ */
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 /**
  * Promotional banners for one placement.
@@ -50,8 +65,13 @@ export interface BannerManagerLabels {
   linkHint: string;
   create: string;
 
-  moveUp: (title: string) => string;
-  moveDown: (title: string) => string;
+  // moveUp / moveDown / stateLabel are NOT here. They need a runtime
+  // argument (a banner title, a state), and a function cannot cross the
+  // server/client boundary — React has to serialize these props, and
+  // passing one throws "Functions cannot be passed directly to Client
+  // Components", which renders the whole page as a server-side
+  // exception. This component is already a client component holding a
+  // `useTranslations()` translator, so it resolves those three itself.
   saveOrder: string;
   orderChanged: string;
   orderSaved: string;
@@ -60,7 +80,6 @@ export interface BannerManagerLabels {
   deactivate: string;
   hasImage: string;
   noImage: string;
-  stateLabel: (state: string) => string;
   scheduleFrom: string;
   scheduleTo: string;
   saveSchedule: string;
@@ -290,11 +309,18 @@ export function BannerManager({
                     {banner.titleAr} — {banner.titleEn}
                   </span>
                   <StatusBadge
-                    label={labels.stateLabel(banner.state)}
+                    label={root(`admin.vocab.bannerState.${banner.state}`)}
                     tone={banner.state === "LIVE" ? "done" : "neutral"}
                   />
                   <StatusBadge label={banner.hasImage ? labels.hasImage : labels.noImage} />
                 </div>
+
+                <BannerImage
+                  banner={banner}
+                  busy={busy}
+                  run={run}
+                  labels={labels}
+                />
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
@@ -304,7 +330,7 @@ export function BannerManager({
                     size="sm"
                     className="min-h-11"
                     disabled={busy || index === 0}
-                    aria-label={labels.moveUp(banner.titleAr)}
+                    aria-label={root("admin.banners.moveUp", { title: banner.titleAr })}
                     onClick={() => move(index, -1)}
                   >
                     ↑
@@ -316,7 +342,7 @@ export function BannerManager({
                     size="sm"
                     className="min-h-11"
                     disabled={busy || index === order.length - 1}
-                    aria-label={labels.moveDown(banner.titleAr)}
+                    aria-label={root("admin.banners.moveDown", { title: banner.titleAr })}
                     onClick={() => move(index, 1)}
                   >
                     ↓
@@ -393,6 +419,157 @@ export function BannerManager({
  * A cleared field is sent as null — "no start date" and "starts at the
  * epoch" are very different instructions.
  */
+/**
+ * The banner's image: what it currently is, and how to change it.
+ *
+ * This existed only as an API before. `POST /admin/banners/:id/image`
+ * and its DELETE were implemented and reachable, and nothing in the
+ * product called either — so a banner created here could never be given
+ * a picture, and the page told the operator that uploading happened
+ * "through a separate interface" that did not exist.
+ *
+ * The picker is a real `<input type="file">` behind a labelled control
+ * rather than a bare input, so the button reads as a button and is
+ * reachable from the keyboard. It is `<label>`-wrapped, which is what
+ * makes clicking the visible control open the picker without any
+ * scripted `.click()` forwarding.
+ *
+ * NO CLIENT-SIDE SIZE CHECK. The limit is admin-configurable and no
+ * endpoint exposes it here — see ACCEPTED_IMAGE_TYPES. The type filter
+ * is real and verifiable, so it is applied; the size is not, so it is
+ * left to the server, whose refusal carries the actual bound.
+ */
+function BannerImage({
+  banner,
+  busy,
+  run,
+  labels,
+}: {
+  banner: AdminBannerRow;
+  busy: boolean;
+  run: (work: () => Promise<unknown>) => Promise<void>;
+  labels: BannerManagerLabels;
+}) {
+  const root = useTranslations();
+  // Removal asks in the page, never through window.confirm: a native
+  // dialog cannot be translated, ignores the document's RTL direction,
+  // and a browser may suppress it outright — so the confirmation could
+  // simply not appear. A repo-wide test forbids it across admin.
+  const [asking, setAsking] = useState(false);
+
+  function onPick(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Clear immediately: picking the SAME file twice must fire `change`
+    // again, which it will not if the input still holds it — a retry
+    // after a failed upload would otherwise do nothing at all.
+    event.target.value = "";
+    if (!file) return;
+
+    void run(() => uploadFile(`/admin/banners/${banner.id}/image`, file));
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {banner.hasImage ? (
+        // A plain <img>: an API route on another origin, and the route
+        // already emits a resized thumbnail, so the Next optimiser has
+        // nothing to add. Decorative here — the title sits beside it and
+        // the badge above already announces whether an image exists, so
+        // a described preview would be the third telling of one fact.
+        <img
+          src={mediaUrl(`/api/v1/admin/banners/${banner.id}/image?variant=thumb`)}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+          className="h-16 w-28 rounded border border-line object-cover"
+        />
+      ) : (
+        <div
+          className="flex h-16 w-28 items-center justify-center rounded border border-dashed border-line text-xs text-content-muted"
+          aria-hidden="true"
+        >
+          {labels.noImage}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-line px-3 py-2 text-sm text-content hover:bg-surface-muted focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
+          data-testid={`banner-image-picker-${banner.id}`}
+        >
+          {banner.hasImage
+            ? root("admin.banners.replaceImage")
+            : root("admin.banners.uploadImage")}
+          <input
+            type="file"
+            className="sr-only"
+            accept={ACCEPTED_IMAGE_TYPES.join(",")}
+            disabled={busy}
+            onChange={onPick}
+          />
+        </label>
+
+        {banner.hasImage && !asking ? (
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            className="min-h-11"
+            disabled={busy}
+            onClick={() => setAsking(true)}
+          >
+            {root("admin.banners.removeImage")}
+          </Button>
+        ) : null}
+
+        <span className="text-xs text-content-muted">
+          {root("admin.banners.imageTypes")}
+        </span>
+      </div>
+
+      {asking ? (
+        <div className="flex w-full flex-col gap-2 rounded-md border border-line bg-surface p-3">
+          <p role="status" aria-live="polite" className="text-sm text-content">
+            {root("admin.banners.removeImagePrompt")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              className="min-h-11"
+              isLoading={busy}
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await apiClient.delete(`/admin/banners/${banner.id}/image`);
+                  setAsking(false);
+                })
+              }
+            >
+              {/* The SHARED admin confirm/cancel wording, not a second
+                  copy under this namespace — one phrasing for the same
+                  action everywhere in the portal. */}
+              {busy ? labels.working : root("admin.actions.confirm")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="min-h-11"
+              disabled={busy}
+              onClick={() => setAsking(false)}
+            >
+              {root("admin.actions.cancel")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BannerSchedule({
   bannerId,
   startsAt,

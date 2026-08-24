@@ -57,15 +57,17 @@ export interface SiteContentEditorLabels {
   navLegend: string;
   arabic: string;
   english: string;
-  fieldLabel: (field: SiteContentField) => string;
+  // fieldLabel, navRemove, navMoveUp and navMoveDown are NOT here. Each
+  // needs a runtime argument, and a function cannot cross the
+  // server/client boundary — React serializes these props, and passing
+  // one throws "Functions cannot be passed directly to Client
+  // Components", taking the whole page down as a server-side exception.
+  // This is a client component with its own translator.
   blankMeansDefault: string;
 
   navHint: string;
   navAdd: string;
   navChoose: string;
-  navRemove: (label: string) => string;
-  navMoveUp: (label: string) => string;
-  navMoveDown: (label: string) => string;
   navFull: string;
   navEmpty: string;
   navMissing: string;
@@ -196,7 +198,7 @@ export function SiteContentEditor({
           <div key={field} className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor={`${ids}-${field}-ar`}>
-                {labels.fieldLabel(field)} — {labels.arabic}
+                {root(`admin.content.fields.${field}`)} — {labels.arabic}
               </Label>
               <Input
                 id={`${ids}-${field}-ar`}
@@ -211,7 +213,7 @@ export function SiteContentEditor({
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor={`${ids}-${field}-en`}>
-                {labels.fieldLabel(field)} — {labels.english}
+                {root(`admin.content.fields.${field}`)} — {labels.english}
               </Label>
               <Input
                 id={`${ids}-${field}-en`}
@@ -256,7 +258,7 @@ export function SiteContentEditor({
                     // Disabled only at the ends, where there is genuinely
                     // nowhere to move.
                     disabled={index === 0}
-                    aria-label={labels.navMoveUp(label)}
+                    aria-label={root("admin.content.navMoveUp", { label })}
                     onClick={() => move(index, -1)}
                   >
                     ↑
@@ -268,7 +270,7 @@ export function SiteContentEditor({
                     size="sm"
                     className="min-h-11"
                     disabled={index === nav.length - 1}
-                    aria-label={labels.navMoveDown(label)}
+                    aria-label={root("admin.content.navMoveDown", { label })}
                     onClick={() => move(index, 1)}
                   >
                     ↓
@@ -278,7 +280,7 @@ export function SiteContentEditor({
                     variant="ghost"
                     size="sm"
                     className="min-h-11"
-                    aria-label={labels.navRemove(label)}
+                    aria-label={root("admin.content.navRemove", { label })}
                     onClick={() => {
                       setNav((current) => current.filter((value) => value !== id));
                       setSaved(false);

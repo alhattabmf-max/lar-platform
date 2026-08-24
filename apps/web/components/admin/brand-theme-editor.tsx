@@ -39,16 +39,17 @@ import { StatusBadge } from "@/components/trader/status-badge";
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
 export interface BrandThemeEditorLabels {
-  colorLabel: (key: BrandThemeColorKey) => string;
+  // colorLabel, issueContrast and issueFormat are NOT here. Each needs a
+  // runtime argument, and a function cannot cross the server/client
+  // boundary — React serializes these props, and passing one throws
+  // "Functions cannot be passed directly to Client Components", taking
+  // the whole page down as a server-side exception. This is a client
+  // component with its own translator, so it resolves them itself.
   draftTitle: string;
   activeTitle: string;
   noDraft: string;
   contrastPasses: string;
   contrastFails: string;
-  /** e.g. "Accent against its background: 3.10, needs 4.50". */
-  issueContrast: (key: string, ratio: number, required: number) => string;
-  /** A colour the server could not parse at all. */
-  issueFormat: (key: string) => string;
   saveDraft: string;
   publish: string;
   publishPrompt: string;
@@ -121,7 +122,7 @@ export function BrandThemeEditor({
 
           return (
             <div key={key} className="flex flex-col gap-1">
-              <Label htmlFor={`${ids}-${key}-text`}>{labels.colorLabel(key)}</Label>
+              <Label htmlFor={`${ids}-${key}-text`}>{root(`admin.branding.colors.${key}`)}</Label>
               <div className="flex flex-wrap items-center gap-2">
                 {/* Rendered only while the text value is a real colour.
                     A native colour input demands a valid value, so an
@@ -191,8 +192,12 @@ export function BrandThemeEditor({
                   {draftVerdict.issues.map((issue) => (
                     <li key={`${issue.key}:${issue.code}`} className="text-xs text-warning-text">
                       {issue.ratio !== undefined && issue.required !== undefined
-                        ? labels.issueContrast(issue.key, issue.ratio, issue.required)
-                        : labels.issueFormat(issue.key)}
+                        ? root("admin.branding.issueContrast", {
+                            key: issue.key,
+                            ratio: issue.ratio,
+                            required: issue.required,
+                          })
+                        : root("admin.branding.issueFormat", { key: issue.key })}
                     </li>
                   ))}
                 </ul>

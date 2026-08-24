@@ -31,11 +31,28 @@ function makeService(rows: Row[] = [], maxConcurrent = 2) {
   const trace: string[] = [];
   let created: Row | null = null;
 
+  /**
+   * `$queryRaw` — and it refuses the advisory lock, exactly as the real
+   * driver does.
+   *
+   * This mock used to answer the lock with `[{ pg_advisory_xact_lock:
+   * null }]`, a row PostgreSQL never sends. That fiction is why every
+   * banner create, activate and schedule shipped returning 500:
+   * `pg_advisory_xact_lock()` returns SQL `void`, Prisma cannot
+   * deserialize `void`, and `$queryRaw` therefore throws
+   * "Failed to deserialize column of type 'void'" against a real
+   * database while this suite stayed green.
+   *
+   * Reproducing the refusal here means the unit suite now fails the same
+   * way production did, instead of certifying a call that cannot work.
+   */
   const queryRaw = jest.fn(async (sql: unknown) => {
     const text = JSON.stringify(sql);
     if (text.includes("pg_advisory_xact_lock")) {
-      trace.push("LOCK");
-      return [{ pg_advisory_xact_lock: null }];
+      throw new Error(
+        "Failed to deserialize column of type 'void'. " +
+          "pg_advisory_xact_lock() returns void — take the lock with $executeRaw, not $queryRaw."
+      );
     }
     if (text.includes("now")) {
       trace.push("NOW");
@@ -43,6 +60,17 @@ function makeService(rows: Row[] = [], maxConcurrent = 2) {
     }
     trace.push("RAW");
     return [];
+  });
+
+  /** `$executeRaw` returns an affected-row count and reads no columns. */
+  const executeRaw = jest.fn(async (sql: unknown) => {
+    const text = JSON.stringify(sql);
+    if (text.includes("pg_advisory_xact_lock")) {
+      trace.push("LOCK");
+      return 1;
+    }
+    trace.push("EXEC");
+    return 0;
   });
 
   const findMany = jest.fn(async ({ where }: { where: Record<string, unknown> }) => {
@@ -79,6 +107,7 @@ function makeService(rows: Row[] = [], maxConcurrent = 2) {
 
   const txClient = {
     $queryRaw: queryRaw,
+    $executeRaw: executeRaw,
     promotionalBanner: { findMany, findUnique, update, create },
   };
 
@@ -118,7 +147,9 @@ function makeService(rows: Row[] = [], maxConcurrent = 2) {
    * this is the only place it actually appears.
    */
   const lockKeys = (): string[] =>
-    queryRaw.mock.calls
+    // Read from $executeRaw: the lock is a side-effect statement whose
+    // void result must never be deserialized.
+    executeRaw.mock.calls
       .map((c) => c[0] as Prisma.Sql)
       .filter((sql) => sql.sql.includes("pg_advisory_xact_lock"))
       .map((sql) => String(sql.values[sql.values.length - 1]));

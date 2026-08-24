@@ -1,4 +1,32 @@
-import type { AppLocale } from "@/i18n/routing";
+import { routing, type AppLocale } from "@/i18n/routing";
+
+/**
+ * True only for a locale this app actually ships.
+ *
+ * Both formatters below take `AppLocale`, but that is a COMPILE-TIME
+ * claim and every page makes it with an unchecked `locale as AppLocale`
+ * on a value that came out of the URL. One request shape defeats the
+ * check that is supposed to make the cast safe:
+ *
+ *     GET /ar-SA.x/opportunities/<id>
+ *
+ * `middleware.ts` matches `/((?!api|_next|.*\..*).*)`, so ANY path
+ * segment containing a dot skips next-intl entirely and is never
+ * validated. The route still matches `[locale]`, the page still renders,
+ * and `Intl.DateTimeFormat("ar-SA.x")` throws
+ * `RangeError: Incorrect locale information provided`. The layout's
+ * `notFound()` produces the 404 the visitor sees, so the failure is
+ * invisible to them and fills the server log instead — which is exactly
+ * how it went unnoticed.
+ *
+ * Guarding against the app's OWN locale list rather than asking `Intl`
+ * what it will accept: `Intl` tolerates plenty of well-formed tags this
+ * product does not ship (`fr`, `und`, `xx`), and formatting a date in
+ * one of those would be a different bug wearing the same disguise.
+ */
+export function isAppLocale(locale: string): locale is AppLocale {
+  return (routing.locales as readonly string[]).includes(locale);
+}
 
 /**
  * Picks the Arabic or English side of a bilingual pair.
@@ -48,6 +76,11 @@ export const BUSINESS_TIME_ZONE = "Asia/Riyadh";
  * the caller then omits the row instead of rendering nonsense.
  */
 export function formatDate(iso: string, locale: AppLocale): string | null {
+  // Same contract as the unparseable date below: refuse, return null,
+  // let the caller omit the row. Throwing here takes down a whole
+  // server-rendered page for a value that never came from this app.
+  if (!isAppLocale(locale)) return null;
+
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
 
@@ -63,6 +96,8 @@ export function formatDate(iso: string, locale: AppLocale): string | null {
 
 /** As `formatDate`, with the time of day — used where the exact cut-off matters. */
 export function formatDateTime(iso: string, locale: AppLocale): string | null {
+  if (!isAppLocale(locale)) return null;
+
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
 

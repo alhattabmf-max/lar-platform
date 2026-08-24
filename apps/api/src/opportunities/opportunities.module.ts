@@ -11,9 +11,10 @@ import { ShareTierSettingsModule } from "../settings/share-tier-settings.module"
 import { CommissionPolicyModule } from "../settings/commission-policy.module";
 import { TaxModule } from "../tax/tax.module";
 import { ImageDeliveryService } from "../common/media/image-delivery.service";
+import { StorageModule } from "../storage/storage.module";
 
 @Module({
-  imports: [OpportunitySettingsModule, ShareTierSettingsModule, CommissionPolicyModule, TaxModule],
+  imports: [StorageModule, OpportunitySettingsModule, ShareTierSettingsModule, CommissionPolicyModule, TaxModule],
   controllers: [
     OpportunitiesController,
     TraderOpportunitiesController,

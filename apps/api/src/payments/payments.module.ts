@@ -6,9 +6,10 @@ import { PaymentWebhookController } from "./payment-webhook.controller";
 import { MockPaymentProvider } from "./providers/mock-payment.provider";
 import { PaymentSettingsModule } from "../settings/payment-settings.module";
 import { CommissionTaxPolicyModule } from "../settings/commission-tax-policy.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
-  imports: [PaymentSettingsModule, CommissionTaxPolicyModule],
+  imports: [NotificationsModule, PaymentSettingsModule, CommissionTaxPolicyModule],
   controllers: [PaymentsController, PaymentWebhookController],
   providers: [
     { provide: "PaymentProvider", useClass: MockPaymentProvider },

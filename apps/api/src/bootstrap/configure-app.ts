@@ -10,6 +10,7 @@ import {
   requestIdResponseHeaderMiddleware,
   PINO_LOGGER,
 } from "../common/logger/logger.module";
+import { embeddableImageCorpMiddleware } from "../common/security/embeddable-image-corp";
 
 /**
  * Applies every process-wide concern (request logging + X-Request-ID,
@@ -38,6 +39,10 @@ export function configureApp(app: INestApplication): { env: Env; logger: Logger 
   app.use(requestIdResponseHeaderMiddleware);
 
   app.use(helmet());
+  // Immediately after helmet, so it overrides the `same-origin` default
+  // helmet has just set — and ONLY on the four image routes. Every JSON
+  // response this API returns keeps `same-origin`.
+  app.use(embeddableImageCorpMiddleware);
   app.use(cookieParser());
   app.enableCors({
     origin: env.CORS_ALLOWED_ORIGINS.length > 0 ? env.CORS_ALLOWED_ORIGINS : false,

@@ -219,7 +219,15 @@ export class BannerService {
     fn: (tx: Prisma.TransactionClient, now: Date) => Promise<T>
   ): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(placementLock(placement));
+      // $executeRaw, NOT $queryRaw. `pg_advisory_xact_lock()` returns SQL
+      // `void`, and $queryRaw deserializes every returned column — Prisma
+      // has no mapping for `void`, so it threw "Failed to deserialize
+      // column of type 'void'" and every banner create, activate and
+      // schedule answered 500. $executeRaw returns only a row count and
+      // never inspects the columns, which is exactly what taking a lock
+      // needs. The line below is $queryRaw on purpose: it really does
+      // select a value.
+      await tx.$executeRaw(placementLock(placement));
       const [{ now }] = await tx.$queryRaw<Array<{ now: Date }>>(SELECT_DB_NOW);
       return fn(tx, now);
     });
