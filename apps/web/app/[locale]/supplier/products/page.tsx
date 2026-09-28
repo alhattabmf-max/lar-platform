@@ -125,6 +125,7 @@ export default async function SupplierProductsPage({
       <header className="sr-only">
         <h1>{t("title")}</h1>
       </header>
+      <Link href={`/${appLocale}/supplier/products/import`} className="self-start text-sm font-medium text-secondary underline underline-offset-4">{t("bulkImport.title")}</Link>
 
       <Suspense
         key={`${query.page}:${query.search}`}
