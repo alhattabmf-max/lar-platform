@@ -1,0 +1,18 @@
+{$STAGING_HOST} {
+  encode zstd gzip
+
+  basic_auth {
+    {$STAGING_BASIC_AUTH_USER} {$STAGING_BASIC_AUTH_HASH}
+  }
+
+  @api path /api/v1/* /health /ready
+  reverse_proxy @api api:3000
+  reverse_proxy web:3001
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+}

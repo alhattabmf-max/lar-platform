@@ -8,6 +8,7 @@ COPY packages/types/package.json packages/types/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/domain/package.json packages/domain/package.json
 COPY packages/opportunity-lifecycle/package.json packages/opportunity-lifecycle/package.json
+COPY packages/email/package.json packages/email/package.json
 COPY apps/api/package.json apps/api/package.json
 RUN pnpm install --frozen-lockfile --filter api... 2>/dev/null || pnpm install --filter api...
 
@@ -17,6 +18,7 @@ RUN pnpm --filter @platform/types run build
 RUN pnpm --filter @platform/config run build
 RUN pnpm --filter @platform/domain run build
 RUN pnpm --filter @platform/opportunity-lifecycle run build
+RUN pnpm --filter @platform/email run build
 RUN pnpm --filter api run prisma:generate
 RUN pnpm --filter api run build
 
@@ -35,6 +37,8 @@ COPY --from=build /workspace/packages/domain/package.json ./packages/domain/pack
 COPY --from=build /workspace/packages/domain/dist ./packages/domain/dist
 COPY --from=build /workspace/packages/opportunity-lifecycle/package.json ./packages/opportunity-lifecycle/package.json
 COPY --from=build /workspace/packages/opportunity-lifecycle/dist ./packages/opportunity-lifecycle/dist
+COPY --from=build /workspace/packages/email/package.json ./packages/email/package.json
+COPY --from=build /workspace/packages/email/dist ./packages/email/dist
 COPY --from=build /workspace/apps/api/package.json ./apps/api/package.json
 COPY --from=build /workspace/apps/api/dist ./apps/api/dist
 COPY --from=build /workspace/apps/api/prisma ./apps/api/prisma

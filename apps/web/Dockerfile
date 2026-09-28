@@ -9,6 +9,8 @@ COPY apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --filter web... 2>/dev/null || pnpm install --filter web...
 
 FROM deps AS build
+ARG NEXT_PUBLIC_API_BASE_URL=""
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 COPY . .
 RUN pnpm --filter @platform/types run build
 RUN pnpm --filter web run build

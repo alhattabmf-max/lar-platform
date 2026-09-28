@@ -73,3 +73,6 @@ generated/
 apps/api/.perf/
 .claude/launch.json
 /apps/api/.tmp/
+
+# Staging server secrets
+/deploy/staging/staging.env
