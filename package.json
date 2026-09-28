@@ -16,7 +16,7 @@
     "typecheck": "pnpm run build:packages && pnpm -r --filter=./apps/* --filter=./packages/* run typecheck",
     "lint": "pnpm -r --filter=./apps/* --filter=./packages/* run lint",
     "test": "pnpm run build:packages && pnpm -r --filter=./apps/* --filter=./packages/* run test",
-    "build": "pnpm run clean && pnpm run build:packages && pnpm -r --filter=./apps/* run build"
+    "build": "pnpm run clean && pnpm --filter api run prisma:generate && pnpm run build:packages && pnpm -r --filter=./apps/* run build"
   },
   "devDependencies": {
     "eslint": "^9.17.0",
