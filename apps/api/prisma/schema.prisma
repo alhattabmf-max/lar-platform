@@ -644,6 +644,8 @@ model SalesUnit {
 model Product {
   id                       String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   companyId                String                @map("company_id") @db.Uuid
+  supplierSku              String?               @map("supplier_sku") @db.VarChar(64)
+  gtin                     String?               @db.VarChar(14)
   taxonomyNodeId           String                @map("taxonomy_node_id") @db.Uuid
   // salesUnitId is a SOFT reference only — a UI suggestion/autocomplete
   // source, never authoritative. Business logic (snapshots, opportunities,
@@ -680,6 +682,7 @@ model Product {
   reports       ProductReport[]
 
   @@index([companyId])
+  @@unique([companyId, supplierSku])
   @@index([taxonomyNodeId])
   @@index([approvalStatus])
   // ORDERED INDEXES FOR THE REGISTERS. Each ends in the ordering

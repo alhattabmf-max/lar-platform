@@ -1,7 +1,9 @@
 import {
   PACKAGE_CONTENT_GROUP,
   PRODUCT_DECIMAL_FIELDS,
+  PRODUCT_IDENTIFIER_LIMITS,
   PRODUCT_TEXT_LIMITS,
+  isValidGtin,
   type CreateProductRequest,
   type ProductDecimalField,
   type ProductDetail,
@@ -42,6 +44,8 @@ export interface ProductFormValues {
   salesUnitNameEn: string;
   nameAr: string;
   nameEn: string;
+  supplierSku: string;
+  gtin: string;
   descriptionAr: string;
   descriptionEn: string;
   weightPerUnit: string;
@@ -60,6 +64,8 @@ export const PRODUCT_FORM_FIELDS = [
   "salesUnitNameEn",
   "nameAr",
   "nameEn",
+  "supplierSku",
+  "gtin",
   "descriptionAr",
   "descriptionEn",
   "weightPerUnit",
@@ -80,6 +86,8 @@ export const PRODUCT_FORM_FIELDS = [
 export const PRODUCT_FIELD_ORDER: readonly (keyof ProductFormValues)[] = [
   "nameAr",
   "nameEn",
+  "supplierSku",
+  "gtin",
   "descriptionAr",
   "descriptionEn",
   "taxonomyNodeId",
@@ -102,6 +110,8 @@ export const EMPTY_PRODUCT_FORM: ProductFormValues = {
   salesUnitNameEn: "",
   nameAr: "",
   nameEn: "",
+  supplierSku: "",
+  gtin: "",
   descriptionAr: "",
   descriptionEn: "",
   weightPerUnit: "",
@@ -129,6 +139,8 @@ export function productFormFromDetail(detail: ProductDetail): ProductFormValues 
     salesUnitNameEn: detail.salesUnitNameEn,
     nameAr: detail.nameAr,
     nameEn: detail.nameEn,
+    supplierSku: detail.supplierSku ?? "",
+    gtin: detail.gtin ?? "",
     descriptionAr: detail.descriptionAr ?? "",
     descriptionEn: detail.descriptionEn ?? "",
     weightPerUnit: detail.weightPerUnit,
@@ -220,6 +232,13 @@ export function validateProductForm(values: ProductFormValues): ProductFormError
     if (issue) errors[field] = issue;
   }
 
+  if (values.supplierSku.trim().length > PRODUCT_IDENTIFIER_LIMITS.supplierSku) {
+    errors.supplierSku = { key: "tooLong", values: { max: PRODUCT_IDENTIFIER_LIMITS.supplierSku } };
+  }
+  if (values.gtin.trim() && !isValidGtin(values.gtin.trim())) {
+    errors.gtin = { key: "invalidGtin" };
+  }
+
   for (const field of REQUIRED_DECIMALS) {
     const issue = validateDecimal(values[field], field);
     if (issue) errors[field] = issue;
@@ -298,6 +317,8 @@ export function toCreateRequest(values: ProductFormValues): CreateProductRequest
   if (values.salesUnitId) body.salesUnitId = values.salesUnitId;
   if (text(values.descriptionAr)) body.descriptionAr = text(values.descriptionAr);
   if (text(values.descriptionEn)) body.descriptionEn = text(values.descriptionEn);
+  if (text(values.supplierSku)) body.supplierSku = text(values.supplierSku);
+  if (text(values.gtin)) body.gtin = text(values.gtin);
 
   // All three or none — `validateProductForm` has already refused any
   // other combination.
@@ -349,6 +370,9 @@ export function toUpdateRequest(
   }
   for (const field of ["descriptionAr", "descriptionEn"] as const) {
     if (changed(field)) body[field] = text(values[field]) ? text(values[field]) : null;
+  }
+  for (const field of ["supplierSku", "gtin"] as const) {
+    if (changed(field)) body[field] = text(values[field]) || null;
   }
 
   // Decimals: a number, or omitted. Compared as the strings they were

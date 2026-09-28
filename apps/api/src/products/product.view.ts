@@ -50,6 +50,8 @@ export const MEDIA_ORDER = [
 
 export const PRODUCT_SUMMARY_SELECT = {
   id: true,
+  supplierSku: true,
+  gtin: true,
   nameAr: true,
   nameEn: true,
   approvalStatus: true,
@@ -112,6 +114,8 @@ export function toProductSummary(row: ProductSummaryRow): ProductSummary {
 
   return {
     id: row.id,
+    supplierSku: row.supplierSku,
+    gtin: row.gtin,
     nameAr: row.nameAr,
     nameEn: row.nameEn,
     approvalStatus: row.approvalStatus as ProductApprovalStatus,

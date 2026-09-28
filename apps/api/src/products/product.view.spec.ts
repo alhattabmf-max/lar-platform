@@ -28,6 +28,8 @@ const MEDIA = "88888888-8888-4888-8888-888888888888";
 function summaryRow(overrides: Record<string, unknown> = {}) {
   return {
     id: PRODUCT,
+    supplierSku: null,
+    gtin: null,
     nameAr: "منتج",
     nameEn: "Product",
     approvalStatus: "APPROVED",

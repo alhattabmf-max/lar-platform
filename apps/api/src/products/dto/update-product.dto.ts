@@ -1,6 +1,6 @@
-import { IsNumber, IsPositive, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from "class-validator";
+import { IsNumber, IsPositive, IsString, IsUUID, MaxLength, MinLength, ValidateBy, ValidateIf } from "class-validator";
 import { Transform } from "class-transformer";
-import { PRODUCT_DECIMAL_FIELDS, PRODUCT_TEXT_LIMITS } from "@platform/types";
+import { PRODUCT_DECIMAL_FIELDS, PRODUCT_IDENTIFIER_LIMITS, PRODUCT_TEXT_LIMITS, isValidGtin } from "@platform/types";
 import { IsDecimalAmount } from "../../common/validation/is-decimal-amount.decorator";
 
 /**
@@ -44,6 +44,18 @@ export class UpdateProductDto {
   @Present()
   @IsUUID()
   taxonomyNodeId?: string;
+
+  @PresentOrNull()
+  @trim()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(PRODUCT_IDENTIFIER_LIMITS.supplierSku)
+  supplierSku?: string | null;
+
+  @PresentOrNull()
+  @trim()
+  @ValidateBy({ name: "isGtin", validator: { validate: (value: unknown) => typeof value === "string" && isValidGtin(value) } })
+  gtin?: string | null;
 
   /** Clearable: the soft reference may be removed; the NAMES are not touched. */
   @PresentOrNull()

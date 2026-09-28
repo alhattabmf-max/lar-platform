@@ -192,7 +192,7 @@ async function ListingList({
                 unitPrice: t("unitPrice"),
                 priceInclTax: t("priceInclTax"),
                 perUnit: unit ? t("perUnit", { unit }) : null,
-                soldOfTarget: t("soldOfTarget"),
+                soldOfTarget: t(opportunity.saleMode === "DIRECT" ? "soldOfStock" : "soldOfTarget"),
                 // The two counts the server sent, printed in full. The
                 // bar beside them is a picture of these, not a third
                 // figure this page worked out.
@@ -200,8 +200,10 @@ async function ListingList({
                   funded: formatQuantity(opportunity.fundedQuantity, locale),
                   target: formatQuantity(opportunity.targetQuantity, locale),
                 })}${unit ? ` ${unit}` : ""}`,
-                endsAt: t("endsAt"),
-                endsAtValue: formatDate(opportunity.endAt, locale) ?? "",
+                endsAt: t(opportunity.saleMode === "DIRECT" ? "availability" : "endsAt"),
+                endsAtValue: opportunity.saleMode === "DIRECT"
+                  ? t("noEndDate")
+                  : formatDate(opportunity.endAt, locale) ?? "",
                 viewDetails: t("viewDetails"),
                 noImage: t("noImage"),
                 // Always the translated status, never the raw enum.
@@ -223,4 +225,3 @@ async function ListingList({
     </ul>
   );
 }
-

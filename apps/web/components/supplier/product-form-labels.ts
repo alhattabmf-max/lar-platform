@@ -32,6 +32,8 @@ export async function productFormLabels(locale: AppLocale): Promise<ProductFormL
       salesUnitNameEn: t("fields.salesUnitNameEn"),
       nameAr: t("fields.nameAr"),
       nameEn: t("fields.nameEn"),
+      supplierSku: t("fields.supplierSku"),
+      gtin: t("fields.gtin"),
       descriptionAr: t("fields.descriptionAr"),
       descriptionEn: t("fields.descriptionEn"),
       weightPerUnit: t("fields.weightPerUnit"),

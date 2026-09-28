@@ -136,6 +136,7 @@ describe("«عروضي الجارية» draws the picture it is sent", () => {
           empty: "لا توجد عروض جارية.",
           of: "من",
           fundedNote: "المباع",
+          soldNote: "المباع من المخزون",
           endsIn: "يُغلق خلال",
           endsToday: "يُغلق اليوم",
           day: "يوم",

@@ -184,6 +184,8 @@ export class ProductsService {
     const product = await this.prisma.product.create({
       data: {
         companyId: ctx.companyId,
+        supplierSku: dto.supplierSku,
+        gtin: dto.gtin,
         taxonomyNodeId: dto.taxonomyNodeId,
         // salesUnitId is a soft UI-suggestion reference only — never
         // read by business logic. salesUnitNameAr/En are the real
@@ -261,6 +263,8 @@ export class ProductsService {
         where: { id },
         data: {
           taxonomyNodeId: dto.taxonomyNodeId,
+          supplierSku: dto.supplierSku,
+          gtin: dto.gtin,
           salesUnitId: dto.salesUnitId,
           salesUnitNameAr: dto.salesUnitNameAr,
           salesUnitNameEn: dto.salesUnitNameEn,

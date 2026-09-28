@@ -33,6 +33,18 @@ export const PRODUCT_TEXT_LIMITS = {
   packageContentUnitNameEn: 100,
 } as const;
 
+export const PRODUCT_IDENTIFIER_LIMITS = { supplierSku: 64, gtin: 14 } as const;
+
+/** GTIN-8/12/13/14: preserve leading zeroes and validate GS1's check digit. */
+export function isValidGtin(value: string): boolean {
+  if (!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(value)) return false;
+  let sum = 0;
+  for (let i = value.length - 2, weight = 3; i >= 0; i--, weight = weight === 3 ? 1 : 3) {
+    sum += Number(value[i]) * weight;
+  }
+  return (10 - (sum % 10)) % 10 === Number(value[value.length - 1]);
+}
+
 export type ProductTextField = keyof typeof PRODUCT_TEXT_LIMITS;
 
 /**
@@ -71,6 +83,8 @@ export type ProductDecimalField = keyof typeof PRODUCT_DECIMAL_FIELDS;
  */
 export interface CreateProductRequest {
   taxonomyNodeId: string;
+  supplierSku?: string;
+  gtin?: string;
   salesUnitId?: string;
   salesUnitNameAr: string;
   salesUnitNameEn: string;
@@ -89,6 +103,8 @@ export interface CreateProductRequest {
 
 export const CREATE_PRODUCT_REQUEST_KEYS = [
   "taxonomyNodeId",
+  "supplierSku",
+  "gtin",
   "salesUnitId",
   "salesUnitNameAr",
   "salesUnitNameEn",
@@ -138,6 +154,8 @@ export const CREATE_PRODUCT_REQUIRED_KEYS = [
  */
 export interface UpdateProductRequest {
   taxonomyNodeId?: string;
+  supplierSku?: string | null;
+  gtin?: string | null;
   /** `null` clears the soft reference; the NAMES are unaffected. */
   salesUnitId?: string | null;
   salesUnitNameAr?: string;
@@ -157,6 +175,8 @@ export interface UpdateProductRequest {
 
 export const UPDATE_PRODUCT_REQUEST_KEYS = [
   "taxonomyNodeId",
+  "supplierSku",
+  "gtin",
   "salesUnitId",
   "salesUnitNameAr",
   "salesUnitNameEn",
@@ -175,6 +195,8 @@ export const UPDATE_PRODUCT_REQUEST_KEYS = [
 
 /** The fields an update may clear by sending `null`. */
 export const CLEARABLE_PRODUCT_FIELDS = [
+  "supplierSku",
+  "gtin",
   "salesUnitId",
   "descriptionAr",
   "descriptionEn",

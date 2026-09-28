@@ -12,6 +12,7 @@
     "header": {
       "signIn": "Sign in",
       "register": "Register",
+      "signInOrRegister": "Sign in or register",
       "language": "Language",
       "switchLocale": "Switch to Arabic",
       "signOut": "Sign out",
@@ -298,7 +299,7 @@
     "nav": {
       "label": "Control panel navigation",
       "dashboard": "Home",
-      "opportunities": "Marketplace",
+      "opportunities": "Marketplace & Offers",
       "orders": "My orders",
       "notifications": "Notifications",
       "account": "Company details",
@@ -313,7 +314,7 @@
       "switchLocale": "Switch to Arabic",
       "notificationsLabel": "Notifications",
       "group": {
-        "market": "Marketplace",
+        "market": "Marketplace & Offers",
         "orders": "Orders and follow-up",
         "account": "Account and settings"
       },
@@ -999,6 +1000,7 @@
         "empty": "No listings are running.",
         "of": "of",
         "fundedNote": "Counted on paid quantities",
+        "soldNote": "Sold from stock",
         "endsIn": "ends in",
         "endsToday": "ends today",
         "day": "day",
@@ -1173,6 +1175,28 @@
     },
     "products": {
       "title": "Products",
+      "supplierSku": "Supplier SKU",
+      "gtin": "GTIN",
+      "bulkImport": {
+        "title": "Import products in bulk",
+        "back": "Back to products",
+        "help": "Download the CSV template and enter product details, category ID and image filenames separated by |. For direct sale, fill all four stock, unit price, shipping location ID and preparation day columns; leave them blank to save products only. Select the photos and CSV and review rows. Each product is saved, its photos uploaded and checked, then the requested direct sale is published. Failed rows retain links for review.",
+        "template": "Download product template",
+        "categories": "Available category IDs",
+        "locations": "Your shipping location IDs",
+        "csv": "Product CSV file",
+        "photos": "Product photos named in the file",
+        "ready": "Products ready for review",
+        "view": "Open product",
+        "viewListing": "Open direct sale",
+        "saved": "Uploaded and submitted for checks",
+        "import": "Start product import",
+        "importing": "Importing…",
+        "fileTooLarge": "CSV file exceeds 2 MB",
+        "duplicateImage": "Duplicate image filename",
+        "missingImage": "Required image not selected",
+        "inspectDraft": "Open this product and inspect its images before retrying to avoid duplicates"
+      },
       "description": "Your recorded products and the approval state of each one.",
       "breadcrumbLabel": "Breadcrumb",
       "backToProducts": "Back to products",
@@ -1271,7 +1295,8 @@
         "tooPrecise": "Maximum {scale} decimal places.",
         "mustBePositive": "The value must be greater than zero.",
         "tooLarge": "The maximum allowed is {max}.",
-        "packageGroupIncomplete": "Complete all three package-content fields together, or remove all of them."
+        "packageGroupIncomplete": "Complete all three package-content fields together, or remove all of them.",
+        "invalidGtin": "Invalid GTIN; check its length and final check digit."
       },
       "form": {
         "sections": {
@@ -1287,6 +1312,8 @@
           "salesUnitNameEn": "English selling-unit name",
           "nameAr": "Arabic product name",
           "nameEn": "English product name",
+          "supplierSku": "Your product SKU",
+          "gtin": "Global Trade Item Number (GTIN)",
           "descriptionAr": "Arabic description",
           "descriptionEn": "English description",
           "weightPerUnit": "Unit weight",
@@ -1473,6 +1500,9 @@
       },
       "pricePerUnitSuffix": "per {unit}",
       "soldOfTarget": "Sold of target",
+      "soldOfStock": "Sold from stock",
+      "availability": "Availability",
+      "noEndDate": "No end date",
       "viewDetails": "View details",
       "priceInclTax": "VAT included",
       "perUnit": "per {unit}",
@@ -3916,7 +3946,7 @@
     "nav": {
       "label": "Site navigation",
       "home": "Home",
-      "market": "Market",
+      "market": "Market & Offers",
       "openMenu": "Open menu",
       "closeMenu": "Close menu"
     }

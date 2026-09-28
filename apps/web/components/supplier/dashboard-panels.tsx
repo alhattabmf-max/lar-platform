@@ -55,6 +55,7 @@ export interface ListingsPanelLabels {
   /** «800 من 1,000 كيس» — the parts, joined by the component. */
   of: string;
   fundedNote: string;
+  soldNote: string;
   endsIn: string;
   endsToday: string;
   day: string;
@@ -192,7 +193,7 @@ export function ListingsPanel({
                     />
                   </span>
                   <span className="text-[10px] text-content-muted">
-                    {labels.fundedNote}
+                    {listing.saleMode === "DIRECT" ? labels.soldNote : labels.fundedNote}
                   </span>
                 </span>
 
