@@ -4,7 +4,7 @@ This stack is intentionally separate from local development and production.
 
 It runs the Next.js web app, NestJS API, worker, PostgreSQL, Redis, MinIO and
 Caddy on one small cloud server. Only ports 80 and 443 are public. Caddy adds
-HTTPS and an extra review password before the platform's own authentication.
+HTTPS; the preview pages are public, while platform accounts use the app's own login.
 
 ## First deployment
 
@@ -31,9 +31,6 @@ create `/opt/lar-staging` owned by the SSH deployment user and keep the real
 variable `STAGING_READY` to `true` only after the server has Docker Compose,
 the environment file, and SSH access. Every subsequent push to `staging`
 syncs the code and rebuilds the stack. The sync preserves `staging.env`.
-
-When generating `STAGING_BASIC_AUTH_HASH` for `staging.env`, wrap the hash in
-single quotes so Compose does not interpolate the dollar signs.
 
 ## Updates
 

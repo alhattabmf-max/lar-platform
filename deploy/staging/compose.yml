@@ -10,8 +10,6 @@ services:
       - "443:443/udp"
     environment:
       STAGING_HOST: ${STAGING_HOST:?Set STAGING_HOST in staging.env}
-      STAGING_BASIC_AUTH_USER: ${STAGING_BASIC_AUTH_USER:?Set STAGING_BASIC_AUTH_USER in staging.env}
-      STAGING_BASIC_AUTH_HASH: ${STAGING_BASIC_AUTH_HASH:?Set STAGING_BASIC_AUTH_HASH in staging.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
