@@ -42,26 +42,38 @@ export const TAXONOMY_NODE_ITEM_KEYS = [
 ] as const satisfies readonly (keyof TaxonomyNodeItem)[];
 
 /**
- * Whether filtering opportunities by a taxonomy node also matches that
+ * Whether filtering listings by a taxonomy node also matches that
  * node's DESCENDANTS.
  *
- * It does not. `OpportunityDiscoveryService` compares the selected id
- * against the frozen approval snapshot's own `taxonomyNodeId` with
- * equality, so selecting a parent returns only opportunities filed
- * directly under that parent.
+ * IT DOES, AND IT HAS TO. Its neighbour below now refuses to file a
+ * product under a node that has children, so everything a buyer could
+ * want lives on a leaf. Equality matching would then make the category
+ * bar's every parent — «مواد البناء», «أغذية ومشروبات» — return an
+ * empty page, because nothing is filed directly on them any more. The
+ * two constants are one decision written twice; flipping either alone
+ * breaks the platform.
  *
- * This constant exists so the UI cannot quietly imply otherwise: any
- * surface offering the filter must read it and say plainly which
- * behaviour applies. If descendant matching is ever implemented, this
- * flips here and every consumer's copy follows.
+ * `OpportunityDiscoveryService` resolves the selected node's subtree
+ * (bounded by `TAXONOMY_MAX_DEPTH`) and matches the frozen approval
+ * snapshot's `taxonomyNodeId` against that set — still the snapshot,
+ * never the live product, so a later category change cannot alter what
+ * an already-published listing is findable under.
  */
-export const TAXONOMY_FILTER_INCLUDES_DESCENDANTS = false;
+export const TAXONOMY_FILTER_INCLUDES_DESCENDANTS = true;
 
 /**
  * Whether a product may be filed under an intermediate (non-leaf) node.
  *
- * It may. Product creation validates only that the node exists and is
- * active — there is no leaf-only rule — so every active node is a
- * legitimate filter target and none may be made unselectable.
+ * IT MAY NOT — the owner's rule: «التصنيف إجباري، واختيار الفرع إجباري
+ * إذا كان للتصنيف فروع». A node with active children is a signpost, not
+ * a shelf: filing under «أدوات» tells a buyer nothing that «أدوات ←
+ * مفكات» does not tell them better, and it is the supplier who knows
+ * which branch is right.
+ *
+ * Enforced where products are written, not only in the form — a rule
+ * that lives in a component is a rule the next form forgets.
+ *
+ * ITS CONSEQUENCE IS THE CONSTANT ABOVE: with nothing on a parent, a
+ * parent filter must reach the leaves or return nothing.
  */
-export const TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS = true;
+export const TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS = false;

@@ -1,7 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { EMPTY_BRANDING_PUBLIC, type BrandingPublic } from "@platform/types";
+import {
+  EMPTY_BRANDING_PUBLIC,
+  type BrandAssetLocale,
+  type BrandingPublic,
+} from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
 import { BrandThemeService } from "./brand-theme.service";
+import { BrandAssetService } from "./brand-asset.service";
 
 /**
  * Public read of BrandingSettings — the only path by which branding data
@@ -24,15 +29,36 @@ import { BrandThemeService } from "./brand-theme.service";
 export class BrandingService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly theme: BrandThemeService
+    private readonly theme: BrandThemeService,
+    private readonly assets: BrandAssetService,
   ) {}
 
-  async getPublic(): Promise<BrandingPublic> {
+  /**
+   * The header logo route for one language, or null.
+   *
+   * A ROUTE ON THIS API, built from the locale — never a storage key
+   * and never an off-site address. Null when no published set exists or
+   * this language has none, and there is no fallback to the other:
+   * the header renders its blank placeholder instead.
+   */
+  private async headerLogoFor(
+    locale: BrandAssetLocale,
+  ): Promise<string | null> {
+    const published = await this.assets.hasPublished(locale);
+    return published
+      ? `/api/v1/branding/logo?locale=${encodeURIComponent(locale)}`
+      : null;
+  }
+
+  async getPublic(locale: BrandAssetLocale): Promise<BrandingPublic> {
     // The ACTIVE theme only — never the draft, never validation detail.
     // BrandThemeService.getActive() is fail-safe, so a missing or
     // corrupt theme row degrades to the defaults rather than failing
     // the whole branding read.
-    const themeColors = await this.theme.getActive();
+    const [themeColors, headerLogo] = await Promise.all([
+      this.theme.getActive(),
+      this.headerLogoFor(locale),
+    ]);
 
     const row = await this.prisma.brandingSettings.findUnique({
       where: { singletonKey: "default" },
@@ -50,7 +76,12 @@ export class BrandingService {
     // No branding configured yet is a normal state, not an error: the
     // web app renders a translated placeholder rather than any
     // hardcoded brand string.
-    if (!row) return { ...EMPTY_BRANDING_PUBLIC, theme: { colors: themeColors } };
+    if (!row)
+      return {
+        ...EMPTY_BRANDING_PUBLIC,
+        headerLogo,
+        theme: { colors: themeColors },
+      };
 
     return {
       nameAr: row.nameAr,
@@ -58,6 +89,7 @@ export class BrandingService {
       shortDescriptionAr: row.shortDescriptionAr,
       shortDescriptionEn: row.shortDescriptionEn,
       logoMainUrl: row.logoMainUrl,
+      headerLogo,
       logoSmallUrl: row.logoSmallUrl,
       faviconUrl: row.faviconUrl,
       theme: { colors: themeColors },

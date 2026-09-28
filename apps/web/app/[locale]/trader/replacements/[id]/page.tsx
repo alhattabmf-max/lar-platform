@@ -10,6 +10,10 @@ import { formatQuantity } from "@/lib/money";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge, replacementTone } from "@/components/trader/status-badge";
 import { ConfirmDeliveryButton } from "@/components/trader/confirm-delivery-button";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.replacements");
+
 
 /**
  * One replacement obligation.
@@ -39,7 +43,7 @@ export default async function TraderReplacementDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label={t("breadcrumbLabel")} className="text-sm">
-        <Link href={`/${appLocale}/trader/replacements`} className="text-secondary hover:opacity-90">
+        <Link href={`/${appLocale}/trader/replacements`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("backToList")}
         </Link>
       </nav>
@@ -107,7 +111,7 @@ async function ReplacementBody({ locale, id }: { locale: AppLocale; id: string }
 
       <section aria-label={t("timeline")} className="flex flex-col gap-2">
         <h2 className="text-base font-semibold text-content">{t("timeline")}</h2>
-        <dl className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 text-sm">
+        <dl className="flex flex-col gap-1 rounded-card bg-surface shadow-card px-card-x py-card-y text-sm">
           {timeline.map((entry) => (
             <div key={entry.label} className="flex flex-wrap justify-between gap-2">
               <dt className="text-content-muted">{entry.label}</dt>
@@ -124,7 +128,7 @@ async function ReplacementBody({ locale, id }: { locale: AppLocale; id: string }
       {replacement.carrierCode && replacement.trackingNumber ? (
         <section aria-label={t("shipping")} className="flex flex-col gap-2">
           <h2 className="text-base font-semibold text-content">{t("shipping")}</h2>
-          <dl className="flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-line bg-surface p-4 text-sm">
+          <dl className="flex flex-wrap gap-x-6 gap-y-1 rounded-card bg-surface shadow-card px-card-x py-card-y text-sm">
             <div className="flex gap-2">
               <dt className="text-content-muted">{t("carrier")}:</dt>
               <dd className="text-content">{replacement.carrierCode}</dd>
@@ -142,13 +146,13 @@ async function ReplacementBody({ locale, id }: { locale: AppLocale; id: string }
       <div className="flex flex-wrap items-center gap-4">
         <Link
           href={`/${locale}/trader/orders/${replacement.orderId}`}
-          className="text-sm text-secondary hover:opacity-90"
+          className="text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("viewOrder")}
         </Link>
         <Link
           href={`/${locale}/trader/disputes/${replacement.disputeId}`}
-          className="text-sm text-secondary hover:opacity-90"
+          className="text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("viewDispute")}
         </Link>

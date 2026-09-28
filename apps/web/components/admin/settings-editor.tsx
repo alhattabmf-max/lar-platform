@@ -32,6 +32,24 @@ import type { AdminSettingItem } from "@/lib/admin-data";
  * — and a checkbox cannot show the third: an unset setting would render
  * unchecked and read as a deliberate "off".
  */
+/**
+ * Database key → the message that NAMES it for an operator.
+ *
+ * A closed map on purpose. The registry may grow a key at any time, and
+ * the failure mode has to be a generic label rather than the identifier
+ * leaking back onto the screen — which is the bug this map exists to
+ * fix. A new key showing "إعداد" is a prompt to name it; a new key
+ * showing `promotional_banner_policy` is the old bug returning.
+ */
+const SETTING_NAMES: Record<string, string> = {
+  email_verification_enabled: "emailVerification",
+  company_verification_mode: "companyVerification",
+  homepage_content: "homepageContent",
+  promotional_banner_policy: "bannerPolicy",
+  faq_items: "faqItems",
+  header_nav: "headerNav",
+};
+
 export function SettingEditor({
   setting,
   labels,
@@ -49,11 +67,16 @@ export function SettingEditor({
     editElsewhere: string;
     errorTitle: string;
     requestIdLabel: string;
+    /** Shown for a registry key this build has no name for. */
+    unnamed: string;
   };
 }) {
   const router = useRouter();
   const root = useTranslations();
   const ids = useId();
+
+  const nameKey = SETTING_NAMES[setting.key];
+  const name = nameKey ? root(`admin.settings.names.${nameKey}`) : labels.unnamed;
 
   const initial =
     setting.value === null || setting.value === undefined ? "" : String(setting.value);
@@ -101,13 +124,18 @@ export function SettingEditor({
         : String(setting.value);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+    <div className="flex flex-col gap-3 rounded-card bg-surface shadow-card px-card-x py-card-y">
       <div className="flex flex-col gap-1">
-        <p className="break-all font-mono text-sm font-medium text-content">{setting.key}</p>
-        {/* The registry's own description, which explains what the
-            setting gates and what happens when it is missing or
-            malformed. Written for an operator, not derived here. */}
-        <p className="text-sm text-content-muted">{setting.description}</p>
+        {/* THE NAME, NOT THE COLUMN. `setting.key` is a database
+            identifier and `setting.description` is a paragraph written
+            for whoever maintains the registry — English, and full of
+            words like "getBoolean fallback". Neither belongs on an
+            operator's screen, so neither is rendered.
+
+            The map is closed: a key with no name here shows the generic
+            label rather than falling back to the identifier, because
+            falling back to the identifier is the bug being fixed. */}
+        <p className="text-sm font-medium text-content">{name}</p>
       </div>
 
       {editable ? (
@@ -164,7 +192,7 @@ export function SettingEditor({
             <Button
               type="submit"
               size="sm"
-              className="min-h-11"
+             
               isLoading={busy}
               disabled={busy || value === "" || value === initial}
             >

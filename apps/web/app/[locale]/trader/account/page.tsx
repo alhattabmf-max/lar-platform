@@ -1,62 +1,41 @@
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
-import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
+import { CompanyProfileSection } from "@/components/company/company-profile-section";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("company");
+
 
 /**
- * Account overview.
+ * The buyer's «بيانات المنشأة».
  *
- * READ-ONLY in 8D. Every write endpoint under `/companies/me/*` exists,
- * but no editing screen is built yet — so there are deliberately no
- * "Edit" buttons here. A button that opens nothing is worse than no
- * button: it promises an action the product cannot perform.
+ * THE ONE PLACE A COMPANY COMPLETES ITS OWN RECORD. This page was a
+ * list of links to four read-only screens, none of which could change
+ * anything — which is why a separate «إكمال الملف الشخصي» page had to
+ * exist at all. It does not any more: the record is completed here, in
+ * the section the sidebar already points at.
+ *
+ * NOTHING IS WITHHELD FOR AN INCOMPLETE RECORD. Reaching this page,
+ * the dashboard, the language switch and signing out are never gated
+ * on it; each card says what it still needs.
  */
-export default async function TraderAccountPage({
+export default async function TraderCompanyPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
   const appLocale = locale as AppLocale;
-  const session = await requireRoleOrRedirect(appLocale, "TRADER");
-
-  const t = await getTranslations({ locale: appLocale, namespace: "trader.account" });
-
-  const sections = [
-    { key: "company", href: `/${appLocale}/trader/account/company` },
-    { key: "locations", href: `/${appLocale}/trader/account/locations` },
-    { key: "bankAccount", href: `/${appLocale}/trader/account/bank-account` },
-    { key: "taxProfile", href: `/${appLocale}/trader/account/tax-profile` },
-  ] as const;
+  await requireRoleOrRedirect(appLocale, "TRADER");
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{session.company.legalName}</p>
-      </header>
-
-      <p className="text-sm text-content-muted">{t("readOnlyNotice")}</p>
-
-      <ul className="grid list-none gap-4 sm:grid-cols-2">
-        {sections.map((section) => (
-          <li key={section.key}>
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <Link href={section.href} className="text-secondary hover:opacity-90">
-                    {t(`${section.key}.title`)}
-                  </Link>
-                </CardTitle>
-              </CardHeader>
-              <CardBody>
-                <p className="text-sm text-content-muted">{t(`${section.key}.description`)}</p>
-              </CardBody>
-            </Card>
-          </li>
-        ))}
-      </ul>
+    <div className="flex min-w-0 flex-col gap-4">
+      {/* NO HEADING HERE. The section below opens with «بيانات
+          المنشأة» beside its own mark, and an <h1> above it printed the
+          same words a second time — two headings, one page, one name.
+          The section's is the one that stays: it is the one that knows
+          whether the record is verified, and it carries the icon. */}
+      <CompanyProfileSection locale={appLocale} accountType="TRADER" />
     </div>
   );
 }

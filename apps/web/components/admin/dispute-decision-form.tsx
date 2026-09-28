@@ -7,7 +7,7 @@ import { apiClient } from "@/lib/api-client";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
 import { newIdempotencyKey, type IdempotencyKey } from "@/lib/idempotency";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/field";
+import { Input, Label, Textarea } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 
 /**
@@ -158,7 +158,7 @@ export function DisputeDecisionForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      <fieldset className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4">
+      <fieldset className="flex flex-col gap-4 rounded-card bg-surface shadow-card px-card-x py-card-y">
         <legend className="px-1 text-base font-medium text-content">{labels.legend}</legend>
 
         <div className="flex flex-col gap-1">
@@ -193,7 +193,6 @@ export function DisputeDecisionForm({
                 inputMode="decimal"
                 value={productRefund}
                 onChange={(event) => setProductRefund(event.target.value)}
-                aria-describedby={`${ids}-amount-hint`}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -205,12 +204,8 @@ export function DisputeDecisionForm({
                 inputMode="decimal"
                 value={shippingRefund}
                 onChange={(event) => setShippingRefund(event.target.value)}
-                aria-describedby={`${ids}-amount-hint`}
               />
             </div>
-            <p id={`${ids}-amount-hint`} className="text-xs text-content-muted sm:col-span-2">
-              {labels.amountHint}
-            </p>
           </div>
         ) : null}
 
@@ -224,11 +219,7 @@ export function DisputeDecisionForm({
               inputMode="numeric"
               value={replacementQuantity}
               onChange={(event) => setReplacementQuantity(event.target.value)}
-              aria-describedby={`${ids}-quantity-hint`}
             />
-            <p id={`${ids}-quantity-hint`} className="text-xs text-content-muted">
-              {labels.replacementHint}
-            </p>
           </div>
         ) : null}
 
@@ -236,19 +227,15 @@ export function DisputeDecisionForm({
           <Label htmlFor={`${ids}-reason`} required requiredLabel={labels.required}>
             {labels.reasonNote}
           </Label>
-          <textarea
+          <Textarea
             id={`${ids}-reason`}
             value={reasonNote}
             onChange={(event) => setReasonNote(event.target.value)}
             minLength={REASON_MIN}
             maxLength={REASON_MAX}
             rows={4}
-            aria-describedby={`${ids}-reason-hint`}
             className="w-full rounded-md border border-line bg-background px-3 py-2 text-sm text-content"
           />
-          <p id={`${ids}-reason-hint`} className="text-xs text-content-muted">
-            {labels.reasonHint}
-          </p>
         </div>
 
         {failure ? (
@@ -263,7 +250,7 @@ export function DisputeDecisionForm({
           </div>
         ) : null}
 
-        <Button type="submit" className="min-h-11" isLoading={busy} disabled={busy || !ready}>
+        <Button type="submit" isLoading={busy} disabled={busy || !ready}>
           {busy ? labels.working : labels.submit}
         </Button>
       </fieldset>

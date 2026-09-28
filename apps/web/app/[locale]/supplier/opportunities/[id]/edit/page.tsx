@@ -7,6 +7,7 @@ import {
   loadSupplierLocations,
   loadSupplierOpportunity,
   loadSupplierProducts,
+  loadSupplierProduct,
   loadPolicyLimits,
 } from "@/lib/supplier-data";
 import { referenceFailureRequestId } from "@/lib/reference-data";
@@ -18,6 +19,10 @@ import { StatusWithAction } from "@/components/trader/account-panels";
 import { ErrorState } from "@/components/ui/states";
 import { OpportunityForm } from "@/components/supplier/opportunity-form";
 import { opportunityFormLabels } from "@/components/supplier/opportunity-form-labels";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.opportunities");
+
 
 /**
  * Editing a listing.
@@ -32,7 +37,14 @@ import { opportunityFormLabels } from "@/components/supplier/opportunity-form-la
  * company, incomplete payout details, an unconfigured tax rate — are fixed
  * elsewhere entirely, and the card above says where.
  */
-export default async function EditSupplierOpportunityPage({
+/**
+ * How many publishable products the picker is handed before anybody
+ * types. Twenty is a list somebody can look through; beyond that they
+ * are searching, and the picker asks the server.
+ */
+const PICKER_PAGE_SIZE = 20;
+
+export default async function EditSupplierOfferPage({
   params,
 }: {
   params: Promise<{ locale: string; id: string }>;
@@ -95,22 +107,32 @@ export default async function EditSupplierOpportunityPage({
     );
   }
 
-  const [products, locations, policyLimits] = await Promise.all([
-    loadSupplierProducts(),
+  // THE PICKER'S FIRST PAGE, NOT THE CATALOGUE.
+  //
+  // This used to load the supplier's whole catalogue and filter it here
+  // down to the publishable ones — which meant a supplier with five
+  // thousand products put five thousand `<option>` elements into the
+  // page, twice over, to choose one. `publishable=true` is the
+  // APPROVED-and-unarchived pair applied in SQL, and the picker asks
+  // the server again for anything the reader types.
+  //
+  // THE LINKED PRODUCT IS FETCHED SEPARATELY and prepended, because it
+  // must stay selectable even when it has since been suspended or
+  // archived and even when it is nowhere near the first page. Removing
+  // it would silently change the listing's product on the next save.
+  const [products, linked, locations, policyLimits] = await Promise.all([
+    loadSupplierProducts({ publishable: true, pageSize: PICKER_PAGE_SIZE }),
+    loadSupplierProduct(opportunity.productId),
     loadSupplierLocations(),
     loadPolicyLimits(),
   ]);
 
-  const publishable = products.ok
-    ? products.data.filter(
-        (product) =>
-          (product.approvalStatus === "APPROVED" && product.archivedAt === null) ||
-          // The currently linked product stays selectable even if it has
-          // since been suspended or archived — removing it would silently
-          // change the listing's product on the next save.
-          product.id === opportunity.productId
-      )
-    : [];
+  const firstPage = products.ok ? products.data.items : [];
+  const current = linked.ok ? linked.data : null;
+  const publishable =
+    current && !firstPage.some((product) => product.id === current.id)
+      ? [current, ...firstPage]
+      : firstPage;
 
   // Named only when a FIELD can fix it; the other four reasons are fixed
   // elsewhere and the card above already says so.
@@ -179,7 +201,7 @@ export default async function EditSupplierOpportunityPage({
 function Breadcrumb({ href, label, back }: { href: string; label: string; back: string }) {
   return (
     <nav aria-label={label} className="text-sm">
-      <Link href={href} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+      <Link href={href} className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {back}
       </Link>
     </nav>

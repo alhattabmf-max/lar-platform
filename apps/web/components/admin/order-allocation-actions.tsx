@@ -91,7 +91,7 @@ export function SettleAllocationForm({
 
   if (!asking) {
     return (
-      <Button type="button" size="sm" className="min-h-11" onClick={open}>
+      <Button type="button" size="sm" onClick={open}>
         {labels.action}
       </Button>
     );
@@ -113,11 +113,7 @@ export function SettleAllocationForm({
           id={`${ids}-reference`}
           value={reference}
           onChange={(event) => setReference(event.target.value)}
-          aria-describedby={`${ids}-reference-hint`}
         />
-        <p id={`${ids}-reference-hint`} className="text-xs text-content-muted">
-          {labels.referenceHint}
-        </p>
       </div>
 
       {failure ? (
@@ -133,14 +129,14 @@ export function SettleAllocationForm({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" className="min-h-11" isLoading={busy} disabled={busy}>
+        <Button type="submit" size="sm" isLoading={busy} disabled={busy}>
           {busy ? labels.working : labels.confirm}
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="min-h-11"
+         
           disabled={busy}
           onClick={() => setAsking(false)}
         >

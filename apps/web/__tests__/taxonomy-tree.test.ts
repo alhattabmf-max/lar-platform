@@ -153,10 +153,15 @@ describe("malformed data cannot hang or silently drop a category", () => {
 });
 
 describe("every active node is selectable", () => {
-  it("offers parents as well as leaves, because products may be filed under either", () => {
-    // Not a stylistic choice: product creation validates only that the
-    // node exists and is active, so a parent can hold products directly.
-    expect(TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS).toBe(true);
+  it("STILL offers parents, for the opposite reason it used to", () => {
+    // It used to offer them because a product could be filed on one.
+    // A product cannot any more — and that is exactly why a parent has
+    // to stay selectable HERE: this builds the BUYER'S filter, and the
+    // filter now reaches the whole subtree. Removing parents would take
+    // «مواد البناء» out of the category bar, which is the one place a
+    // buyer starts from.
+    expect(TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS).toBe(false);
+    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(true);
 
     const options = buildTaxonomyOptions(
       [node("food", null, "Food"), node("dairy", "food", "Dairy")],
@@ -166,8 +171,12 @@ describe("every active node is selectable", () => {
     expect(options.map((o) => o.id)).toEqual(["food", "dairy"]);
   });
 
-  it("states that the API matches exactly, so the UI must not imply otherwise", () => {
-    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(false);
+  it("leaves the leaf-only rule to the SUPPLIER'S form, where it belongs", () => {
+    // Two different questions that used to have one answer: what a
+    // buyer may filter by, and what a supplier may file under. The
+    // filter is wide; the form is narrow. This module answers only the
+    // first, and the API refuses the second regardless of any form.
+    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(true);
   });
 });
 

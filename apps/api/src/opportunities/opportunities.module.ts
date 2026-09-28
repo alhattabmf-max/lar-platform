@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { OpportunitiesService } from "./opportunities.service";
 import { OpportunitiesController } from "./opportunities.controller";
 import { OpportunityDiscoveryService } from "./opportunity-discovery.service";
+import { OpportunityLifecycleService } from "./opportunity-lifecycle.service";
 import { OpportunityImageService } from "./opportunity-image.service";
 import { PublicOpportunitiesController } from "./public-opportunities.controller";
 import { TraderOpportunitiesController } from "./trader-opportunities.controller";
@@ -24,6 +25,11 @@ import { StorageModule } from "../storage/storage.module";
   providers: [
     OpportunitiesService,
     OpportunityDiscoveryService,
+    // THE OFFER'S OWN CLOCK — ends a window, opens the supplier's 24
+    // hours, and refunds what never filled. It lives here rather than in
+    // a "jobs" folder because it is opportunity logic that happens to be
+    // triggered by time rather than by a request.
+    OpportunityLifecycleService,
     OpportunityImageService,
     // The same shared delivery service the banner routes use, so the
     // caching and content-type behaviour is identical on both surfaces.

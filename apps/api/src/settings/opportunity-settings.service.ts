@@ -11,7 +11,34 @@ export interface OpportunitySettingsConfig {
   minTargetQuantity: number;
   maxTargetQuantity: number;
   showScheduledPubliclyEnabled: boolean;
+  /**
+   * How many days a single extension adds to a listing's end date.
+   *
+   * It was `INTERVAL '3 days'` written into the SQL that applies the
+   * extension, so changing it meant a deploy — which made a commercial
+   * decision into an engineering one.
+   *
+   * HOW MANY TIMES a listing may be extended is NOT here, and cannot
+   * be: `opportunities.extended_at` is a single nullable timestamp, and
+   * `extended_at IS NULL` is the atomic guard the extension claims
+   * itself with. It records THAT a listing was extended, never how
+   * often. Counting would need a counter column or a row per
+   * extension, which is a migration. See the note on `extend()` in
+   * `opportunities.service.ts`.
+   */
+  extensionDays: number;
 }
+
+/**
+ * What an extension added before it was configurable.
+ *
+ * A row stored before this field existed carries no `extensionDays`,
+ * and refusing to read it would take a configured platform down on
+ * deploy. Filling it with THIS number is not a silent substitution —
+ * it is the value that was in force for that row, written into the SQL
+ * at the time it was saved.
+ */
+const LEGACY_EXTENSION_DAYS = 3;
 
 const KEY = "opportunity_settings";
 
@@ -32,15 +59,27 @@ const DEFAULT_CONFIG: OpportunitySettingsConfig = {
   minDurationHours: 24,
   maxDurationDays: 30,
   minTargetQuantity: 1,
-  maxTargetQuantity: 1_000_000,
+  // A HUNDRED MILLION, on the owner s instruction: «الكمية مفتوح الى
+  // مية ملون». It was one million, which a wholesale listing can pass
+  // without being unusual. Still a bound rather than none — an
+  // unbounded target is a number a typo can put on a public page.
+  maxTargetQuantity: 100_000_000,
   showScheduledPubliclyEnabled: false,
+  extensionDays: LEGACY_EXTENSION_DAYS,
 };
 
 const BOUNDS = {
   minDurationHours: { min: 1, max: 720 },
   maxDurationDays: { min: 1, max: 90 },
   minTargetQuantity: { min: 1, max: 1_000_000 },
-  maxTargetQuantity: { min: 1, max: 10_000_000 },
+  // The hard ceiling an administrator may set, raised with the default
+  // above it. Ten million would have refused the new default itself.
+  maxTargetQuantity: { min: 1, max: 100_000_000 },
+  // At least a day — an extension of nothing is not an extension. At
+  // most thirty, which is `maxDurationDays`' own ceiling: an extension
+  // that can outlast the longest listing anyone may create is not a
+  // bound, it is the absence of one.
+  extensionDays: { min: 1, max: 30 },
 };
 
 interface ActorContext {
@@ -131,6 +170,11 @@ export class OpportunitySettingsService {
     if (!this.inBounds(v.minTargetQuantity, BOUNDS.minTargetQuantity)) return null;
     if (!this.inBounds(v.maxTargetQuantity, BOUNDS.maxTargetQuantity)) return null;
     if (typeof v.showScheduledPubliclyEnabled !== "boolean") return null;
+    // Absent means a row written before the field existed. See
+    // LEGACY_EXTENSION_DAYS.
+    const extensionDays =
+      v.extensionDays === undefined ? LEGACY_EXTENSION_DAYS : v.extensionDays;
+    if (!this.inBounds(extensionDays, BOUNDS.extensionDays)) return null;
 
     const config = {
       minDurationHours: v.minDurationHours as number,
@@ -138,6 +182,7 @@ export class OpportunitySettingsService {
       minTargetQuantity: v.minTargetQuantity as number,
       maxTargetQuantity: v.maxTargetQuantity as number,
       showScheduledPubliclyEnabled: v.showScheduledPubliclyEnabled,
+      extensionDays: extensionDays as number,
     };
 
     // Cross-field consistency: the target-quantity range must be

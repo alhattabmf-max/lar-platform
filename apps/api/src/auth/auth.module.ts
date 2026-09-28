@@ -10,5 +10,10 @@ import { EmailModule } from "../email/email.module";
   imports: [PoliciesModule, VerificationModule, EmailModule],
   controllers: [AuthController, MeController],
   providers: [AuthService],
+  // EXPORTED for one caller and one method: the control panel sends a
+  // company user a password-reset link, and it must be THE reset flow —
+  // same single-use token, same expiry, same delivery — rather than a
+  // second one written beside it. Nothing else in this module leaves it.
+  exports: [AuthService],
 })
 export class AuthModule {}

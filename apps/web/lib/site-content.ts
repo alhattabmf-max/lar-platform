@@ -1,5 +1,10 @@
 import { cache } from "react";
-import { SITE_CONTENT_FIELDS, type SiteContent, type SiteContentField } from "@platform/types";
+import {
+  SITE_CONTENT_FIELDS,
+  type SiteContent,
+  type SiteContentField,
+  type SiteContentText,
+} from "@platform/types";
 import { apiClient } from "./api-client";
 
 /**
@@ -22,14 +27,20 @@ import { apiClient } from "./api-client";
  * and the page body share one fetch.
  */
 
-/** Every field null and no categories: what "not customised" looks like. */
+/**
+ * Every field null and no categories: what "not customised" looks like.
+ *
+ * BUILT FROM THE FIELD LIST, not written out. Listing the fields here by
+ * hand meant adding one to the contract left this fallback a field short
+ * — and the fallback is exactly what serves a visitor when the settings
+ * read fails, so a gap here shows up only in the failure path.
+ */
 export const EMPTY_SITE_CONTENT: SiteContent = {
-  heroTitle: { ar: null, en: null },
-  heroDescription: { ar: null, en: null },
-  featuredTitle: { ar: null, en: null },
-  policiesTitle: { ar: null, en: null },
-  policiesDescription: { ar: null, en: null },
+  ...(Object.fromEntries(
+    SITE_CONTENT_FIELDS.map((field) => [field, { ar: null, en: null }]),
+  ) as Record<SiteContentField, SiteContentText>),
   headerNav: [],
+  faqItems: [],
 };
 
 /** How long a cached copy may be served. Short: this is editable content. */
@@ -77,7 +88,7 @@ function normalise(content: SiteContent): SiteContent {
         item !== null &&
         typeof item.taxonomyNodeId === "string" &&
         typeof item.nameAr === "string" &&
-        typeof item.nameEn === "string"
+        typeof item.nameEn === "string",
     );
   }
 
@@ -100,7 +111,7 @@ function normalise(content: SiteContent): SiteContent {
 export function siteText(
   content: SiteContent,
   field: SiteContentField,
-  locale: string
+  locale: string,
 ): string | null {
   const pair = content[field];
   const value = locale.startsWith("ar") ? pair.ar : pair.en;

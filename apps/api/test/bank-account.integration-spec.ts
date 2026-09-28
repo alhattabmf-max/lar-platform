@@ -18,6 +18,7 @@ function integrationEnv(): Env {
     DATABASE_URL: "postgresql://platform:platform@localhost:5432/platform_test",
     REDIS_URL: "redis://localhost:6379",
     ADMIN_TOTP_ENCRYPTION_KEY: "a".repeat(64),
+    ADMIN_TOTP_ISSUER: "Azier Plus Admin",
     BANK_DATA_ENCRYPTION_KEY:
       process.env.BANK_DATA_ENCRYPTION_KEY ?? "b".repeat(64),
     STORAGE_ENDPOINT: "http://localhost:9000",
@@ -36,9 +37,29 @@ function integrationEnv(): Env {
 describe("Bank account IBAN encryption (live Postgres integration)", () => {
   const crypto = new BankDataCryptoService(integrationEnv());
   let service: BankAccountsService;
+  const verificationCalls: string[] = [];
 
   beforeAll(() => {
-    service = new BankAccountsService(prisma, new AuditService(prisma), crypto);
+    // THE STUB MUST ANSWER EVERY CALL THE SERVICE MAKES.
+    //
+    // `add` asks two things of the verification service: it refuses a
+    // change while a review is open, and — since bank details are what
+    // the approval is most about — it marks the supplier as changed
+    // since approval afterwards. The stub carried only the first, so
+    // every create in this file died on `markChangedSinceApproval is
+    // not a function`, in a suite that is about IBAN encryption and
+    // has nothing to say about re-verification.
+    //
+    // Both calls are recorded rather than silently swallowed, so a
+    // path that stopped making them would be visible here.
+    service = new BankAccountsService(prisma, new AuditService(prisma), crypto, {
+      assertNotUnderReview: async (companyId: string) => {
+        verificationCalls.push(`assertNotUnderReview:${companyId}`);
+      },
+      markChangedSinceApproval: async (companyId: string, trigger: string) => {
+        verificationCalls.push(`markChangedSinceApproval:${companyId}:${trigger}`);
+      },
+    } as never);
   });
 
   afterAll(async () => {
@@ -61,7 +82,7 @@ describe("Bank account IBAN encryption (live Postgres integration)", () => {
     const companyId = await createVerifiedSupplierCompany();
     const rawIban = "SA0380000000608010167519";
     const result = await service.submit(
-      { accountHolderName: "Holder", bankName: "Test Bank", iban: rawIban },
+      { accountHolderName: "Holder", iban: rawIban },
       {
         userId: "00000000-0000-0000-0000-000000000001",
         companyId,
@@ -82,7 +103,7 @@ describe("Bank account IBAN encryption (live Postgres integration)", () => {
     const companyId = await createVerifiedSupplierCompany();
     const rawIban = "SA7380000000608010167520";
     const result = await service.submit(
-      { accountHolderName: "Holder2", bankName: "Test Bank", iban: rawIban },
+      { accountHolderName: "Holder2", iban: rawIban },
       {
         userId: "00000000-0000-0000-0000-000000000002",
         companyId,
@@ -115,7 +136,6 @@ describe("Bank account IBAN encryption (live Postgres integration)", () => {
       service.submit(
         {
           accountHolderName: "Holder",
-          bankName: "Bank A",
           iban: "SA0380000000608010167519",
         },
         ctx,
@@ -123,7 +143,6 @@ describe("Bank account IBAN encryption (live Postgres integration)", () => {
       service.submit(
         {
           accountHolderName: "Holder",
-          bankName: "Bank B",
           iban: "SA7380000000608010167520",
         },
         ctx,

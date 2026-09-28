@@ -33,6 +33,30 @@ export interface PaymentFixture extends CheckoutFixture {
   providerAmount: number;
 }
 
+/**
+ * THE RATE A PUBLICATION FREEZES ONTO THE LISTING.
+ *
+ * `getDefaultRate()` returns NULL when nothing has been configured —
+ * deliberately, so a listing can never be published against an invented
+ * rate — and `publish()` answers `TAX_RATE_NOT_CONFIGURED`.
+ *
+ * IT USED TO BE THERE BY ACCIDENT. The suites ran against the
+ * development database, where the owner had set 15% months ago, so no
+ * fixture ever had to ask for it. Pointing the suites at their own
+ * database made that dependency visible the first time a test tried to
+ * publish — which is the point of the separation.
+ *
+ * `version` IS PART OF THE STORED SHAPE, and the reader refuses a value
+ * without one.
+ */
+export async function ensureDefaultTaxRate(ratePercent = 15): Promise<void> {
+  const existing = await prisma.systemSetting.findUnique({ where: { key: "default_tax_rate" } });
+  if (existing) return;
+  await prisma.systemSetting.create({
+    data: { key: "default_tax_rate", value: { version: 1, ratePercent } },
+  });
+}
+
 export async function ensureCommissionTaxPolicy(ratePercent = 5): Promise<void> {
   const existing = await prisma.commissionTaxPolicyVersion.findFirst({ orderBy: { version: "desc" } });
   if (existing) return;

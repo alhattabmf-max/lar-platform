@@ -6,6 +6,10 @@ import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadSupplierNotifications, loadSupplierUnreadCount } from "@/lib/supplier-data";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { SupplierNotificationList } from "@/components/supplier/supplier-notification-list";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.notifications");
+
 
 /**
  * The signed-in user's notifications.
@@ -39,7 +43,6 @@ export default async function SupplierNotificationsPage({
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
       <Suspense fallback={<LoadingState label={common("loading")} rows={4} />}>

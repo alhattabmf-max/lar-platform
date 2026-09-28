@@ -1,4 +1,5 @@
 import type { MoneyString } from "./money";
+import type { SaleMode } from "./enums";
 
 /**
  * Supplier-facing opportunity contracts.
@@ -72,7 +73,13 @@ export const SUPPLIER_OPPORTUNITY_REASON_CODES = [
   "PRODUCT_NOT_APPROVED",
   "PRODUCT_ARCHIVED",
   "LOCATION_INACTIVE",
+  // KEPT though it is no longer raised for a branch that names no
+  // city: listings blocked before the region became the operational
+  // unit still carry it, and a client that cannot translate it would
+  // show a supplier a raw code. Still raised when a branch DOES name
+  // a city and that city is switched off.
   "LOCATION_CITY_INACTIVE",
+  "LOCATION_REGION_INACTIVE",
   "SUPPLIER_NOT_FINANCIALLY_READY",
   "TAX_RATE_NOT_CONFIGURED",
   "PURCHASE_QUANTITY_NOT_COMPATIBLE",
@@ -96,8 +103,39 @@ export interface SupplierOpportunitySummary {
   productId: string;
   productNameAr: string;
   productNameEn: string;
+  /**
+   * The supplier's own photograph of this product, or null.
+   *
+   * A ROUTE THE SUPPLIER CAN ALREADY REACH —
+   * `/companies/me/products/:productId/media/:mediaId/image` — and not
+   * the public one. The public route serves ACTIVE offers only, so a
+   * draft, a paused offer or one that has expired would answer 404 for
+   * its own owner while its picture sat in storage. This screen lists
+   * every status, so it needs the route that is scoped to the company
+   * rather than to what a visitor may see.
+   *
+   * Null when the product has no media at all. No placeholder is
+   * invented here; what a missing picture looks like is the screen's
+   * business.
+   */
+  imageUrl: string | null;
   salesUnitNameAr: string | null;
   salesUnitNameEn: string | null;
+  /**
+   * WHICH OF THE TWO SALES PATHS THIS LISTING IS.
+   *
+   * `GROUP` is the collective offer: a target to reach, a share each
+   * buyer takes, a window it runs for. `DIRECT` is a fixed-price sale
+   * from stock — the buyer names the quantity, the order goes to
+   * preparation the moment it is paid, and there is no target, no share
+   * and no window.
+   *
+   * THE SCREEN READS THIS BEFORE ANYTHING ELSE about the row: it decides
+   * whether the numbers mean progress toward a goal or what is left on a
+   * shelf, and whether `endAt`, `shareQuantity` and
+   * `decisionWindowClosesAt` mean anything at all.
+   */
+  saleMode: SaleMode;
   status: SupplierOpportunityStatus;
   /** Present only in ACTION_REQUIRED. Translate the CODE, never the details. */
   reasonCode: SupplierOpportunityReasonCode | null;
@@ -109,9 +147,25 @@ export interface SupplierOpportunitySummary {
   currency: string;
   /** ISO 8601. */
   startAt: string;
-  endAt: string;
-  /** Non-null once extended. An opportunity may be extended exactly once. */
+  /**
+   * When the sales window closes — NULL for a direct sale, which has
+   * none. A screen that shows a countdown must check `saleMode` first.
+   */
+  endAt: string | null;
+  /** Non-null once extended. A GROUP offer may be extended exactly once. */
   extendedAt: string | null;
+  /**
+   * WHEN THE SUPPLIER'S 24 HOURS RUN OUT, on an offer whose window
+   * closed without filling.
+   *
+   * «فرصة لم تصل هدفها مئة بالمئة بل وصلت ستين بالمئة… هنا مهلة تعطى
+   *  للمورد مدة 24 ساعة» — and «يقرر المورد في العرض نفسه», so the
+   * screen that shows the offer is the screen that must show the clock.
+   *
+   * NULL means the window has not opened, or has been resolved — never
+   * "it is running", which is the only state either decision accepts.
+   */
+  decisionWindowClosesAt: string | null;
   createdAt: string;
 }
 
@@ -120,8 +174,10 @@ export const SUPPLIER_OPPORTUNITY_SUMMARY_KEYS = [
   "productId",
   "productNameAr",
   "productNameEn",
+  "imageUrl",
   "salesUnitNameAr",
   "salesUnitNameEn",
+  "saleMode",
   "status",
   "reasonCode",
   "targetQuantity",
@@ -131,6 +187,7 @@ export const SUPPLIER_OPPORTUNITY_SUMMARY_KEYS = [
   "startAt",
   "endAt",
   "extendedAt",
+  "decisionWindowClosesAt",
   "createdAt",
 ] as const satisfies readonly (keyof SupplierOpportunitySummary)[];
 
@@ -209,7 +266,14 @@ export const SUPPLIER_OPPORTUNITY_DETAIL_KEYS = [
  *   extend — ACTIVE only, and additionally requires `extendedAt === null`
  *            and `endAt` still in the future. Those two are row facts, not
  *            status facts, so they are checked separately by the caller.
- *   delete — DRAFT only.
+ *   delete — EVERY state. `DELETE /companies/me/listings/:id` decides
+ *            between removing the rows and archiving them by looking at
+ *            what the listing carries, not at what state it is in: a
+ *            listing nobody bought goes, one with a checkout, an order
+ *            or a sold unit is archived so the records pointing at it
+ *            keep naming something real. It refuses only while a buyer
+ *            holds a live lock, which is a person mid-purchase rather
+ *            than a state.
  */
 export const SUPPLIER_OPPORTUNITY_EDITABLE_STATUSES = [
   "DRAFT",
@@ -222,10 +286,109 @@ export const SUPPLIER_OPPORTUNITY_PUBLISHABLE_STATUSES = [
   "ACTION_REQUIRED",
 ] as const satisfies readonly SupplierOpportunityStatus[];
 
+/**
+ * EVERY STATE, because removing is no longer the same act everywhere.
+ *
+ * It used to be DRAFT only, and that was right when delete meant erase:
+ * a listing with a sold unit cannot be erased without leaving invoices,
+ * disputes and settlements pointing at nothing. The route now archives
+ * exactly those and erases only what nobody ever touched — so the
+ * question "may I remove this?" has one answer, and the question "what
+ * happens when I do?" is answered by the data rather than by a status.
+ */
 export const SUPPLIER_OPPORTUNITY_DELETABLE_STATUSES = [
   "DRAFT",
+  "SCHEDULED",
+  "ACTION_REQUIRED",
+  "ACTIVE",
+  "PAUSED",
+  "FUNDED",
+  "EXPIRED",
+  "CANCELLED",
 ] as const satisfies readonly SupplierOpportunityStatus[];
 
 export const SUPPLIER_OPPORTUNITY_EXTENDABLE_STATUSES = [
   "ACTIVE",
 ] as const satisfies readonly SupplierOpportunityStatus[];
+
+/**
+ * The states in which an offer still stands between its product and a
+ * second one.
+ *
+ * The owner's rule: «لا يُنشر عرض ثانٍ على المنتج إلا بعد انتهاء العرض
+ * الأول». Two live offers on one product compete for the same stock and
+ * can between them sell more than the supplier holds.
+ *
+ * SCHEDULED counts: it is committed and will open on its own. PAUSED
+ * counts: the platform stopped it and may start it again. FUNDED
+ * counts: its orders are still being fulfilled. DRAFT and
+ * ACTION_REQUIRED do NOT — neither has ever been buyable, which is why
+ * a supplier may keep the next offer ready as a draft while the current
+ * one runs. EXPIRED and CANCELLED are the two that genuinely ended.
+ *
+ * DECLARED HERE, in the one place both sides read. The API refuses a
+ * second publication on this list and the portal hides the button on
+ * the same list; two copies of it would eventually disagree, and the
+ * disagreement would show up as a button that leads to a refusal.
+ */
+export const SUPPLIER_OPPORTUNITY_LIVE_STATUSES = [
+  "SCHEDULED",
+  "ACTIVE",
+  "PAUSED",
+  "FUNDED",
+] as const satisfies readonly SupplierOpportunityStatus[];
+
+/**
+ * The reason a publication was refused, read out of an error envelope.
+ *
+ * SAME DISCIPLINE AS `readFailedChecks`, and for the same reason:
+ * `details` can carry internal paths, so nothing general is exposed.
+ * This returns a value ONLY when the code is `VALIDATION_FAILED`, the
+ * payload names `blockedReason`, and that value is in the closed
+ * `SUPPLIER_OPPORTUNITY_REASON_CODES` vocabulary. Anything else leaves
+ * the caller with the generic message.
+ *
+ * WHAT IT IS FOR: a supplier whose company has no tax profile pressed
+ * «نشر المنتج» and was told "VALIDATION_FAILED", which named nothing
+ * they could act on. The platform already translates a fixing sentence
+ * for every one of these codes — `supplier.opportunities.reasonFix.*` —
+ * and this is what lets the form reach it.
+ */
+export function readBlockedReason(body: unknown): SupplierOpportunityReasonCode | null {
+  if (typeof body !== "object" || body === null) return null;
+
+  const error = (body as { error?: unknown }).error;
+  if (typeof error !== "object" || error === null) return null;
+
+  const { code, details } = error as { code?: unknown; details?: unknown };
+  if (code !== "VALIDATION_FAILED") return null;
+
+  if (typeof details !== "object" || details === null) return null;
+  const reason = (details as { blockedReason?: unknown }).blockedReason;
+
+  if (typeof reason !== "string") return null;
+  return (SUPPLIER_OPPORTUNITY_REASON_CODES as readonly string[]).includes(reason)
+    ? (reason as SupplierOpportunityReasonCode)
+    : null;
+}
+
+/**
+ * The listing that was saved but not published, from the same envelope.
+ *
+ * Without it the form can say what is wrong and not where the work
+ * went, which is the half that made a supplier press the button again.
+ */
+export function readBlockedListingId(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+
+  const error = (body as { error?: unknown }).error;
+  if (typeof error !== "object" || error === null) return null;
+
+  const { code, details } = error as { code?: unknown; details?: unknown };
+  if (code !== "VALIDATION_FAILED") return null;
+
+  if (typeof details !== "object" || details === null) return null;
+  const id = (details as { listingId?: unknown }).listingId;
+
+  return typeof id === "string" && id.length > 0 ? id : null;
+}

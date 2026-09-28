@@ -101,8 +101,19 @@ export interface SettlementDetail extends SettlementSummary {
   supplierPayableShareAmount: string;
   /** Where it went, so a settlement is recognisable without opening the order. */
   locationName: string;
-  cityNameAr: string;
-  cityNameEn: string;
+  /**
+   * Null when the branch named no city.
+   *
+   * This is a FROZEN SNAPSHOT of what the branch was called when the
+   * record was written, and a branch may name a region and no city —
+   * so there is nothing to freeze. The region below is never null, so
+   * a reader always has a place to read.
+   */
+  cityNameAr: string | null;
+  cityNameEn: string | null;
+  /** Never null: a branch always has a region. */
+  regionNameAr: string;
+  regionNameEn: string;
 }
 
 export const SETTLEMENT_DETAIL_KEYS = [
@@ -117,4 +128,6 @@ export const SETTLEMENT_DETAIL_KEYS = [
   "locationName",
   "cityNameAr",
   "cityNameEn",
+  "regionNameAr",
+  "regionNameEn",
 ] as const satisfies readonly (keyof SettlementDetail)[];

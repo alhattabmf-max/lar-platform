@@ -10,11 +10,11 @@ import { createE2eApplication } from "./support/create-e2e-application";
 import { hashPassword } from "../src/common/security/argon2.util";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
 import { ensureTestCity } from "./fixtures/city.fixture";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
 const ORIGIN = "http://localhost:3001";
-let testCityId: string;
 
 async function resetThrottleCounters(): Promise<void> {
   const keys = await redis.keys("throttle:*");
@@ -64,12 +64,7 @@ async function registerPendingSupplier(app: INestApplication) {
     legalName: "Ops Test Supplier Co",
     email: randomEmail("supplier-ops"),
     password: "correct-horse-battery-staple",
-    primaryMobile1: "+966500000001",
-    primaryMobile2: "+966500000002",
-    cityId: testCityId,
-    shortAddress: "Riyadh",
-    latitude: 24.7136,
-    longitude: 46.6753,
+    primaryMobile1: uniqueMobile(),
     acceptedPolicyVersionIds,
   };
   await request(app.getHttpServer())
@@ -93,7 +88,9 @@ describe("Admin Operations — Pending Supplier Verification (e2e)", () => {
     // GET /policies/active inside registerPendingSupplier(), since
     // other E2E files sharing this database publish their own too.
     await publishTestPolicy(prisma);
-    testCityId = await ensureTestCity(prisma);
+    // The city is no longer part of registration, but the suite still
+    // needs one to exist for the branches it creates later.
+    await ensureTestCity(prisma);
     await prisma.systemSetting.deleteMany({ where: { key: "company_verification_mode" } });
   });
 

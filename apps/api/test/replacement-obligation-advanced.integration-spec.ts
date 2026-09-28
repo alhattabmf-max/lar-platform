@@ -41,7 +41,7 @@ describe("ReplacementObligationService — races, decision sequencing, webhook (
 
     const results = await Promise.allSettled([
       serviceA.confirmDeliveryByTrader(fixture.replacementObligationId, traderCtx),
-      serviceB.markFailed(fixture.replacementObligationId, adminCtx),
+      serviceB.markFailed(fixture.replacementObligationId, "Carrier confirmed the parcel was never delivered", adminCtx),
     ]);
 
     await prismaA.$disconnect();
@@ -83,7 +83,7 @@ describe("ReplacementObligationService — races, decision sequencing, webhook (
     const disputeService = new DisputeService(prisma as unknown as PrismaService, notificationEvents());
     const adminCtx = { userId: crypto.randomUUID(), requestId: "r1" };
 
-    await replacementService.markFailed(fixture.replacementObligationId, adminCtx);
+    await replacementService.markFailed(fixture.replacementObligationId, "Carrier confirmed the parcel was never delivered", adminCtx);
 
     const secondDecision = await disputeService.adminDecide(
       fixture.disputeId,

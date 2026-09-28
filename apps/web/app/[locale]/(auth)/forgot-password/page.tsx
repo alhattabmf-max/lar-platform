@@ -3,6 +3,10 @@ import Link from "next/link";
 import type { AppLocale } from "@/i18n/routing";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("auth.forgotPassword");
+
 
 export default async function ForgotPasswordPage({
   params,
@@ -16,13 +20,12 @@ export default async function ForgotPasswordPage({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle as="h1">{t("title")}</CardTitle>
       </CardHeader>
       <CardBody>
-        <p className="mb-4 text-sm text-content-muted">{t("description")}</p>
         <ForgotPasswordForm />
         <p className="mt-6 text-sm">
-          <Link href={`/${appLocale}/login`} className="text-secondary hover:opacity-90">
+          <Link href={`/${appLocale}/login`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
             {t("backToLogin")}
           </Link>
         </p>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/field";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -235,41 +237,32 @@ export function OpenDisputeForm({ orderAllocationId, locale, orderHref }: OpenDi
         </label>
         {/* A closed vocabulary from the contract, so the options are
             exactly what the server's enum accepts. */}
-        <select
+        <Select
           id={reasonId}
           value={reasonCode}
           onChange={(e) => setReasonCode(e.target.value as DisputeReasonCode)}
-          className="h-11 rounded-md border border-line bg-background px-3 text-content"
         >
           {DISPUTE_REASON_CODES.map((code) => (
             <option key={code} value={code}>
               {t(`reason.${code}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor={descriptionId} className="text-sm font-medium text-content">
           {t("descriptionLabel")}
         </label>
-        <textarea
+        <Textarea
           id={descriptionId}
           ref={descriptionRef}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={DISPUTE_DESCRIPTION_MAX_LENGTH}
-          aria-describedby={`${descriptionId}-hint`}
           className="rounded-md border border-line bg-background p-3 text-content"
         />
-        <p id={`${descriptionId}-hint`} className="text-sm text-content-muted">
-          {t("descriptionHint", {
-            min: DISPUTE_DESCRIPTION_MIN_LENGTH,
-            max: DISPUTE_DESCRIPTION_MAX_LENGTH,
-            used: trimmed.length,
-          })}
-        </p>
       </div>
 
       <fieldset className="flex flex-col gap-3 border-0 p-0">
@@ -316,7 +309,7 @@ export function OpenDisputeForm({ orderAllocationId, locale, orderHref }: OpenDi
                   type="button"
                   onClick={() => removeAttachment(index)}
                   disabled={busy}
-                  className="rounded-md border border-line px-2 py-1 text-sm text-content hover:bg-background"
+                  className="inline-flex min-h-control items-center rounded-control px-control-x py-control-y text-[length:var(--control-font-size)] leading-[var(--control-line-height)] border border-line text-content hover:bg-background"
                 >
                   {t("removeFile")}
                 </button>

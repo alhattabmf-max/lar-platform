@@ -114,7 +114,7 @@ export function VerifyEmailPanel({ locale }: { locale: string }) {
       ) : null}
 
       <div className="flex flex-col gap-2 text-sm">
-        <Link href={`/${locale}/login`} className="text-secondary hover:opacity-90">
+        <Link href={`/${locale}/login`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("signInToResend")}
         </Link>
         <span className="text-content-muted">{t("resendHint")}</span>

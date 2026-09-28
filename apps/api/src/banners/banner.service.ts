@@ -1,12 +1,30 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { AuditActorType, Prisma, type BannerPlacement } from "@prisma/client";
-import { ERROR_CODES } from "@platform/types";
+import {
+  AuditActorType,
+  Prisma,
+  type BannerPlacement,
+  type BannerImageLocale as PrismaBannerImageLocale,
+} from "@prisma/client";
+import {
+  ERROR_CODES,
+  BANNER_IMAGE_LOCALES,
+  type BannerImageLocale,
+} from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { BannerPolicyService } from "../settings/banner-policy.service";
+import { BannerImageService } from "./banner-image.service";
 import { BusinessException } from "../common/errors/business-exception";
-import { LIVE_BANNER_CONDITION, SELECT_DB_NOW, placementLock } from "./banner-visibility.sql";
-import { checkOverlap, deriveBannerState, type BannerWindow } from "./banner-window.util";
+import {
+  LIVE_BANNER_CONDITION_B,
+  SELECT_DB_NOW,
+  placementLock,
+} from "./banner-visibility.sql";
+import {
+  checkOverlap,
+  deriveBannerState,
+  type BannerWindow,
+} from "./banner-window.util";
 
 /**
  * Banner scheduling and visibility.
@@ -29,19 +47,9 @@ export interface BannerActorContext {
 }
 
 /** Every column a public consumer may see. No object keys, no schedule, no actor. */
-const PUBLIC_COLUMNS = Prisma.sql`
-  id, title_ar, title_en, body_ar, body_en, link_url,
-  image_object_key IS NOT NULL AS has_image
-`;
-
 interface PublicBannerRow {
   id: string;
-  title_ar: string;
-  title_en: string;
-  body_ar: string | null;
-  body_en: string | null;
   link_url: string | null;
-  has_image: boolean;
 }
 
 /** What the image route needs, and nothing else. */
@@ -55,14 +63,49 @@ export interface LiveBannerImageRow {
   imageUpdatedAt: Date;
 }
 
+/**
+ * What a visitor receives: an id, a destination, and nothing else.
+ *
+ * No title and no body, because a banner has none — every word is drawn
+ * inside the artwork. The image route is built by the caller from the
+ * id and the locale it asked for.
+ */
 export interface PublicBanner {
   id: string;
-  titleAr: string;
-  titleEn: string;
-  bodyAr: string | null;
-  bodyEn: string | null;
   linkUrl: string | null;
-  hasImage: boolean;
+}
+
+/**
+ * Prisma reports an enum by its MEMBER NAME, not by the value stored in
+ * PostgreSQL: the column holds "ar-SA" while the client hands back
+ * "AR_SA". A hyphen cannot appear in a Prisma enum member, so the two
+ * spellings are unavoidable — and converting in exactly these two
+ * functions is what keeps that fact from leaking into every caller.
+ */
+const LOCALE_CODE_BY_MEMBER: Record<
+  PrismaBannerImageLocale,
+  BannerImageLocale
+> = {
+  AR_SA: "ar-SA",
+  EN_SA: "en-SA",
+};
+
+const LOCALE_MEMBER_BY_CODE: Record<
+  BannerImageLocale,
+  PrismaBannerImageLocale
+> = {
+  "ar-SA": "AR_SA",
+  "en-SA": "EN_SA",
+};
+
+function toLocaleCode(member: PrismaBannerImageLocale): BannerImageLocale {
+  return LOCALE_CODE_BY_MEMBER[member];
+}
+
+export function toLocaleMember(
+  code: BannerImageLocale,
+): PrismaBannerImageLocale {
+  return LOCALE_MEMBER_BY_CODE[code];
 }
 
 @Injectable()
@@ -70,7 +113,11 @@ export class BannerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly policy: BannerPolicyService
+    private readonly policy: BannerPolicyService,
+    // Only for discarding the stored objects of a DELETED banner, after
+    // its transaction commits. No cycle: the image service knows
+    // nothing about this one.
+    private readonly images: BannerImageService,
   ) {}
 
   // ----- public visibility -------------------------------------------------
@@ -82,24 +129,26 @@ export class BannerService {
    * timestamp for the whole predicate. `placement` and nothing else is
    * bound as a parameter — the condition itself is a fixed fragment.
    */
-  async listLive(placement: BannerPlacement): Promise<PublicBanner[]> {
+  async listLive(
+    placement: BannerPlacement,
+    locale: BannerImageLocale,
+  ): Promise<PublicBanner[]> {
+    // JOIN, not LEFT JOIN. A banner without artwork for THIS language is
+    // not returned at all — there is no fallback to the other language,
+    // and no empty frame. Activation already refuses a banner missing
+    // either image, so this is a second line rather than the only one.
     const rows = await this.prisma.$queryRaw<PublicBannerRow[]>(Prisma.sql`
-      SELECT ${PUBLIC_COLUMNS}
-      FROM promotional_banners
-      WHERE placement = ${placement}::"BannerPlacement"
-        AND ${LIVE_BANNER_CONDITION}
-      ORDER BY sort_order ASC, created_at ASC
+      SELECT b.id, b.link_url
+      FROM promotional_banners b
+      JOIN banner_images i
+        ON i.banner_id = b.id
+       AND i.locale = ${locale}::"banner_image_locale"
+      WHERE b.placement = ${placement}::"BannerPlacement"
+        AND ${LIVE_BANNER_CONDITION_B}
+      ORDER BY b.sort_order ASC, b.created_at ASC
     `);
 
-    return rows.map((row) => ({
-      id: row.id,
-      titleAr: row.title_ar,
-      titleEn: row.title_en,
-      bodyAr: row.body_ar,
-      bodyEn: row.body_en,
-      linkUrl: row.link_url,
-      hasImage: row.has_image,
-    }));
+    return rows.map((row) => ({ id: row.id, linkUrl: row.link_url }));
   }
 
   /**
@@ -113,47 +162,47 @@ export class BannerService {
    * Returns null both when the banner is not live and when it has no
    * image, so the caller renders one indistinguishable 404 for both.
    */
-  async findLiveImage(id: string): Promise<LiveBannerImageRow | null> {
+  async findLiveImage(
+    id: string,
+    locale: BannerImageLocale,
+  ): Promise<LiveBannerImageRow | null> {
+    // The artwork row's columns are all NOT NULL, so there is nothing to
+    // re-check here: either the join found a complete image for this
+    // language or it found nothing. The old shape needed six null checks
+    // to prove the same thing.
     const rows = await this.prisma.$queryRaw<
       Array<{
         id: string;
-        image_object_key: string | null;
-        image_thumbnail_key: string | null;
-        image_content_type: string | null;
-        image_etag: string | null;
-        image_thumbnail_etag: string | null;
-        image_updated_at: Date | null;
+        object_key: string;
+        thumbnail_key: string;
+        content_type: string;
+        etag: string;
+        thumbnail_etag: string;
+        updated_at: Date;
       }>
     >(Prisma.sql`
-      SELECT id, image_object_key, image_thumbnail_key, image_content_type,
-             image_etag, image_thumbnail_etag, image_updated_at
-      FROM promotional_banners
-      WHERE id = ${id}::uuid
-        AND ${LIVE_BANNER_CONDITION}
+      SELECT b.id, i.object_key, i.thumbnail_key, i.content_type,
+             i.etag, i.thumbnail_etag, i.updated_at
+      FROM promotional_banners b
+      JOIN banner_images i
+        ON i.banner_id = b.id
+       AND i.locale = ${locale}::"banner_image_locale"
+      WHERE b.id = ${id}::uuid
+        AND ${LIVE_BANNER_CONDITION_B}
       LIMIT 1
     `);
 
     const row = rows[0];
-    if (
-      !row ||
-      row.image_object_key === null ||
-      row.image_thumbnail_key === null ||
-      row.image_content_type === null ||
-      row.image_etag === null ||
-      row.image_thumbnail_etag === null ||
-      row.image_updated_at === null
-    ) {
-      return null;
-    }
+    if (!row) return null;
 
     return {
       id: row.id,
-      imageObjectKey: row.image_object_key,
-      imageThumbnailKey: row.image_thumbnail_key,
-      imageContentType: row.image_content_type,
-      imageETag: row.image_etag,
-      imageThumbnailETag: row.image_thumbnail_etag,
-      imageUpdatedAt: row.image_updated_at,
+      imageObjectKey: row.object_key,
+      imageThumbnailKey: row.thumbnail_key,
+      imageContentType: row.content_type,
+      imageETag: row.etag,
+      imageThumbnailETag: row.thumbnail_etag,
+      imageUpdatedAt: row.updated_at,
     };
   }
 
@@ -172,10 +221,6 @@ export class BannerService {
         select: {
           id: true,
           placement: true,
-          titleAr: true,
-          titleEn: true,
-          bodyAr: true,
-          bodyEn: true,
           linkUrl: true,
           sortOrder: true,
           isActive: true,
@@ -183,17 +228,18 @@ export class BannerService {
           endsAt: true,
           createdAt: true,
           updatedAt: true,
-          imageObjectKey: true,
-          imageWidth: true,
-          imageHeight: true,
+          // WHICH LANGUAGES have artwork, and nothing about where it
+          // lives. An admin needs to know what is still missing; object
+          // keys are storage addresses and stay server-side.
+          images: { select: { locale: true } },
         },
       }),
       this.prisma.$queryRaw<Array<{ now: Date }>>(SELECT_DB_NOW),
     ]);
 
-    return rows.map(({ imageObjectKey, ...row }) => ({
+    return rows.map(({ images, ...row }) => ({
       ...row,
-      hasImage: imageObjectKey !== null,
+      images: images.map((image) => toLocaleCode(image.locale)),
       state: deriveBannerState(row, now),
     }));
   }
@@ -216,7 +262,7 @@ export class BannerService {
    */
   private async withPlacementLock<T>(
     placement: BannerPlacement,
-    fn: (tx: Prisma.TransactionClient, now: Date) => Promise<T>
+    fn: (tx: Prisma.TransactionClient, now: Date) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
       // $executeRaw, NOT $queryRaw. `pg_advisory_xact_lock()` returns SQL
@@ -244,9 +290,10 @@ export class BannerService {
     placement: BannerPlacement,
     proposed: BannerWindow,
     now: Date,
-    excludeId?: string
+    excludeId?: string,
   ): Promise<void> {
-    const { maxConcurrentLiveBannersPerPlacement } = await this.policy.getPolicy();
+    const { maxConcurrentLiveBannersPerPlacement } =
+      await this.policy.getPolicy();
 
     const others = await tx.promotionalBanner.findMany({
       where: {
@@ -268,7 +315,7 @@ export class BannerService {
       throw new BusinessException(
         409,
         ERROR_CODES.CONFLICT,
-        `This schedule would put ${result.peak} banners live at once in this placement, exceeding the limit of ${result.maxConcurrent}`
+        `This schedule would put ${result.peak} banners live at once in this placement, exceeding the limit of ${result.maxConcurrent}`,
       );
     }
   }
@@ -278,6 +325,34 @@ export class BannerService {
    *
    * Only activation is checked: deactivating can never increase overlap.
    */
+  /**
+   * Refuses a banner that does not yet have artwork for every language.
+   *
+   * Reads inside the caller's transaction, under the placement lock, so
+   * an image being deleted at the same instant cannot slip past.
+   */
+  private async assertEveryImagePresent(
+    tx: Prisma.TransactionClient,
+    bannerId: string,
+  ): Promise<void> {
+    const rows = await tx.bannerImage.findMany({
+      where: { bannerId },
+      select: { locale: true },
+    });
+    const present = new Set(rows.map((row) => toLocaleCode(row.locale)));
+    const missing = BANNER_IMAGE_LOCALES.filter(
+      (locale) => !present.has(locale),
+    );
+
+    if (missing.length > 0) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        `Cannot activate a banner without artwork for every language. Missing: ${missing.join(", ")}`,
+      );
+    }
+  }
+
   async setActive(id: string, isActive: boolean, ctx: BannerActorContext) {
     const existing = await this.prisma.promotionalBanner.findUnique({
       where: { id },
@@ -290,16 +365,26 @@ export class BannerService {
       if (!current) throw new NotFoundException("Banner not found");
 
       if (isActive) {
+        // BOTH LANGUAGES OR NOTHING. A banner is artwork, and going live
+        // with one language missing would mean either showing a reader
+        // the wrong language's picture or showing them an empty frame.
+        // Neither is a state an operator chose, so it is refused here
+        // rather than absorbed downstream.
+        await this.assertEveryImagePresent(tx, id);
+
         await this.assertWithinConcurrentLimit(
           tx,
           current.placement,
           { id, startsAt: current.startsAt, endsAt: current.endsAt },
           now,
-          id
+          id,
         );
       }
 
-      const updated = await tx.promotionalBanner.update({ where: { id }, data: { isActive } });
+      const updated = await tx.promotionalBanner.update({
+        where: { id },
+        data: { isActive },
+      });
 
       await this.audit.log(
         {
@@ -314,7 +399,7 @@ export class BannerService {
           ipAddress: ctx.ipAddress,
           userAgent: ctx.userAgent,
         },
-        tx
+        tx,
       );
 
       return { ...updated, state: deriveBannerState(updated, now) };
@@ -331,7 +416,7 @@ export class BannerService {
   async setSchedule(
     id: string,
     window: { startsAt: Date | null; endsAt: Date | null },
-    ctx: BannerActorContext
+    ctx: BannerActorContext,
   ) {
     const existing = await this.prisma.promotionalBanner.findUnique({
       where: { id },
@@ -343,7 +428,7 @@ export class BannerService {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
-        "endsAt must be after startsAt — the window is half-open and endsAt is exclusive"
+        "endsAt must be after startsAt — the window is half-open and endsAt is exclusive",
       );
     }
 
@@ -357,7 +442,7 @@ export class BannerService {
           current.placement,
           { id, startsAt: window.startsAt, endsAt: window.endsAt },
           now,
-          id
+          id,
         );
       }
 
@@ -379,7 +464,7 @@ export class BannerService {
           ipAddress: ctx.ipAddress,
           userAgent: ctx.userAgent,
         },
-        tx
+        tx,
       );
 
       return { ...updated, state: deriveBannerState(updated, now) };
@@ -396,20 +481,21 @@ export class BannerService {
   async updateContent(
     id: string,
     data: {
-      titleAr?: string;
-      titleEn?: string;
-      bodyAr?: string | null;
-      bodyEn?: string | null;
       linkUrl?: string | null;
       sortOrder?: number;
     },
-    ctx: BannerActorContext
+    ctx: BannerActorContext,
   ) {
-    const current = await this.prisma.promotionalBanner.findUnique({ where: { id } });
+    const current = await this.prisma.promotionalBanner.findUnique({
+      where: { id },
+    });
     if (!current) throw new NotFoundException("Banner not found");
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.promotionalBanner.update({ where: { id }, data });
+      const updated = await tx.promotionalBanner.update({
+        where: { id },
+        data,
+      });
 
       await this.audit.log(
         {
@@ -419,14 +505,10 @@ export class BannerService {
           entityType: "promotional_banner",
           entityId: id,
           before: {
-            titleAr: current.titleAr,
-            titleEn: current.titleEn,
             linkUrl: current.linkUrl,
             sortOrder: current.sortOrder,
           },
           after: {
-            titleAr: updated.titleAr,
-            titleEn: updated.titleEn,
             linkUrl: updated.linkUrl,
             sortOrder: updated.sortOrder,
           },
@@ -434,7 +516,7 @@ export class BannerService {
           ipAddress: ctx.ipAddress,
           userAgent: ctx.userAgent,
         },
-        tx
+        tx,
       );
 
       return updated;
@@ -454,13 +536,19 @@ export class BannerService {
    * The whole rewrite runs in one transaction so a failure part-way
    * cannot leave two banners sharing a position.
    */
-  async reorder(placement: BannerPlacement, orderedIds: string[], ctx: BannerActorContext) {
-    const duplicates = orderedIds.filter((id, i) => orderedIds.indexOf(id) !== i);
+  async reorder(
+    placement: BannerPlacement,
+    orderedIds: string[],
+    ctx: BannerActorContext,
+  ) {
+    const duplicates = orderedIds.filter(
+      (id, i) => orderedIds.indexOf(id) !== i,
+    );
     if (duplicates.length > 0) {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
-        "reorder must not contain duplicate banner ids"
+        "reorder must not contain duplicate banner ids",
       );
     }
 
@@ -472,18 +560,22 @@ export class BannerService {
 
       const existingIds = new Set(existing.map((b) => b.id));
       const sameSet =
-        orderedIds.length === existing.length && orderedIds.every((id) => existingIds.has(id));
+        orderedIds.length === existing.length &&
+        orderedIds.every((id) => existingIds.has(id));
 
       if (!sameSet) {
         throw new BusinessException(
           400,
           ERROR_CODES.VALIDATION_FAILED,
-          "reorder must include exactly the placement's current banner ids"
+          "reorder must include exactly the placement's current banner ids",
         );
       }
 
       for (const [index, id] of orderedIds.entries()) {
-        await tx.promotionalBanner.update({ where: { id }, data: { sortOrder: index } });
+        await tx.promotionalBanner.update({
+          where: { id },
+          data: { sortOrder: index },
+        });
       }
 
       await this.audit.log(
@@ -498,7 +590,7 @@ export class BannerService {
           ipAddress: ctx.ipAddress,
           userAgent: ctx.userAgent,
         },
-        tx
+        tx,
       );
 
       return { placement, orderedIds };
@@ -522,23 +614,19 @@ export class BannerService {
   async create(
     input: {
       placement: BannerPlacement;
-      titleAr: string;
-      titleEn: string;
-      bodyAr: string | null;
-      bodyEn: string | null;
       linkUrl: string | null;
       sortOrder: number;
       isActive: boolean;
       startsAt: Date | null;
       endsAt: Date | null;
     },
-    ctx: BannerActorContext
+    ctx: BannerActorContext,
   ) {
     if (input.startsAt && input.endsAt && input.endsAt <= input.startsAt) {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
-        "endsAt must be after startsAt — the window is half-open and endsAt is exclusive"
+        "endsAt must be after startsAt — the window is half-open and endsAt is exclusive",
       );
     }
 
@@ -548,7 +636,7 @@ export class BannerService {
           tx,
           input.placement,
           { id: "new", startsAt: input.startsAt, endsAt: input.endsAt },
-          now
+          now,
         );
       }
 
@@ -573,10 +661,106 @@ export class BannerService {
           ipAddress: ctx.ipAddress,
           userAgent: ctx.userAgent,
         },
-        tx
+        tx,
       );
 
       return { ...created, state: deriveBannerState(created, now) };
     });
+  }
+
+  /**
+   * Removes a banner permanently, whatever state it is in.
+   *
+   * ACTIVE BANNERS ARE DELETABLE ON PURPOSE. Making someone deactivate
+   * first would be a step that protects nothing — the row is going
+   * either way — and it invites a half-finished removal where a banner
+   * is dark but still listed. Deleting a live one drops it from the
+   * public strip immediately, because the public read then has no row
+   * to find.
+   *
+   * Under the placement lock, like every other write here. The
+   * concurrent limit is NOT re-checked: deleting can only reduce how
+   * many banners are live at once. The lock still matters, because a
+   * reorder running at the same instant would otherwise be renumbering
+   * a row that is disappearing underneath it.
+   *
+   * SORT ORDER IS LEFT WITH A GAP. Order is relative, nothing reads the
+   * numbers as a sequence, and reordering rebuilds them whenever an
+   * operator actually rearranges the list. Renumbering every remaining
+   * row here would be writes spent on something nobody can see.
+   *
+   * Returns nothing: the caller has no use for a row that no longer
+   * exists.
+   */
+  async delete(id: string, ctx: BannerActorContext): Promise<void> {
+    const existing = await this.prisma.promotionalBanner.findUnique({
+      where: { id },
+      select: { placement: true },
+    });
+    if (!existing) throw new NotFoundException("Banner not found");
+
+    const orphanedKeys = await this.withPlacementLock(
+      existing.placement,
+      async (tx) => {
+        // Re-read INSIDE the lock: between the lookup above and this line
+        // another admin may have deleted the very same banner.
+        const current = await tx.promotionalBanner.findUnique({
+          where: { id },
+          include: {
+            images: {
+              select: { locale: true, objectKey: true, thumbnailKey: true },
+            },
+          },
+        });
+        if (!current) throw new NotFoundException("Banner not found");
+
+        // Read the keys BEFORE the row goes: the artwork rows cascade away
+        // with it, and after the delete there is nothing left to ask.
+        const keys = current.images.flatMap((image) => [
+          image.objectKey,
+          image.thumbnailKey,
+        ]);
+
+        // The artwork rows are removed by ON DELETE CASCADE.
+        await tx.promotionalBanner.delete({ where: { id } });
+
+        await this.audit.log(
+          {
+            actorType: AuditActorType.ADMIN,
+            actorId: ctx.actorId,
+            action: "BANNER_DELETED",
+            entityType: "promotional_banner",
+            entityId: id,
+            // What it WAS, so the record answers "what did we lose".
+            //
+            // NO OBJECT KEYS. Those are internal storage addresses, and
+            // recording them would turn the audit trail into an index of
+            // them. Whether an image existed is the part a reviewer
+            // actually needs.
+            before: {
+              placement: current.placement,
+              isActive: current.isActive,
+              sortOrder: current.sortOrder,
+              // WHICH LANGUAGES had artwork, so the record answers what was
+              // lost without naming a single storage key.
+              imageLocales: current.images.map((image) =>
+                toLocaleCode(image.locale),
+              ),
+              startsAt: current.startsAt?.toISOString() ?? null,
+              endsAt: current.endsAt?.toISOString() ?? null,
+            },
+            requestId: ctx.requestId,
+            ipAddress: ctx.ipAddress,
+            userAgent: ctx.userAgent,
+          },
+          tx,
+        );
+
+        return keys;
+      },
+    );
+
+    // Committed. Nothing references these bytes any more.
+    await this.images.discardStoredImages(id, orphanedKeys);
   }
 }

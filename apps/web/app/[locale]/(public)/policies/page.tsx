@@ -4,8 +4,12 @@ import type { PublicPolicyVersion } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import { loadPolicies } from "@/lib/marketplace-data";
 import { localized, formatDate } from "@/lib/localized";
-import { policyDocumentLabel } from "@/lib/policy-labels";
+import { policyAnchorId, policyDocumentLabel } from "@/lib/policy-labels";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("policies");
+
 
 /**
  * The public policies viewer.
@@ -30,13 +34,15 @@ export default async function PoliciesPage({
   const appLocale = locale as AppLocale;
 
   const t = await getTranslations({ locale: appLocale, namespace: "policies" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
       <Suspense fallback={<LoadingState label={common("loading")} rows={4} />}>
@@ -49,7 +55,10 @@ export default async function PoliciesPage({
 async function PolicyList({ locale }: { locale: AppLocale }) {
   const appLocale = locale;
   const t = await getTranslations({ locale: appLocale, namespace: "policies" });
-  const states = await getTranslations({ locale: appLocale, namespace: "states" });
+  const states = await getTranslations({
+    locale: appLocale,
+    namespace: "states",
+  });
 
   const result = await loadPolicies();
 
@@ -63,15 +72,23 @@ async function PolicyList({ locale }: { locale: AppLocale }) {
           requestIdLabel={states("requestIdLabel")}
         />
       ) : result.data.length === 0 ? (
-        <EmptyState title={t("empty.title")} description={t("empty.description")} />
+        <EmptyState
+          title={t("empty.title")}
+          description={t("empty.description")}
+        />
       ) : (
         <>
           <nav aria-label={t("contentsLabel")}>
             <ul className="flex flex-col gap-1 text-sm">
               {result.data.map((policy) => (
                 <li key={policy.id}>
-                  <a href={`#policy-${policy.id}`} className="text-secondary hover:opacity-90">
-                    {policyDocumentLabel(policy.documentCode, (code) => t(`documents.${code}`))}
+                  <a
+                    href={`#${policyAnchorId(policy.documentCode)}`}
+                    className="text-secondary hover:opacity-[var(--state-hover-opacity)]"
+                  >
+                    {policyDocumentLabel(policy.documentCode, (code) =>
+                      t(`documents.${code}`),
+                    )}
                   </a>
                 </li>
               ))}
@@ -83,7 +100,9 @@ async function PolicyList({ locale }: { locale: AppLocale }) {
               key={policy.id}
               policy={policy}
               locale={appLocale}
-              title={policyDocumentLabel(policy.documentCode, (code) => t(`documents.${code}`))}
+              title={policyDocumentLabel(policy.documentCode, (code) =>
+                t(`documents.${code}`),
+              )}
               versionLabel={t("version", { label: policy.versionLabel })}
               publishedLabel={t("published")}
               mandatoryLabel={t("mandatory")}
@@ -111,16 +130,31 @@ function PolicySection({
   mandatoryLabel: string;
 }) {
   const text = localized(locale, policy.textAr, policy.textEn);
-  const published = policy.publishedAt ? formatDate(policy.publishedAt, locale) : null;
+  const published = policy.publishedAt
+    ? formatDate(policy.publishedAt, locale)
+    : null;
 
   return (
     <section
-      id={`policy-${policy.id}`}
+      // Addressed by DOCUMENT CODE, not by version id. The footer links
+      // here, and a link built on a version UUID would rot the first
+      // time the document was revised — a new version publishes under
+      // the same code and must land on the same anchor.
+      id={policyAnchorId(policy.documentCode)}
+      // Focusable so that arriving at `#privacy-policy` moves focus
+      // here, not only the scroll position. Without it a keyboard or
+      // screen-reader user is scrolled to the section while their focus
+      // stays at the top of the document, and the next Tab takes them
+      // somewhere unrelated. `-1` keeps it out of the tab sequence.
+      tabIndex={-1}
       aria-labelledby={`policy-heading-${policy.id}`}
-      className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4"
+      className="flex scroll-mt-24 flex-col gap-3 rounded-card bg-surface shadow-card px-card-x py-card-y focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 id={`policy-heading-${policy.id}`} className="text-lg font-semibold text-content">
+        <h2
+          id={`policy-heading-${policy.id}`}
+          className="text-lg font-semibold text-content"
+        >
           {title}
         </h2>
         <span className="text-xs text-content-muted">{versionLabel}</span>
@@ -143,7 +177,9 @@ function PolicySection({
           without interpreting anything as markup — dangerouslySetInnerHTML
           is banned repo-wide in this app, and legal copy is the last
           place to make an exception. */}
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-content">{text}</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-content">
+        {text}
+      </p>
     </section>
   );
 }

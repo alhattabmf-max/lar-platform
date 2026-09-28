@@ -87,7 +87,10 @@ function toIso(value: string): string {
 }
 
 /** ISO 8601 back to what a `datetime-local` input accepts, in the business zone. */
-export function toLocalInput(iso: string): string {
+export function toLocalInput(iso: string | null): string {
+  // NO INSTANT AT ALL — a direct listing has no window — is the same
+  // empty field as an unreadable one.
+  if (iso === null) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
 
@@ -323,7 +326,11 @@ export function reasonField(
 ): keyof OpportunityFormValues | null {
   switch (code) {
     case "LOCATION_INACTIVE":
+    case "LOCATION_REGION_INACTIVE":
     case "LOCATION_CITY_INACTIVE":
+      // All three are fixed the same way: pick a different branch. The
+      // region is the one that bites now — it is what a branch is
+      // recorded against — but the field to change is the same.
       return "fulfillmentLocationId";
     case "PURCHASE_QUANTITY_NOT_COMPATIBLE":
       return "targetQuantity";

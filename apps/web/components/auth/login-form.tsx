@@ -3,9 +3,10 @@
 import { useId, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { MeResponse } from "@platform/types";
+import type { AppLocale } from "@/i18n/routing";
 import { apiClient } from "@/lib/api-client";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
+import { portalPathFor, type PortalRole } from "@/lib/portal-paths";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 
@@ -23,7 +24,7 @@ import { Field, Input } from "@/components/ui/field";
  * re-render, and the server decides what the user may see.
  */
 export interface LoginFormProps {
-  locale: string;
+  locale: AppLocale;
   /** Internal path to return to after signing in. Already validated server-side. */
   returnTo?: string;
 }
@@ -49,14 +50,23 @@ export function LoginForm({ locale, returnTo }: LoginFormProps) {
     setFailure(null);
 
     try {
-      await apiClient.post<Pick<MeResponse, "company">>("/auth/login", {
-        crNumber: crNumber.trim(),
-        password,
-      });
+      const { accountType } = await apiClient.post<{ accountType: PortalRole }>(
+        "/auth/login",
+        { crNumber: crNumber.trim(), password },
+      );
 
-      // The server owns the destination. Refreshing re-runs the
-      // layouts, which read /me and route accordingly.
-      router.replace(returnTo ?? `/${locale}`);
+      // STRAIGHT INTO THE PORTAL. The login response says which kind
+      // of account this is, and that decides which one. Signing in used
+      // to land on the public home page, which is why a new account
+      // never found its portal; for a while after that it landed on a
+      // separate "complete your profile" page, which is now a section
+      // inside the portal rather than a gate in front of it.
+      //
+      // AN INCOMPLETE RECORD CHANGES NOTHING HERE. The dashboard says
+      // what is missing and links to it.
+      router.replace(returnTo ?? portalPathFor(locale, accountType));
+      // The layouts re-read /me on the server and decide what may be
+      // shown; nothing about the session is trusted from here.
       router.refresh();
     } catch (error) {
       setFailure(toUserFacingError(error));

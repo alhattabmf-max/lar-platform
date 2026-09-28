@@ -4,6 +4,10 @@ import type { AppLocale } from "@/i18n/routing";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/states";
 import { VerifyEmailPanel } from "@/components/auth/verify-email-panel";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("auth.verifyEmail");
+
 
 /**
  * As with reset-password, the token is never read on the server, so it

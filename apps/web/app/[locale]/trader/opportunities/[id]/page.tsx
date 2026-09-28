@@ -1,17 +1,20 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadTraderLocations, loadTraderOpportunity } from "@/lib/trader-data";
-import { loadCities } from "@/lib/marketplace-data";
-import { localized, formatDateTime, daysUntil } from "@/lib/localized";
-import { formatMoney, formatPercentage, formatQuantity } from "@/lib/money";
+import { loadCities, loadRegions } from "@/lib/marketplace-data";
+import { localized } from "@/lib/localized";
 import { ErrorState, LoadingState } from "@/components/ui/states";
-import { Fact, FactList } from "@/components/trader/account-panels";
+import { OpportunityDetail } from "@/components/opportunities/opportunity-detail";
+import { loadTaxonomy } from "@/lib/marketplace-data";
 import { PurchaseComposer } from "@/components/checkout/purchase-composer";
 import type { SelectableLocation } from "@/lib/purchase-composer";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.opportunities");
+
 
 /**
  * One opportunity with its commercial terms.
@@ -49,22 +52,19 @@ export default async function TraderOpportunityDetailPage({
 
   await requireRoleOrRedirect(appLocale, "TRADER");
 
-  const t = await getTranslations({ locale: appLocale, namespace: "trader.opportunities" });
   const common = await getTranslations({ locale: appLocale, namespace: "common" });
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Rendered before the fetch resolves, so the way back exists
-          even while the opportunity is still loading. */}
-      <nav aria-label={t("detail.breadcrumbLabel")} className="text-sm">
-        <Link
-          href={`/${appLocale}/trader/opportunities`}
-          className="text-secondary hover:opacity-90"
-        >
-          {t("detail.backToList")}
-        </Link>
-      </nav>
+    <div className="flex flex-col gap-3">
+      {/* NO WAY BACK ON THE PAGE — «الشيء الثاني مكتوب في الصفحة الرجوع
+          إلى المنتجات وماخذة حيز… تقدر تلغي التصنيفات من الشريط إذا دخلت
+          تفاصيل المنتج وتحط مكانها عودة».
 
+          IT MOVED RATHER THAN VANISHED. The strip above already carries
+          a back link on every form in this portal, and it is drawn
+          whether or not this body has resolved — so the way back is
+          available while loading, which is what the line here was for.
+          Two of them would be two answers to one question. */}
       <Suspense fallback={<LoadingState label={common("loading")} rows={5} />}>
         <DetailBody locale={appLocale} id={id} />
       </Suspense>
@@ -94,137 +94,110 @@ async function DetailBody({ locale, id }: { locale: AppLocale; id: string }) {
 
   const opportunity = result.data;
 
-  const name = localized(locale, opportunity.productNameAr, opportunity.productNameEn);
-  const description = localized(
-    locale,
-    opportunity.productDescriptionAr,
-    opportunity.productDescriptionEn
-  );
-  const city = localized(
-    locale,
-    opportunity.fulfillmentCityNameAr,
-    opportunity.fulfillmentCityNameEn
-  );
-  const region = localized(
-    locale,
-    opportunity.fulfillmentRegionNameAr,
-    opportunity.fulfillmentRegionNameEn
-  );
+  // THE ONE VALUE THIS PAGE STILL DERIVES FOR ITSELF: the composer
+  // needs the selling unit's NAME to label a quantity. Everything the
+  // four cards read is derived inside `OpportunityDetail`, once, for
+  // both fronts.
   const unit = localized(locale, opportunity.salesUnitNameAr, opportunity.salesUnitNameEn);
 
-  const price = formatMoney(opportunity.unitPriceInclTaxAmount, opportunity.currency, locale);
-  const sold = formatPercentage(opportunity.progressPercentage, locale);
-
-  const opens = formatDateTime(opportunity.startAt, locale);
-  const closes = formatDateTime(opportunity.endAt, locale);
-  const days = daysUntil(opportunity.endAt);
+  /**
+   * THE CATEGORY'S NAME, resolved from the taxonomy the chrome loads.
+   *
+   * The snapshot freezes a taxonomy NODE ID, not a name — freezing the
+   * name would mean a category renamed in the catalogue reads one way
+   * on an old offer and another on a new one. The id is stable and the
+   * name is looked up, which is what this page already does for the
+   * buyer's own regions and cities.
+   *
+   * A FAILED READ COSTS THE NAME, NOT THE PAGE, and it renders as an
+   * absence rather than as a raw uuid — which would be worse than
+   * nothing.
+   */
+  const taxonomy = await loadTaxonomy();
+  const category =
+    opportunity.taxonomyNodeId && taxonomy.ok
+      ? (() => {
+          const node = taxonomy.data.find(
+            (candidate) => candidate.id === opportunity.taxonomyNodeId,
+          );
+          return node ? localized(locale, node.nameAr, node.nameEn) : null;
+        })()
+      : null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start gap-3">
-        <h1 className="flex-1 text-2xl font-semibold text-content">{name}</h1>
-        {opportunity.status === "SCHEDULED" ? (
-          <span className="rounded-md bg-warning-surface px-2 py-1 text-xs font-medium text-warning-text">
-            {marketplace("card.scheduled")}
-          </span>
-        ) : null}
-      </header>
-
-      {description ? (
-        // Plain text from the frozen approval snapshot, rendered as a
-        // text node. Never dangerouslySetInnerHTML — forbidden across
-        // this app by a repo-wide test.
-        <p className="whitespace-pre-wrap text-sm text-content">{description}</p>
-      ) : (
-        <p className="text-sm text-content-muted">{marketplace("detail.noDescription")}</p>
-      )}
-
-      <section
-        aria-label={t("detail.termsLabel")}
-        className="flex flex-col gap-4 rounded-lg border border-line-strong bg-surface p-4"
-      >
-        <h2 className="text-base font-semibold text-content">{t("detail.termsLabel")}</h2>
-
-        <p className="text-2xl font-semibold text-content">
-          {/* A malformed amount renders as a stated absence, never as
-              "0.00" — a zero is a claim about what something costs. */}
-          {price ? (
-            <>
-              {price}
-              {unit ? (
-                <span className="text-base font-normal text-content-muted"> / {unit}</span>
-              ) : null}
-            </>
-          ) : (
-            <span className="text-base font-normal text-content-muted">
-              {t("priceUnavailable")}
-            </span>
-          )}
-        </p>
-        <p className="text-sm text-content-muted">{t("detail.priceIncludesTax")}</p>
-
-        <FactList>
-          {opportunity.shareQuantity ? (
-            <Fact
-              label={t("detail.shareQuantity")}
-              value={`${formatQuantity(opportunity.shareQuantity, locale)}${unit ? ` ${unit}` : ""}`}
-            />
-          ) : null}
-          {sold ? <Fact label={t("sold")} value={sold} /> : null}
-          <Fact
-            label={t("unsold")}
-            value={`${formatQuantity(opportunity.unsoldQuantity, locale)}${unit ? ` ${unit}` : ""}`}
-          />
-          <Fact
-            label={t("detail.preparationTime")}
-            value={t("detail.preparationDays", { days: opportunity.expectedPreparationDays })}
-          />
-        </FactList>
-
-        {/* Both of these correct a reading the numbers above invite.
-            `unsold` is arithmetic, not a reservation — checkout's lock
-            is the only authority on what can be bought. And the sold
-            percentage is a share of the supply cap: nothing unlocks at
-            100%, because every paid order is fulfilled on its own. */}
-        <p className="text-sm text-content-muted">{t("detail.unsoldCaveat")}</p>
-        <p className="text-sm text-content-muted">{t("detail.progressCaveat")}</p>
-      </section>
-
-      <section aria-label={t("detail.deliveryLabel")}>
-        <h2 className="mb-3 text-base font-semibold text-content">{t("detail.deliveryLabel")}</h2>
-        <FactList>
-          <Fact label={marketplace("card.city")} value={city} />
-          {region ? <Fact label={marketplace("detail.region")} value={region} /> : null}
-          {unit ? <Fact label={marketplace("card.unit")} value={unit} /> : null}
-          {opens ? (
-            <Fact
-              label={marketplace("detail.opens")}
-              value={<time dateTime={opportunity.startAt}>{opens}</time>}
-            />
-          ) : null}
-          {closes ? (
-            <Fact
-              label={marketplace("card.closes")}
-              value={<time dateTime={opportunity.endAt}>{closes}</time>}
-            />
-          ) : null}
-        </FactList>
-      </section>
-
-      <p className="text-sm text-content-muted">
-        {days === null ? marketplace("detail.closed") : marketplace("card.closesInDays", { days })}
-      </p>
-
-      <PurchaseRegion
-        locale={locale}
-        opportunityId={opportunity.id}
-        shareQuantity={opportunity.shareQuantity}
-        unsoldQuantity={opportunity.unsoldQuantity}
-        salesUnitName={unit}
-      />
-    </div>
+    <OpportunityDetail
+      locale={locale}
+      opportunity={opportunity}
+      category={category}
+      labels={{
+        productLabel: t("detail.productLabel"),
+        deliveryLabel: t("detail.deliveryLabel"),
+        packageLabel: t("detail.packageLabel"),
+        buyNow: t("detail.buyNow"),
+        gallery: t("detail.gallery"),
+        galleryItem: (index, name) => t("detail.galleryItem", { index, name }),
+        noImage: marketplace("card.noImage"),
+        scheduled: marketplace("card.scheduled"),
+        noDescription: marketplace("detail.noDescription"),
+        taxonomy: t("detail.taxonomy"),
+        priceIncludesTax: t("detail.priceIncludesTax"),
+        priceUnavailable: t("priceUnavailable"),
+        targetQuantity: marketplace("card.targetQuantity"),
+        remainingQuantity: marketplace("card.remainingQuantity"),
+        sold: t("sold"),
+        shareQuantity: t("detail.shareQuantity"),
+        progressAriaLabel: (percent) => marketplace("progress.ariaLabel", { percent }),
+        unsoldCaveat: t("detail.unsoldCaveat"),
+        progressCaveat: t("detail.progressCaveat"),
+        city: marketplace("card.city"),
+        region: marketplace("detail.region"),
+        preparationTime: t("detail.preparationTime"),
+        preparationDays: (days) => t("detail.preparationDays", { days }),
+        opens: marketplace("detail.opens"),
+        closes: marketplace("card.closes"),
+        remainingTime: t("detail.remainingTime"),
+        closed: marketplace("detail.closed"),
+        closesInDays: (days) => marketplace("card.closesInDays", { days }),
+        unit: marketplace("card.unit"),
+        packageContent: t("detail.packageContent"),
+        weightPerUnit: t("detail.weightPerUnit"),
+        dimensions: t("detail.dimensions"),
+        cm: t("detail.cm"),
+        length: t("detail.length"),
+        width: t("detail.width"),
+        height: t("detail.height"),
+      }}
+      /* THE ONLY PLACE A CHECKOUT SESSION IS CREATED. Its branch list is
+         fetched on the SERVER, so the client is handed the ids it may
+         use rather than asking for them — there is no code path in
+         which a location id comes from anywhere but
+         `/companies/me/locations`, which the API scopes to the caller's
+         company and filters to active rows. */
+      purchase={
+        <PurchaseRegion
+          locale={locale}
+          opportunityId={opportunity.id}
+          // ZERO MEANS «NO STEP AND NO MINIMUM», which is exactly what a
+          // direct sale is: the buyer names any quantity up to what is
+          // left. The composer already treats a non-positive share that
+          // way — it steps by one and applies no multiple rule — so the
+          // two modes need no second code path here.
+          shareQuantity={opportunity.shareQuantity ?? 0}
+          // THE CEILING COUNTS OTHER BUYERS. `unsoldQuantity` is target
+          // minus sold and ignores what is held in open baskets;
+          // `availableQuantity` is the arithmetic the checkout actually
+          // performs under the offer row lock, so it is the ceiling a
+          // picker may offer without being refused a moment later.
+          unsoldQuantity={opportunity.availableQuantity}
+          salesUnitName={unit}
+        />
+      }
+    />
   );
 }
+
+
+
 
 /**
  * The branch list the composer may choose from.
@@ -252,7 +225,13 @@ async function PurchaseRegion({
 }) {
   const states = await getTranslations({ locale, namespace: "states" });
 
-  const [locationsResult, cities] = await Promise.all([loadTraderLocations(), loadCities()]);
+  // BOTH LISTS: a branch is recorded against a region and may name a
+  // city beneath it, so identifying one on this form needs both.
+  const [locationsResult, regions, cities] = await Promise.all([
+    loadTraderLocations(),
+    loadRegions(),
+    loadCities(),
+  ]);
 
   if (!locationsResult.ok) {
     // Without the branch list there is nothing valid to submit, so this
@@ -267,8 +246,14 @@ async function PurchaseRegion({
     );
   }
 
-  const cityName = (cityId: string): string | null => {
-    if (!cities.ok) return null;
+  const regionName = (regionId: string): string | null => {
+    if (!regions.ok) return null;
+    const region = regions.data.find((r) => r.id === regionId);
+    return region ? localized(locale, region.nameAr, region.nameEn) : null;
+  };
+
+  const cityName = (cityId: string | null): string | null => {
+    if (cityId === null || !cities.ok) return null;
     const city = cities.data.find((c) => c.id === cityId);
     return city ? localized(locale, city.nameAr, city.nameEn) : null;
   };
@@ -276,6 +261,7 @@ async function PurchaseRegion({
   const locations: SelectableLocation[] = locationsResult.data.map((location) => ({
     id: location.id,
     name: location.name,
+    regionName: regionName(location.regionId),
     cityName: cityName(location.cityId),
     shortAddress: location.shortAddress,
   }));
@@ -289,6 +275,9 @@ async function PurchaseRegion({
       salesUnitName={salesUnitName}
       locations={locations}
       accountLocationsHref={`/${locale}/trader/account/locations`}
+      // ONE OF THREE CARDS, not the whole screen — «اختصرها فقط في
+      // تحديد الكمية وتحديد الفرع بدون شروحات غير مهمة».
+      compact
     />
   );
 }

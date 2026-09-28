@@ -1,7 +1,37 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src"
+    "rootDir": "./src",
+
+    // THE BUILD RECORD LIVES WITH THE OUTPUT IT DESCRIBES.
+    //
+    // «مشكلة تشغيل API بعد البناء» — reproduced three times: after any
+    // build, `nest start:dev` died with
+    //
+    //     Error: Cannot find module 'apps\api\dist\main'
+    //
+    // and the cause was these two settings disagreeing about who owns
+    // `dist`. `nest-cli.json` sets `deleteOutDir: true`, so every build
+    // and every `start` wipes the directory; `incremental: true` in the
+    // base config had TypeScript keeping its record of what it had
+    // already emitted OUTSIDE that directory, at the package root. So
+    // tsc read a record saying "all of this is already emitted", emitted
+    // nothing, reported `Found 0 errors`, and left `dist` empty. The
+    // build exited 0 with no output in it.
+    //
+    // Putting the record INSIDE `dist` makes the two agree: deleting the
+    // output deletes the claim that the output exists, and the next
+    // build has no choice but to emit. Nothing here is a step a
+    // developer has to remember — the invariant is enforced by where
+    // the file sits.
+    //
+    // INCREMENTAL STAYS ON, for the project and for this build. What it
+    // buys in a watch session is unaffected: `--watch` keeps its state
+    // in the running process, and `deleteOutDir` only fires when the
+    // process starts. What it can no longer buy is a first compile that
+    // trusts a record of files somebody has since deleted, which was
+    // never a saving — it was this bug.
+    "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
   },
   "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
 }

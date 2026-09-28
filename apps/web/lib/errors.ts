@@ -1,9 +1,14 @@
 import {
   ERROR_CODES,
+  readBlockedListingId,
+  readBlockedReason,
   readFailedChecks,
+  readInvalidFields,
   type ErrorCode,
   type ErrorEnvelope,
+  type NameableInvalidField,
   type ProductTechnicalCheckCode,
+  type SupplierOpportunityReasonCode,
 } from "@platform/types";
 
 /**
@@ -47,6 +52,42 @@ export class ApiError extends Error {
    */
   readonly failedChecks: readonly ProductTechnicalCheckCode[] | null;
 
+  /**
+   * The SECOND named field, added for the same reason as the first and
+   * under the same rule.
+   *
+   * A publication refused for a business reason answers
+   * `VALIDATION_FAILED` — a word that names nothing a supplier can act
+   * on. `readBlockedReason` returns a value only when that code is
+   * present AND the payload names a member of the closed
+   * `SUPPLIER_OPPORTUNITY_REASON_CODES` vocabulary, so what reaches the
+   * UI is a code it already translates a fixing sentence for.
+   */
+  readonly blockedReason: SupplierOpportunityReasonCode | null;
+
+  /**
+   * The THIRD named field, added for the same reason as the first two
+   * and under the same rule.
+   *
+   * A refused save answered `VALIDATION_FAILED` and showed a reference
+   * number, leaving the person who typed the form to hunt for which of
+   * a dozen fields was wrong. `readInvalidFields` returns names only
+   * when that code is present AND each one is a member of the closed
+   * `NAMEABLE_INVALID_FIELDS` vocabulary — so what reaches the UI is a
+   * key it already has its own translated label for. Nothing the
+   * server wrote is ever rendered.
+   */
+  readonly invalidFields: readonly NameableInvalidField[];
+
+  /**
+   * The listing that was saved but not published.
+   *
+   * Without it the form can say what is wrong and not where the work
+   * went — which is what made a supplier press the button again and
+   * make a second copy.
+   */
+  readonly blockedListingId: string | null;
+
   constructor(init: {
     kind: ApiErrorKind;
     status: number;
@@ -54,6 +95,9 @@ export class ApiError extends Error {
     requestId: string | null;
     message: string;
     failedChecks?: readonly ProductTechnicalCheckCode[] | null;
+    blockedReason?: SupplierOpportunityReasonCode | null;
+    blockedListingId?: string | null;
+    invalidFields?: readonly NameableInvalidField[];
   }) {
     super(init.message);
     this.name = "ApiError";
@@ -62,6 +106,9 @@ export class ApiError extends Error {
     this.code = init.code;
     this.requestId = init.requestId;
     this.failedChecks = init.failedChecks ?? null;
+    this.blockedReason = init.blockedReason ?? null;
+    this.blockedListingId = init.blockedListingId ?? null;
+    this.invalidFields = init.invalidFields ?? [];
   }
 
   /** i18n key for the user-visible message. */
@@ -128,6 +175,11 @@ export function mapApiError(status: number, body: unknown, headerRequestId?: str
       // Returns null unless the code matches AND every entry is in the
       // closed vocabulary. Nothing else from `details` is read.
       failedChecks: readFailedChecks(body),
+      // Same rule: null unless the code matches AND the value is in the
+      // closed vocabulary.
+      blockedReason: readBlockedReason(body),
+      invalidFields: readInvalidFields(body),
+      blockedListingId: readBlockedListingId(body),
     });
   }
 

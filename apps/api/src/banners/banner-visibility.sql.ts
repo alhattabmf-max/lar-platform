@@ -28,6 +28,23 @@ export const LIVE_BANNER_CONDITION = Prisma.sql`
 `;
 
 /**
+ * The SAME condition, qualified for a query that joins.
+ *
+ * Once `banner_images` is joined in, bare `is_active` is ambiguous to
+ * read even where it is not ambiguous to PostgreSQL. This is the one
+ * predicate written twice, and it is written twice HERE — beside its
+ * twin, where a change to one that misses the other is visible in a
+ * two-line diff rather than hidden in two files.
+ *
+ * `b` is the required alias for `promotional_banners`.
+ */
+export const LIVE_BANNER_CONDITION_B = Prisma.sql`
+  b.is_active = true
+  AND (b.starts_at IS NULL OR b.starts_at <= now())
+  AND (b.ends_at   IS NULL OR b.ends_at   >  now())
+`;
+
+/**
  * Advisory-lock namespace for banner placement serialisation.
  *
  * A fixed constant so every process derives the same key, and distinct

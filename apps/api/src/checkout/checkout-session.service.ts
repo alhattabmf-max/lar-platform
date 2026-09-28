@@ -9,6 +9,7 @@ import type { CheckoutSessionView } from "@platform/types";
 import { ShippingTariffPolicyService } from "../settings/shipping-tariff-policy.service";
 import { CheckoutSettingsService } from "../settings/checkout-settings.service";
 import type { CreateCheckoutSessionDto } from "./dto/create-checkout-session.dto";
+import { newestPolicyVersionPerDocument } from "../policies/policy-version-selection";
 import {
   CHECKOUT_SESSION_VIEW_SELECT,
   toCheckoutSessionView,
@@ -112,7 +113,9 @@ export class CheckoutSessionService {
 
     const locations = await this.prisma.companyLocation.findMany({
       where: { id: { in: dto.allocations.map((a) => a.companyLocationId) } },
-      include: { city: { include: { region: true } } },
+      // The region is read from the branch, not through its city: a
+      // branch has a region always and a city sometimes.
+      include: { region: true, city: true },
     });
     const byId = new Map(locations.map((l) => [l.id, l]));
 
@@ -124,11 +127,19 @@ export class CheckoutSessionService {
       if (!loc.isActive) {
         throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, "A fulfillment location is not active");
       }
+      // THE REGION COMES FROM THE BRANCH ITSELF, not through its city:
+      // a branch has a region always and a city sometimes. Reading it
+      // as `loc.city.regionId` would throw for a branch with no city —
+      // and passing `?? ""` for a missing city, as this used to, made
+      // two cityless branches compare EQUAL and billed the delivery at
+      // the same-city rate. Nulls are passed through as nulls now, and
+      // `resolveShippingTier` is what decides what a missing city
+      // costs.
       const tier = resolveShippingTier({
         branchCityId: loc.cityId,
-        branchRegionId: loc.city.regionId,
-        opportunityFulfillmentCityId: opportunity.fulfillmentCityId ?? "",
-        opportunityFulfillmentRegionId: opportunity.fulfillmentRegionId ?? "",
+        branchRegionId: loc.regionId,
+        opportunityFulfillmentCityId: opportunity.fulfillmentCityId,
+        opportunityFulfillmentRegionId: opportunity.fulfillmentRegionId,
       });
       const fee = feeForTier(
         {
@@ -155,9 +166,24 @@ export class CheckoutSessionService {
       throw new BusinessException(403, ERROR_CODES.FORBIDDEN, "Only trader accounts can check out");
     }
 
-    const mandatoryPolicies = await tx.policyVersion.findMany({
-      where: { isPublished: true, isMandatory: true },
-    });
+    // THE VERSIONS IN FORCE, not every version ever published.
+    //
+    // Publishing is one-way — a trigger refuses to update or delete a
+    // published row — so each new version of a document LEAVES THE OLD
+    // ONE PUBLISHED. Asking for all of them asked a buyer to have
+    // consented to texts no screen offers and no company can withdraw:
+    // registration recorded two acceptances, this demanded four, and
+    // every purchase on the platform answered «يلزم قبول السياسات
+    // المحدّثة» with a reference number from the moment a second terms
+    // version was published.
+    //
+    // The RULE has not moved: a buyer must have accepted the mandatory
+    // policies in force. This is the set that has always meant.
+    const mandatoryPolicies = newestPolicyVersionPerDocument(
+      await tx.policyVersion.findMany({
+        where: { isPublished: true, isMandatory: true },
+      })
+    );
     if (mandatoryPolicies.length > 0) {
       const accepted = await tx.policyAcceptance.findMany({
         where: { companyId: ctx.companyId, policyVersionId: { in: mandatoryPolicies.map((p) => p.id) } },
@@ -345,10 +371,12 @@ export class CheckoutSessionService {
           checkoutSessionId: created.id,
           companyLocationId: loc.id,
           locationNameSnapshot: loc.name,
-          cityNameArSnapshot: loc.city.nameAr,
-          cityNameEnSnapshot: loc.city.nameEn,
-          regionNameArSnapshot: loc.city.region.nameAr,
-          regionNameEnSnapshot: loc.city.region.nameEn,
+          // Null when the branch names no city. The region always has
+          // a name to freeze and comes from the branch itself.
+          cityNameArSnapshot: loc.city?.nameAr ?? null,
+          cityNameEnSnapshot: loc.city?.nameEn ?? null,
+          regionNameArSnapshot: loc.region.nameAr,
+          regionNameEnSnapshot: loc.region.nameEn,
           addressSnapshot: loc.shortAddress,
           latitudeSnapshot: loc.latitude,
           longitudeSnapshot: loc.longitude,

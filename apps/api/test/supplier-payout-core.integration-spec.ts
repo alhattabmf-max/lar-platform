@@ -66,7 +66,13 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
       idemKey("std")
     );
     expect(result.outcome).toBe("EXECUTED");
-    expect(result.netAmount).toBe(Number(snapshot.supplierPayableShareAmount) + snapshot.shippingFeeAmount.toFixed(2));
+    // Both sides are money as a NUMBER. `Decimal.toFixed(2)` returns a
+    // STRING, so `number + decimal.toFixed(2)` concatenated — 474.99 and
+    // «50.00» became «474.9950.00», which no payout could ever equal.
+    // Rounded to halalas the way the other cases in this file do it.
+    const expectedNet =
+      Math.round((Number(snapshot.supplierPayableShareAmount) + Number(snapshot.shippingFeeAmount)) * 100) / 100;
+    expect(result.netAmount).toBe(expectedNet);
 
     const journal = await prisma.journalEntry.findFirstOrThrow({ where: { referenceType: "supplier_payout", referenceId: result.supplierPayoutId } });
     const postings = await prisma.ledgerPosting.findMany({ where: { journalEntryId: journal.id } });
@@ -112,7 +118,9 @@ describe("SupplierPayoutService — core (integration, real DB)", () => {
     const settlementJournal = await prisma.journalEntry.findFirstOrThrow({ where: { referenceType: "supplier_payout", referenceId: result.supplierPayoutId } });
     const postings = await prisma.ledgerPosting.findMany({ where: { journalEntryId: settlementJournal.id } });
     const shippingPosting = postings.find((p) => p.account === "SHIPPING_LIABILITY");
-    expect(Number(shippingPosting!.amount)).toBe(snapshot.shippingFeeAmount.toFixed(2));
+    // `Number(...)` on the left, so the right side is a number too —
+    // `toFixed(2)` made it the string «50.00», which 50 never equals.
+    expect(Number(shippingPosting!.amount)).toBe(Number(snapshot.shippingFeeAmount));
   }, 30_000);
 
   it("shipping-only refund: productNet stays full, shippingNet reduced by the executed DEBIT SHIPPING_LIABILITY", async () => {

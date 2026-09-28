@@ -15,9 +15,17 @@ import { ListOpportunitiesQueryDto } from "./dto/list-opportunities-query.dto";
 const CITY = "11111111-1111-1111-1111-111111111111";
 const NODE = "22222222-2222-2222-2222-222222222222";
 
-function fakePrisma(findMany: jest.Mock, count: jest.Mock = jest.fn().mockResolvedValue(0)) {
+function fakePrisma(
+  findMany: jest.Mock,
+  count: jest.Mock = jest.fn().mockResolvedValue(0),
+  // A taxonomy filter widens to the node's subtree now, so the double
+  // answers for the tree too. Default: a LEAF, which is what these
+  // tests mean — they are about sort and composition, not about depth.
+  taxonomyChildren: jest.Mock = jest.fn().mockResolvedValue([])
+) {
   return {
     opportunity: { findMany, findFirst: jest.fn().mockResolvedValue(null), count },
+    taxonomyNode: { findMany: taxonomyChildren },
   } as never;
 }
 
@@ -206,7 +214,7 @@ describe("city + taxonomy + sort compose", () => {
     const call = findMany.mock.calls[0][0];
     expect(call.where.fulfillmentCityId).toBe(CITY);
     expect(call.where.productApprovalSnapshot).toEqual({
-      is: { snapshot: { path: ["taxonomyNodeId"], equals: NODE } },
+      is: { OR: [{ snapshot: { path: ["taxonomyNodeId"], equals: NODE } }] },
     });
     expect(call.orderBy[0]).toEqual({ endAt: "asc" });
     expect(call.skip).toBe(10);
@@ -229,20 +237,39 @@ describe("city + taxonomy + sort compose", () => {
     expect(where).not.toHaveProperty("product");
   });
 
-  it("matches the taxonomy node EXACTLY — no descendant expansion is emitted", async () => {
+  it("expands to the node's DESCENDANTS, and still reads only the frozen snapshot", async () => {
+    // THIS TEST USED TO ASSERT THE OPPOSITE, and was right to: nothing
+    // was filed on a parent because everything could be. Products may no
+    // longer sit on a node with children, so equality here would make
+    // every parent in the category bar an empty page.
+    //
+    // WHAT DID NOT CHANGE is the half that matters for correctness: the
+    // clause still reads the FROZEN approval snapshot and never joins
+    // the live product, so recategorising a product tomorrow cannot
+    // alter what an already-sold listing is findable under.
     const findMany = jest.fn().mockResolvedValue([]);
-    await makeService(findMany).listPublic({ taxonomyNodeId: NODE });
+    const children = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: "leaf-a" }])
+      .mockResolvedValueOnce([]);
+    const service = new OpportunityDiscoveryService(
+      fakePrisma(findMany, undefined, children),
+      settingsStub()
+    );
 
-    // Scoped to the taxonomy clause on purpose: the status filter is an
-    // `in` by design, so serialising the whole `where` would make this
-    // assertion pass or fail for the wrong reason.
+    await service.listPublic({ taxonomyNodeId: NODE });
+
     const clause = findMany.mock.calls[0][0].where.productApprovalSnapshot;
-    const serialised = JSON.stringify(clause);
+    expect(clause.is.OR).toEqual([
+      { snapshot: { path: ["taxonomyNodeId"], equals: NODE } },
+      { snapshot: { path: ["taxonomyNodeId"], equals: "leaf-a" } },
+    ]);
 
-    expect(serialised).toContain('"equals"');
-    expect(serialised).not.toContain('"in"');
-    expect(clause.is.snapshot.equals).toBe(NODE);
-    expect(Array.isArray(clause.is.snapshot.equals)).toBe(false);
+    // Every branch is still a snapshot read, and the live row is absent.
+    for (const branch of clause.is.OR) {
+      expect(branch.snapshot.path).toEqual(["taxonomyNodeId"]);
+    }
+    expect(findMany.mock.calls[0][0].where).not.toHaveProperty("product");
   });
 
   it("composes on the trader list identically", async () => {

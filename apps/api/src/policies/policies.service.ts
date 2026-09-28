@@ -5,6 +5,7 @@ import { AuditService } from "../audit/audit.service";
 import { AuditActorType } from "@prisma/client";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES, type PublicPolicyVersion } from "@platform/types";
+import { newestPolicyVersionPerDocument } from "./policy-version-selection";
 
 interface AcceptContext {
   companyId: string;
@@ -41,7 +42,7 @@ export class PoliciesService {
       include: { policyDocument: { select: { code: true } } },
     });
 
-    return rows.map((row) => ({
+    return newestPolicyVersionPerDocument(rows).map((row) => ({
       id: row.id,
       documentCode: row.policyDocument.code,
       versionLabel: row.versionLabel,
@@ -52,11 +53,27 @@ export class PoliciesService {
     }));
   }
 
+  /**
+   * The mandatory policies a registrant must accept.
+   *
+   * THE NEWEST OF EACH DOCUMENT, not every published row. Publishing is
+   * one-way — a database trigger refuses any update to a published
+   * version, so an earlier one cannot be withdrawn and stays published
+   * forever. Returning all of them would mean that the moment real terms
+   * replaced the placeholder, every new company had to tick TWO boxes
+   * for one document and consent to text that is no longer in force.
+   */
   async getMandatoryActivePolicyVersions(): Promise<PolicyVersion[]> {
-    return this.prisma.policyVersion.findMany({
+    const rows = await this.prisma.policyVersion.findMany({
       where: { isPublished: true, isMandatory: true },
+      orderBy: { publishedAt: "desc" },
     });
+    return newestPolicyVersionPerDocument(rows);
   }
+
+  /* The selection itself is in ./policy-version-selection — it is the
+     platform's answer to "which version is in force", and it had to
+     leave this class so the checkout guard could obey the same one. */
 
   /**
    * Validates that every currently-mandatory published policy is

@@ -70,35 +70,23 @@ export class VerificationService {
     }
   }
 
-  /** Internal command — no HTTP route in Phase 2. Wired to Admin Auth in Phase 3. */
-  async approve(companyId: string, actorId: string, ctx: ActorContext): Promise<void> {
-    await this.transition(
-      companyId,
-      CompanyVerificationStatus.PENDING_VERIFICATION,
-      CompanyVerificationStatus.VERIFIED,
-      { actorType: AuditActorType.ADMIN, actorId, action: "COMPANY_VERIFICATION_APPROVED", ctx }
-    );
-  }
-
-  /** Internal command — no HTTP route in Phase 2. Wired to Admin Auth in Phase 3. */
-  async reject(companyId: string, actorId: string, reason: string, ctx: ActorContext): Promise<void> {
-    await this.transition(
-      companyId,
-      CompanyVerificationStatus.PENDING_VERIFICATION,
-      CompanyVerificationStatus.REJECTED,
-      { actorType: AuditActorType.ADMIN, actorId, action: "COMPANY_VERIFICATION_REJECTED", reason, ctx }
-    );
-  }
-
-  /** Self-service: a rejected supplier may resubmit for verification. */
-  async reapply(companyId: string, actorId: string, ctx: ActorContext): Promise<void> {
-    await this.transition(
-      companyId,
-      CompanyVerificationStatus.REJECTED,
-      CompanyVerificationStatus.PENDING_VERIFICATION,
-      { actorType: AuditActorType.USER, actorId, action: "COMPANY_VERIFICATION_REAPPLIED", ctx }
-    );
-  }
+  // NO approve, NO reject, NO reapply.
+  //
+  // These three moved a company's verification status directly,
+  // with nothing recording WHAT had been reviewed. Approving a
+  // supplier is now one decision on one submitted request, taken in
+  // `SupplierVerificationRequestService` in a single transaction
+  // with the request itself — so there is no way to verify a company
+  // without a request behind it, and no way to decide a request
+  // without moving the company.
+  //
+  // `reapply` was the worst of the three: it moved a REJECTED
+  // company back to PENDING with nobody deciding anything, which
+  // let a supplier overturn its own refusal.
+  //
+  // `transition` stays below: it is what the admin console's
+  // suspend and reinstate paths use, and neither of those produces
+  // VERIFIED.
 
   private async transition(
     companyId: string,

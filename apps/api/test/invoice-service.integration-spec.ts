@@ -1,3 +1,4 @@
+﻿import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { InvoiceService } from "../src/invoicing/invoice.service";
@@ -12,6 +13,22 @@ import { MockPaymentProvider } from "../src/payments/providers/mock-payment.prov
 import { seedPaymentFixture, paymentFixturePrisma, ensureCommissionTaxPolicy } from "./fixtures/payment.fixture";
 import { seedCheckoutFixture } from "./fixtures/checkout.fixture";
 import { notificationEvents } from "./fixtures/notifications.fixture";
+import { uniqueVatNumber } from "./fixtures/unique";
+
+// THE PLATFORM'S OWN VAT NUMBER, one per run.
+//
+// `platform_billing_profile_versions.vat_number` carries no unique
+// index, so this one never collided. It is drawn here for the same
+// reason as every other identity in this suite: a fixture that writes a
+// constant into a column somebody makes unique tomorrow is a failure
+// waiting for a migration.
+//
+// THE TRADER'S NUMBER IS NOT HERE. It is drawn inside `seedPaidOrder`,
+// because `trader_tax_profiles.vat_number` IS unique across the whole
+// table and that helper seeds a fresh trader on every call — one value
+// per file would collide with itself the second time any test ran it.
+const SUPPLIER_VAT = uniqueVatNumber();
+
 
 const prisma = paymentFixturePrisma;
 
@@ -46,22 +63,46 @@ async function captureViaWebhook(provider: MockPaymentProvider, p: PrismaService
 
 async function ensurePlatformProfile(prefix: string) {
   const service = buildPlatformProfileService();
+  // A REAL CITY ID. The address no longer takes a typed city name — the
+  // service resolves the id against `cities` and snapshots the names
+  // from the row, so a fixture string would simply be refused.
+  const city = await prisma.city.findFirstOrThrow({
+    where: { isActive: true },
+    select: { id: true },
+  });
   return service.createNewVersion(
-    { legalName: `FORSA Platform ${prefix}`, crNumber: `CR-FORSA-${prefix}`, isVatRegistered: true, vatNumber: "300000000000003", addressSnapshot: { city: "Riyadh" } },
-    adminCtx()
+    {
+      legalName: `FORSA Platform ${prefix}`,
+      crNumber: `CR-FORSA-${prefix}`,
+      isVatRegistered: true,
+      vatNumber: SUPPLIER_VAT,
+      addressSnapshot: { cityId: city.id, shortAddress: "RRRD2929" },
+    },
+    adminCtx(),
+    randomUUID(),
   );
 }
 
+/**
+ * ONE VAT NUMBER PER SEEDED ORDER, returned so a caller can assert on
+ * the number ITS order actually carries.
+ *
+ * `trader_tax_profiles.vat_number` is unique across the whole table,
+ * not per company, and this helper seeds a fresh trader on every call —
+ * so a single shared value collided with itself the second time any
+ * test in this file ran it.
+ */
 async function seedPaidOrder(prefix: string) {
+  const traderVat = uniqueVatNumber();
   const fixture = await seedPaymentFixture({
     traderCrPrefix: prefix,
-    traderTaxProfile: { isVatRegistered: true, vatNumber: "310175397500003", billingLegalName: `Trader Legal ${prefix}` },
+    traderTaxProfile: { isVatRegistered: true, vatNumber: traderVat, billingLegalName: `Trader Legal ${prefix}` },
   });
   const provider = new MockPaymentProvider();
   const result = await captureViaWebhook(provider, prisma as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-${fixture.paymentAttemptId}`, fixture.providerAmount);
   if (result.processingOutcome !== "ORDER_CREATED") throw new Error(`unexpected capture outcome: ${result.processingOutcome}`);
   const order = await prisma.masterOrder.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
-  return { fixture, order };
+  return { fixture, order, traderVat };
 }
 
 describe("InvoiceService — product & commission drafts (integration, real DB)", () => {
@@ -182,15 +223,32 @@ describe("InvoiceService — product & commission drafts (integration, real DB)"
     await ensurePlatformProfile("INVNOSIDEFX");
     const { fixture, order } = await seedPaidOrder("INVNOSIDEFX");
     const opportunityBefore = await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } });
-    const journalCountBefore = await prisma.journalEntry.count();
+    // COUNTED FOR THIS ORDER, not for the whole database.
+    //
+    // `journalEntry.count()` with no filter counts every journal any
+    // spec in any worker has ever written, and the suite runs against
+    // one shared Postgres — so the number moved between the two reads
+    // whenever another file happened to capture a payment in the same
+    // second, and this failed «Expected: 4116, Received: 4117» for a
+    // reason that had nothing to do with invoicing.
+    //
+    // The claim is about THIS order: drafting an invoice for it must
+    // not post a single ledger entry against it.
+    const journalsForThisOrder = { referenceType: "master_order", referenceId: order.id };
+    const journalCountBefore = await prisma.journalEntry.count({ where: journalsForThisOrder });
 
     const service = buildInvoiceService();
-    await service.createProductDraft(order.id, adminCtx(), idemKey("nosidefxp"));
-    await service.createCommissionDraft(order.id, adminCtx(), idemKey("nosidefxc"));
+    const productDraft = await service.createProductDraft(order.id, adminCtx(), idemKey("nosidefxp"));
+    const commissionDraft = await service.createCommissionDraft(order.id, adminCtx(), idemKey("nosidefxc"));
 
     const opportunityAfter = await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } });
     expect(opportunityAfter.fundedQuantity).toBe(opportunityBefore.fundedQuantity);
-    const journalCountAfter = await prisma.journalEntry.count();
+    // The two drafts are included by id, so a journal posted AGAINST
+    // THE INVOICE rather than against the order is caught too. Neither
+    // existed at the first read, so both contributed zero to it.
+    const journalCountAfter = await prisma.journalEntry.count({
+      where: { referenceId: { in: [order.id, productDraft.id, commissionDraft.id] } },
+    });
     expect(journalCountAfter).toBe(journalCountBefore);
     const orderAfter = await prisma.masterOrder.findUniqueOrThrow({ where: { id: order.id } });
     expect(orderAfter.status).toBe(order.status);
@@ -265,7 +323,9 @@ describe("InvoiceService — legacy orders, overrides, adjustments (integration,
 
   it("Audit/Outbox never contain VAT numbers or raw legal names for any invoicing action", async () => {
     await ensurePlatformProfile("INVAUDITSAFE");
-    const { fixture, order } = await seedPaidOrder("INVAUDITSAFE");
+    // The VAT number THIS order carries — the one that must not have
+    // leaked into an audit entry or an outbox payload.
+    const { fixture, order, traderVat } = await seedPaidOrder("INVAUDITSAFE");
     const service = buildInvoiceService();
     const draft = await service.createProductDraft(order.id, adminCtx(), idemKey("auditsafe"));
 
@@ -273,12 +333,12 @@ describe("InvoiceService — legacy orders, overrides, adjustments (integration,
     expect(audits.length).toBeGreaterThan(0);
     for (const entry of audits) {
       const serialized = JSON.stringify(entry);
-      expect(serialized).not.toContain("310175397500003");
+      expect(serialized).not.toContain(traderVat);
       expect(serialized).not.toContain(`Trader Legal ${fixture.traderCompanyId.slice(0, 4)}`);
     }
     const outboxEvents = await prisma.outboxEvent.findMany({ where: { eventType: "INVOICE_PRODUCT_DRAFT_CREATED" } });
     for (const evt of outboxEvents) {
-      expect(JSON.stringify(evt)).not.toContain("310175397500003");
+      expect(JSON.stringify(evt)).not.toContain(traderVat);
     }
   }, 20_000);
 
@@ -421,6 +481,15 @@ async function seedLegacyMasterOrder(traderCrPrefix: string) {
       supplierTaxProfileSnapshot: { isVatRegistered: supplierTaxProfile.isVatRegistered, vatNumber: supplierTaxProfile.vatNumber },
       supplierInvoicingProfileSnapshot: { invoicingLegalName: invoicingProfile.invoicingLegalName },
       paidAt: past,
+      // WHAT WAS SOLD, frozen on the order — see the migration
+      // `order_freezes_what_was_sold`. A fixture that omits these is
+      // building an order the platform can no longer write.
+      productNameArSnapshot: "ظ…ظ†طھط¬ ط§ط®طھط¨ط§ط±",
+      productNameEnSnapshot: "Test product",
+      salesUnitNameArSnapshot: "ظˆط­ط¯ط©",
+      salesUnitNameEnSnapshot: "Unit",
+      unitPriceInclTaxSnapshot: 100,
+      totalQuantitySnapshot: 1,
       // traderTaxProfileSnapshot / traderBillingLegalNameSnapshot left
       // NULL from creation — these fields are frozen forever, so a
       // genuine legacy order must never have them set in the first place.

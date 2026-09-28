@@ -143,7 +143,9 @@ export function BrandThemeEditor({
                     tabIndex={-1}
                     value={value}
                     onChange={(event) => set(key, event.target.value.toUpperCase())}
-                    className="h-11 w-14 rounded-md border border-line"
+                    // THE ONE CONTROL THAT KEEPS A LINE. A swatch IS its colour, and a
+                    // white one on a white card would be nothing at all.
+                    className="h-field w-14 rounded-control border border-line-control"
                   />
                 ) : null}
                 <Input
@@ -237,7 +239,7 @@ export function BrandThemeEditor({
               type="button"
               variant={asking === "reset" ? "danger" : "primary"}
               size="sm"
-              className="min-h-11"
+             
               isLoading={busy}
               disabled={busy}
               onClick={() =>
@@ -256,7 +258,7 @@ export function BrandThemeEditor({
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-11"
+             
               disabled={busy}
               onClick={() => setAsking(null)}
             >
@@ -268,7 +270,7 @@ export function BrandThemeEditor({
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            className="min-h-11"
+           
             isLoading={busy}
             disabled={busy || !allValid}
             onClick={() => run(() => apiClient.put("/admin/branding/theme/draft", colors))}
@@ -283,7 +285,7 @@ export function BrandThemeEditor({
             <Button
               type="button"
               variant="secondary"
-              className="min-h-11"
+             
               disabled={busy}
               onClick={() => setAsking("publish")}
             >
@@ -294,7 +296,7 @@ export function BrandThemeEditor({
           <Button
             type="button"
             variant="ghost"
-            className="min-h-11"
+           
             disabled={busy}
             onClick={() => setAsking("reset")}
           >

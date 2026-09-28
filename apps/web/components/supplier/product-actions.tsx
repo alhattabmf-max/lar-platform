@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { ProductActionGate } from "@/lib/product-actions";
 
 /**
- * Submit and archive, for one product.
+ * Submit, archive and delete, for one product.
  *
  * A client component because the API's CSRF guard requires a browser
  * `Origin` header on state-changing requests, and the session cookie rides
@@ -26,15 +26,30 @@ import type { ProductActionGate } from "@/lib/product-actions";
  * approve the product or refuse it with a list of failed technical checks,
  * and `archive` is not reversible by the supplier — neither outcome is
  * knowable here, so `router.refresh()` re-reads the server's answer.
+ *
+ * DELETE LEAVES THE PAGE, because there is no page left. The others
+ * re-read this product; this one removes it, so it goes back to the
+ * catalogue and asks the server for that instead.
+ *
+ * ARCHIVE AND DELETE ARE DIFFERENT ANSWERS, and both are offered.
+ * «خلّني أوقفه» is not «امسحه»: archiving keeps the row and its history
+ * out of the way, deleting says it should never have been there. What
+ * changed is that the second one now exists — until it did, an archived
+ * product could be neither sold nor removed.
  */
 export interface ProductActionsProps {
   productId: string;
   gate: ProductActionGate;
+  /** Where a delete lands: this product's page will not exist. */
+  afterDeleteHref: string;
   labels: {
     submit: string;
     submitPrompt: string;
     archive: string;
     archivePrompt: string;
+    remove: string;
+    removePrompt: string;
+    removing: string;
     confirm: string;
     cancel: string;
     submitting: string;
@@ -43,9 +58,14 @@ export interface ProductActionsProps {
   };
 }
 
-type Pending = "submit" | "archive" | null;
+type Pending = "submit" | "archive" | "delete" | null;
 
-export function ProductActions({ productId, gate, labels }: ProductActionsProps) {
+export function ProductActions({
+  productId,
+  gate,
+  labels,
+  afterDeleteHref,
+}: ProductActionsProps) {
   const router = useRouter();
   const root = useTranslations();
 
@@ -53,7 +73,7 @@ export function ProductActions({ productId, gate, labels }: ProductActionsProps)
   const [submitting, setSubmitting] = useState<Pending>(null);
   const [failure, setFailure] = useState<UserFacingError | null>(null);
 
-  async function run(action: "submit" | "archive") {
+  async function run(action: "submit" | "archive" | "delete") {
     // Double-submit protection: the second press while a request is in
     // flight does nothing at all, rather than sending a second write.
     if (submitting !== null) return;
@@ -62,6 +82,16 @@ export function ProductActions({ productId, gate, labels }: ProductActionsProps)
     setFailure(null);
 
     try {
+      if (action === "delete") {
+        await apiClient.delete(`/companies/me/products/${productId}`);
+        // THE ROW IS GONE, so this page is gone with it. Refreshing
+        // it would ask the server for a product that no longer
+        // exists and answer a supplier's delete with a 404.
+        router.replace(afterDeleteHref);
+        router.refresh();
+        return;
+      }
+
       await apiClient.post(`/companies/me/products/${productId}/${action}`);
       setAsking(null);
       setSubmitting(null);
@@ -74,7 +104,7 @@ export function ProductActions({ productId, gate, labels }: ProductActionsProps)
     }
   }
 
-  if (!gate.canSubmit && !gate.canArchive) return null;
+  if (!gate.canSubmit && !gate.canArchive && !gate.canDelete) return null;
 
   if (asking !== null) {
     return (
@@ -82,7 +112,11 @@ export function ProductActions({ productId, gate, labels }: ProductActionsProps)
         {/* Announced when it appears, because the question replaces the
             button the person just pressed. */}
         <p role="status" aria-live="polite" className="text-sm text-content">
-          {asking === "submit" ? labels.submitPrompt : labels.archivePrompt}
+          {asking === "submit"
+            ? labels.submitPrompt
+            : asking === "archive"
+              ? labels.archivePrompt
+              : labels.removePrompt}
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -93,7 +127,11 @@ export function ProductActions({ productId, gate, labels }: ProductActionsProps)
             isLoading={submitting !== null}
             disabled={submitting !== null}
           >
-            {submitting !== null ? labels.submitting : labels.confirm}
+            {submitting === null
+              ? labels.confirm
+              : submitting === "delete"
+                ? labels.removing
+                : labels.submitting}
           </Button>
           <Button
             type="button"
@@ -120,6 +158,16 @@ export function ProductActions({ productId, gate, labels }: ProductActionsProps)
         {gate.canSubmit ? (
           <Button type="button" size="sm" onClick={() => setAsking("submit")}>
             {labels.submit}
+          </Button>
+        ) : null}
+        {gate.canDelete ? (
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={() => setAsking("delete")}
+          >
+            {labels.remove}
           </Button>
         ) : null}
         {gate.canArchive ? (

@@ -64,7 +64,12 @@ const REFUND_SELECT = {
     // not `masterOrder` — the scalar side lives on MasterOrder.
     select: { checkoutSession: { select: { order: { select: { id: true } } } } },
   },
-  _count: { select: { attempts: true } },
+  // THE RETRY COUNT IS NOT SELECTED HERE. `_count: { attempts: true }`
+  // compiles to a LEFT JOIN against `SELECT refund_obligation_id,
+  // COUNT(*) FROM refund_attempts GROUP BY refund_obligation_id` — the
+  // whole attempt history, aggregated before this page's `take` is
+  // reached, and the ordering index unusable while it happens. It is
+  // counted for the page's own rows instead, below.
 } satisfies Prisma.RefundObligationSelect;
 
 const SETTLEMENT_SELECT = {
@@ -116,6 +121,18 @@ export class AdminMoneyReadsService {
       this.prisma.refundObligation.count({ where }),
     ]);
 
+    const attemptCounts = new Map(
+      rows.length === 0
+        ? []
+        : (
+            await this.prisma.refundAttempt.groupBy({
+              by: ["refundObligationId"],
+              where: { refundObligationId: { in: rows.map((row) => row.id) } },
+              _count: { _all: true },
+            })
+          ).map((row) => [row.refundObligationId, row._count._all] as const)
+    );
+
     return {
       items: rows.map((row) => ({
         id: row.id,
@@ -126,7 +143,7 @@ export class AdminMoneyReadsService {
         status: row.status as AdminRefundItem["status"],
         amount: money(row.amount),
         currency: row.currency,
-        attemptCount: row._count.attempts,
+        attemptCount: attemptCounts.get(row.id) ?? 0,
         createdAt: row.createdAt.toISOString(),
       })),
       page,

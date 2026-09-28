@@ -87,15 +87,29 @@ export interface SupplierAllocationDetail {
   status: OrderAllocationStatus;
   quantity: number;
   locationName: string;
-  cityNameAr: string;
-  cityNameEn: string;
+  /**
+   * Null when the branch named no city.
+   *
+   * This is a FROZEN SNAPSHOT of what the branch was called when the
+   * record was written, and a branch may name a region and no city —
+   * so there is nothing to freeze. The region below is never null, so
+   * a reader always has a place to read.
+   */
+  cityNameAr: string | null;
+  cityNameEn: string | null;
   regionNameAr: string;
   regionNameEn: string;
   address: string;
   contactName: string;
   contactPhone: string;
   /** ISO 8601. When preparation is contractually due. */
-  preparationDueAt: string;
+  /**
+   * NULL WHILE THE OFFER IS STILL GATHERING ITS TARGET.
+   *
+   * The clock starts when the offer closes, not when a buyer paid — so
+   * a supplier sees no date, and no action, until the target is in.
+   */
+  preparationDueAt: string | null;
   /** True when `preparationDueAt` has passed and nothing has shipped. */
   isPreparationOverdue: boolean;
   preparationStartedAt: string | null;

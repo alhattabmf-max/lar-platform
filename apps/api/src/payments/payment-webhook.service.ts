@@ -1,6 +1,7 @@
 import { Injectable, Inject, UnauthorizedException } from "@nestjs/common";
 import { Prisma, LedgerAccount, LedgerDirection } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { releaseFundedAllocationsTx } from "../opportunities/release-funded-allocations.util";
 import { NotificationEventsService } from "../notifications/notification-events.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
@@ -30,6 +31,50 @@ export class PaymentWebhookService {
     const parsed = this.provider.verifyAndParseWebhook(rawBody, headers);
     if (!parsed) {
       throw new UnauthorizedException("Invalid webhook signature");
+    }
+
+    /**
+     * A CAPTURE HAS A MOMENT AND AN AMOUNT, OR IT IS NOT A CAPTURE.
+     *
+     * `providerCapturedAt` and `providerCapturedAmount` are optional on
+     * the wire contract, because a FAILURE event carries neither. On a
+     * SUCCESS they are the event: the amount is what was taken and the
+     * moment is what decides every later question about it — whether
+     * the lock was still alive, which of two attempts won, whether a
+     * cancellation came first.
+     *
+     * NOTHING CHECKED THEM. The success path wrote both straight into
+     * `payment_attempts` and then read the moment back as
+     * `parsed.providerCapturedAt!` — a non-null assertion on a field
+     * the contract says may be absent. A SUCCESS without a moment
+     * therefore produced a half-filled row, and the only thing that
+     * stopped it was the database:
+     *
+     *   payment_attempts_captured_at_amount_consistency
+     *   CHECK ((provider_captured_at IS NULL) = (provider_captured_amount IS NULL))
+     *
+     * That guard held — no inconsistent row was ever stored — but it
+     * surfaced as a raw Postgres exception inside the webhook's own
+     * transaction. An operator reading the log saw a constraint name,
+     * and the provider saw a server error, which every provider
+     * answers by sending the same event again, for ever.
+     *
+     * REFUSED HERE, BEFORE THE TRANSACTION OPENS, so no idempotency key
+     * is claimed and nothing is written or rolled back. The refusal is
+     * a 400: the event is malformed, and resending it unchanged will
+     * never succeed.
+     */
+    if (parsed.eventType === "SUCCESS") {
+      const missing: string[] = [];
+      if (parsed.providerCapturedAt === undefined) missing.push("providerCapturedAt");
+      if (parsed.providerCapturedAmount === undefined) missing.push("providerCapturedAmount");
+      if (missing.length > 0) {
+        throw new BusinessException(
+          400,
+          ERROR_CODES.VALIDATION_FAILED,
+          `A SUCCESS webhook must carry ${missing.join(" and ")}`
+        );
+      }
     }
 
     const scope = `PAYMENT_WEBHOOK:${parsed.providerCode}`;
@@ -81,8 +126,11 @@ export class PaymentWebhookService {
       throw new BusinessException(404, ERROR_CODES.VALIDATION_FAILED, "No matching payment attempt for this webhook");
     }
 
-    const oppRows = await tx.$queryRaw<{ id: string; status: string; target_quantity: number; funded_quantity: number }[]>`
-      SELECT id, status, target_quantity, funded_quantity FROM opportunities WHERE id = ${preview.checkoutSession.opportunityId}::uuid FOR UPDATE
+    const oppRows = await tx.$queryRaw<
+      { id: string; sale_mode: string; status: string; target_quantity: number; funded_quantity: number }[]
+    >`
+      SELECT id, sale_mode, status, target_quantity, funded_quantity
+      FROM opportunities WHERE id = ${preview.checkoutSession.opportunityId}::uuid FOR UPDATE
     `;
     const opportunity = oppRows[0];
 
@@ -148,22 +196,37 @@ export class PaymentWebhookService {
       locked_quantity: number;
       trader_company_id: string;
     },
-    opportunity: { id: string; status: string; target_quantity: number; funded_quantity: number }
+    opportunity: { id: string; sale_mode: string; status: string; target_quantity: number; funded_quantity: number }
   ): Promise<WebhookOutcome> {
     if (attempt.status === "SUCCEEDED") {
       await this.insertEvent(tx, parsed, attempt.id, "DUPLICATE");
       return { processingOutcome: "DUPLICATE" };
     }
 
+    // READ BEFORE WRITING, and narrowed rather than asserted.
+    //
+    // `handleWebhook` already refused a SUCCESS that carries no capture,
+    // so this cannot fire in the normal path — but this method is what
+    // writes the row, and it does not take the caller's word for it. The
+    // previous code wrote `parsed.providerCapturedAt` into the table and
+    // only afterwards read it back as `parsed.providerCapturedAt!`: the
+    // assertion was the whole check, and an assertion checks nothing.
+    const capturedAt = parsed.providerCapturedAt;
+    const capturedAmount = parsed.providerCapturedAmount;
+    if (capturedAt === undefined || capturedAmount === undefined) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        "A SUCCESS webhook must carry providerCapturedAt and providerCapturedAmount"
+      );
+    }
+
     await tx.$executeRaw`
       UPDATE payment_attempts
-      SET status = 'SUCCEEDED', provider_captured_at = ${parsed.providerCapturedAt}, provider_captured_amount = ${parsed.providerCapturedAmount},
+      SET status = 'SUCCEEDED', provider_captured_at = ${capturedAt}, provider_captured_amount = ${capturedAmount},
           provider_fee_amount = ${parsed.providerFeeAmount ?? null}, updated_at = now()
       WHERE id = ${attempt.id}::uuid
     `;
-
-    const capturedAmount = parsed.providerCapturedAmount ?? 0;
-    const capturedAt = parsed.providerCapturedAt!;
 
     if (parsed.currency !== "SAR" || Math.abs(capturedAmount - Number(attempt.amount)) > 0.001) {
       return this.createRefund(tx, parsed, attempt.id, "CAPTURE_AMOUNT_MISMATCH", capturedAmount);
@@ -240,14 +303,62 @@ export class PaymentWebhookService {
     `;
 
     const newFunded = opportunity.funded_quantity + session.locked_quantity;
-    if (opportunity.status === "ACTIVE") {
-      const newStatus = newFunded >= opportunity.target_quantity ? "FUNDED" : "ACTIVE";
+    /**
+     * WHAT A PAYMENT MEANS DEPENDS ON HOW THE LISTING SELLS.
+     *
+     * GROUP — this may be the payment that reaches the target. If it is,
+     * the offer closes: status FUNDED, and every share it holds is
+     * released together, this buyer's and everyone's before them.
+     *
+     * DIRECT — «إذا أصبح المتاح صفرًا تبقى النشرة ACTIVE وتظهر نفد
+     * المخزون، وعند إضافة مخزون تعود قابلة للشراء». Selling the last
+     * unit is not an ending. FUNDED is terminal in
+     * `OPPORTUNITY_TRANSITIONS` and means a collective target was
+     * reached; a shelf that is empty is still a shelf, and the supplier
+     * refills it. The status is left exactly where it is — the database
+     * refuses FUNDED on a DIRECT row in any case — and "sold out" is
+     * read from the numbers by whoever displays it.
+     *
+     * `funded_quantity` RISES IDENTICALLY IN BOTH. It is what has been
+     * paid for, in both readings of the column, and it is what the
+     * availability arithmetic subtracts.
+     */
+    const isDirect = opportunity.sale_mode === "DIRECT";
+    // DID THIS PAYMENT CLOSE THE OFFER? Remembered here because the
+    // allocations created below, and every allocation an earlier buyer
+    // already has, are released together the moment it does.
+    let fundingClosed = false;
+    if (!isDirect && opportunity.status === "ACTIVE") {
+      fundingClosed = newFunded >= opportunity.target_quantity;
+      const newStatus = fundingClosed ? "FUNDED" : "ACTIVE";
       await tx.opportunity.update({ where: { id: opportunity.id }, data: { fundedQuantity: newFunded, status: newStatus } });
     } else {
       await tx.opportunity.update({ where: { id: opportunity.id }, data: { fundedQuantity: newFunded } });
     }
 
     const attemptFull = await tx.paymentAttempt.findUniqueOrThrow({ where: { id: attempt.id } });
+
+    // THE PRODUCT AS IT WAS APPROVED, not as it stands today. The
+    // opportunity carries the id of the snapshot it was published from;
+    // that JSON is the frozen record of the name, the description and
+    // the measurements an administrator signed off.
+    // THE COLUMN IS NULLABLE, THIS CODE PATH IS NOT. An opportunity
+    // cannot be published without the snapshot it was published FROM,
+    // so reaching a successful capture without one is a data-integrity
+    // violation — stated the same way the frozen commission rate is one
+    // screen above.
+    if (fullSession.opportunity.productApprovalSnapshotId === null) {
+      throw new Error(
+        `Opportunity ${opportunity.id} reached a successful capture without a frozen productApprovalSnapshotId — data integrity violation`
+      );
+    }
+    const approvalSnapshot = await tx.productApprovalSnapshot.findUniqueOrThrow({
+      where: { id: fullSession.opportunity.productApprovalSnapshotId },
+    });
+    const approvedProduct = approvalSnapshot.snapshot as {
+      nameAr: string;
+      nameEn: string;
+    };
 
     const order = await tx.masterOrder.create({
       data: {
@@ -272,22 +383,84 @@ export class PaymentWebhookService {
         supplierInvoicingProfileSnapshot: { invoicingLegalName: invoicingProfile.invoicingLegalName },
         traderTaxProfileSnapshot: { isVatRegistered: traderTaxProfile.is_vat_registered, vatNumber: traderTaxProfile.vat_number },
         traderBillingLegalNameSnapshot: traderTaxProfile.billing_legal_name,
+        // WHAT WAS SOLD, FROZEN BESIDE WHO SOLD IT.
+        //
+        // The six snapshots above copy the parties so the order outlives
+        // their rows. Nothing copied the GOODS, so the only path from an
+        // invoice to what was invoiced ran order -> opportunity ->
+        // approval snapshot -> product — three rows an administrator can
+        // remove. The platform closed that by refusing to let a sold
+        // product go, which is backwards: a correct invoice is
+        // self-contained, and once it is, deleting the product costs
+        // nothing.
+        //
+        // READ FROM THE FROZEN SNAPSHOT, NOT THE LIVE PRODUCT. The name
+        // an order carries must be the one that was approved and
+        // published, not whatever the supplier renames it to next week.
+        productNameArSnapshot: approvedProduct.nameAr,
+        productNameEnSnapshot: approvedProduct.nameEn,
+        // The unit names come from the OPPORTUNITY, which froze them at
+        // publication for exactly this reason.
+        salesUnitNameArSnapshot: fullSession.opportunity.salesUnitNameAr,
+        salesUnitNameEnSnapshot: fullSession.opportunity.salesUnitNameEn,
+        // THE PRICE IS A SUM, because the opportunity stores the two
+        // halves rather than a third column that could disagree with
+        // them — and this is the same figure `commissionBase` is
+        // computed from, one tax step later.
+        unitPriceInclTaxSnapshot: round2(
+          Number(fullSession.opportunity.unitPriceExclTaxAmount) +
+            Number(fullSession.opportunity.unitTaxAmount)
+        ),
+        // The quantity the session actually locked and paid for — not
+        // the offer's target, and not what remains of it.
+        totalQuantitySnapshot: session.locked_quantity,
         policyAcceptanceId: attemptFull.policyAcceptanceId,
         acceptedByUserId: attemptFull.acceptedByUserId,
         paidAt: capturedAt,
       },
     });
 
+    // BORN WAITING, NOT WORKING — «لا يتم شحن البضاعة إلا بعد ما يتم
+    // العرض شروطه ووصوله لهدفه».
+    //
+    // The allocation used to be created `AWAITING_PREPARATION` with
+    // `preparationDueAt = capturedAt + expectedPreparationDays`: a clock
+    // started at PAYMENT, for work nobody was permitted to start. Three
+    // screens read that date as overdue, so a supplier whose offer stood
+    // at 20% was already reported late.
+    //
+    // THE DAYS ARE STILL FROZEN HERE, because they are what the offer
+    // promised when this buyer bought. Only the DATE waits.
+    //
+    // AND A DIRECT SALE WAITS FOR NOTHING. «عند نجاح الدفع فقط
+    // funded_quantity += purchasedQuantity، وينتقل الطلب مباشرة إلى
+    // AWAITING_PREPARATION». There is no target to reach, so there is
+    // nothing to wait FOR: the buyer paid for goods that are on a
+    // shelf, and the supplier's clock starts at that payment — which is
+    // exactly what the days were frozen against.
     for (const alloc of fullSession.allocations) {
-      const preparationDueAt = new Date(capturedAt.getTime() + fullSession.opportunity.expectedPreparationDays * 24 * 3600_000);
       await tx.orderAllocation.create({
         data: {
           masterOrderId: order.id,
           checkoutLocationAllocationId: alloc.id,
           expectedPreparationDays: fullSession.opportunity.expectedPreparationDays,
-          preparationDueAt,
+          status: isDirect ? "AWAITING_PREPARATION" : "AWAITING_FUNDING",
+          preparationDueAt: isDirect
+            ? new Date(
+                capturedAt.getTime() +
+                  fullSession.opportunity.expectedPreparationDays * 24 * 3600_000
+              )
+            : null,
         },
       });
+    }
+
+    // AND IF THIS PAYMENT WAS THE ONE THAT CLOSED IT, every buyer's
+    // share is released at once — this one and everyone before it.
+    // «اكتمل الهدف في ثلاثة أيام أو يوم… خلاص يقفل تلقائي ويبدأ التجهيز
+    //  من بداية إقفال العرض.»
+    if (fundingClosed) {
+      await releaseFundedAllocationsTx(tx, opportunity.id, capturedAt);
     }
 
     // Both inside the webhook's own transaction: the notification

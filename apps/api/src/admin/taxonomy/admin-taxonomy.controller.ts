@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import type { Request } from "express";
 import { TaxonomyService } from "../../taxonomy/taxonomy.service";
 import { CreateTaxonomyNodeDto } from "../../taxonomy/dto/create-taxonomy-node.dto";
@@ -65,5 +75,21 @@ export class AdminTaxonomyController {
     @Req() req: Request
   ) {
     return this.taxonomy.toggle(id, ctxFrom(req, session));
+  }
+
+  /**
+   * Remove a category for good.
+   *
+   * SEPARATE FROM TOGGLE, and not a replacement for it. Deactivating
+   * keeps the row and every product pointing at it; this takes the row
+   * away, and the service refuses while anything still needs it.
+   */
+  @Delete(":id")
+  remove(
+    @Param("id") id: string,
+    @CurrentAdminSession() session: AdminSessionData,
+    @Req() req: Request
+  ) {
+    return this.taxonomy.remove(id, ctxFrom(req, session));
   }
 }

@@ -14,16 +14,27 @@ export interface EligibilityInput {
     invoicingProfile: unknown;
   };
   product: { approvalStatus: ProductApprovalStatus; archivedAt: Date | null };
-  fulfillmentLocation: { isActive: boolean; city: { isActive: boolean } };
+  fulfillmentLocation: {
+    isActive: boolean;
+    region: { isActive: boolean };
+    /** Null when the branch names no city, which is allowed. */
+    city: { isActive: boolean } | null;
+  };
 }
 
 /**
  * Every check here is deliberately re-verified LIVE at the moment it
  * matters (publish, or the worker's SCHEDULED finalization) — none of
  * it is cached/assumed from an earlier point in time, since any of
- * these facts (supplier verification, product approval, location/city
+ * these facts (supplier verification, product approval, location/region
  * activity, financial readiness) can change after an opportunity was
  * first created or scheduled.
+ *
+ * THE REGION IS THE LOCATION CHECK. A branch is recorded against a
+ * region, and the city beneath it is optional — so a branch with no
+ * city passes, and switching every city off no longer stops the
+ * platform from publishing anything. A city that IS named still has to
+ * be active.
  *
  * Deliberately does NOT check tax rate availability — that check only
  * matters at the moment a NEW Tax Snapshot is being computed
@@ -70,7 +81,28 @@ export function evaluateLiveEligibility(input: EligibilityInput): Blocker | null
       details: OPPORTUNITY_REASON_DETAILS.LOCATION_INACTIVE,
     };
   }
-  if (!input.fulfillmentLocation.city.isActive) {
+  /**
+   * THE REGION IS WHAT BLOCKS. A branch is recorded against a region,
+   * and switching a region off is how the platform stops it being used
+   * for new business — so a listing shipping from one cannot stay live.
+   */
+  if (!input.fulfillmentLocation.region.isActive) {
+    return {
+      code: OPPORTUNITY_REASON_CODES.LOCATION_REGION_INACTIVE,
+      details: OPPORTUNITY_REASON_DETAILS.LOCATION_REGION_INACTIVE,
+    };
+  }
+  /**
+   * THE CITY BLOCKS ONLY IF THERE IS ONE. A branch may name no city at
+   * all, and that is a complete branch — this check used to run
+   * unconditionally, which is why switching every city off stopped
+   * every supplier on the platform from publishing anything.
+   *
+   * When a branch DOES name a city, that city still has to be active:
+   * a listing that says it ships from a place the platform has
+   * withdrawn is telling a buyer something that is no longer true.
+   */
+  if (input.fulfillmentLocation.city !== null && !input.fulfillmentLocation.city.isActive) {
     return {
       code: OPPORTUNITY_REASON_CODES.LOCATION_CITY_INACTIVE,
       details: OPPORTUNITY_REASON_DETAILS.LOCATION_CITY_INACTIVE,

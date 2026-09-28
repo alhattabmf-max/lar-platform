@@ -11,7 +11,7 @@ import { apiClient } from "@/lib/api-client";
 import { IdempotentOperation } from "@/lib/idempotency";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
 import { Button } from "@/components/ui/button";
-import { Label, FieldError } from "@/components/ui/field";
+import { Label, FieldError, Textarea } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 
 /**
@@ -133,7 +133,7 @@ export function DisputeRespondForm({ disputeId, labels }: DisputeRespondFormProp
           invalid={errors.type}
           describedById={errors.type ? "dispute-response-type-error" : undefined}
           disabled={busy}
-          className="min-h-11"
+         
         >
           {/* No default answer: which of the four this is, is the whole
               decision, and pre-selecting one would make it by accident. */}
@@ -153,7 +153,7 @@ export function DisputeRespondForm({ disputeId, labels }: DisputeRespondFormProp
         <Label htmlFor="dispute-response-description" required requiredLabel={labels.required}>
           {labels.description}
         </Label>
-        <textarea
+        <Textarea
           id="dispute-response-description"
           value={description}
           onChange={(event) => {
@@ -195,7 +195,7 @@ export function DisputeRespondForm({ disputeId, labels }: DisputeRespondFormProp
             <Button
               type="button"
               size="sm"
-              className="min-h-11"
+             
               onClick={send}
               isLoading={busy}
               disabled={busy}
@@ -206,7 +206,7 @@ export function DisputeRespondForm({ disputeId, labels }: DisputeRespondFormProp
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-11"
+             
               disabled={busy}
               onClick={() => setAsking(false)}
             >
@@ -218,7 +218,7 @@ export function DisputeRespondForm({ disputeId, labels }: DisputeRespondFormProp
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            className="min-h-11"
+           
             onClick={() => {
               if (validate()) setAsking(true);
             }}

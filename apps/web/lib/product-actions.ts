@@ -14,6 +14,13 @@ import type { ProductApprovalStatus } from "@platform/types";
  *   `archive` — rejects an already-archived product and PENDING_REVIEW, and
  *               nothing else. A CLOSED product CAN be archived.
  *
+ *   `delete`  — «المنتج يُحذف من صفحة المورّد ومن صفحة الإدارة، دام
+ *               المشتري ما بعد دفع». The service refuses only on the
+ *               buyer: a live basket (temporarily) or a payment
+ *               (permanently). NO STATUS STOPS IT, and an ARCHIVED
+ *               product is deliberately included — that is the way out
+ *               of a one-way door, and the reason this exists at all.
+ *
  *   `edit`    — `assertEditableTx` rejects archived, PENDING_REVIEW and
  *               CLOSED. SUSPENDED is editable (the supplier may submit a
  *               correction) but never auto-reactivates. APPROVED is editable
@@ -33,6 +40,8 @@ export interface ProductActionGate {
   canSubmit: boolean;
   /** POST /companies/me/products/:id/archive */
   canArchive: boolean;
+  /** DELETE /companies/me/products/:id */
+  canDelete: boolean;
   /**
    * PATCH the product, and every media mutation:
    * POST media, POST media/:id/set-main, DELETE media/:id.
@@ -50,10 +59,18 @@ export function productActions(product: ProductGateInput): ProductActionGate {
   const archived = product.archivedAt !== null;
 
   if (archived) {
-    // Archived rejects every write the supplier has. Returned as one
-    // branch rather than repeated in each rule, so a new action added
-    // later cannot forget it.
-    return { canSubmit: false, canArchive: false, canEditMedia: false };
+    // Archived rejects every WRITE the supplier has — and a delete is
+    // not a write to the row, it is the removal of it. That difference
+    // is the whole point: an archived product had no edit, no offer,
+    // no submit and no way back, and two of the owner's products sat
+    // in exactly that state because deleting a draft offer used to
+    // archive the product underneath it.
+    return {
+      canSubmit: false,
+      canArchive: false,
+      canEditMedia: false,
+      canDelete: true,
+    };
   }
 
   const status = product.approvalStatus;
@@ -62,6 +79,10 @@ export function productActions(product: ProductGateInput): ProductActionGate {
     canSubmit: status === "DRAFT" || status === "REJECTED",
     canArchive: status !== "PENDING_REVIEW",
     canEditMedia: status !== "PENDING_REVIEW" && status !== "CLOSED",
+    // NO STATUS STOPS A DELETE. The server's only question is whether
+    // a buyer got there first, and that is a fact this module cannot
+    // see — it arrives as a 409 naming which of the two it was.
+    canDelete: true,
   };
 }
 

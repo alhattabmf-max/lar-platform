@@ -74,8 +74,16 @@ export interface SupplierReplacementDetail extends SupplierReplacementSummary {
   /** The dispute whose decision created this obligation. */
   disputeId: string;
   locationName: string;
-  cityNameAr: string;
-  cityNameEn: string;
+  /**
+   * Null when the branch named no city.
+   *
+   * This is a FROZEN SNAPSHOT of what the branch was called when the
+   * record was written, and a branch may name a region and no city —
+   * so there is nothing to freeze. The region below is never null, so
+   * a reader always has a place to read.
+   */
+  cityNameAr: string | null;
+  cityNameEn: string | null;
   regionNameAr: string;
   regionNameEn: string;
   address: string;

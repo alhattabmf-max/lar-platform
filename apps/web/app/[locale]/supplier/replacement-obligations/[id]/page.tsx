@@ -12,6 +12,10 @@ import { Fact, FactList, StatusWithAction } from "@/components/trader/account-pa
 import { ErrorState } from "@/components/ui/states";
 import { FulfilmentActions } from "@/components/supplier/fulfilment-actions";
 import { fulfilmentLabels } from "@/components/supplier/fulfilment-labels";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.replacements");
+
 
 /**
  * One replacement obligation: what to send, where, and by when.
@@ -43,7 +47,8 @@ export default async function SupplierReplacementDetailPage({
   const result = await loadSupplierReplacement(id);
   if (!result.ok && result.notFound) notFound();
 
-  const backHref = `/${appLocale}/supplier/replacement-obligations`;
+  // BACK TO «المتابعة», which is where this record's list now lives.
+  const backHref = `/${appLocale}/supplier/follow-up`;
 
   if (!result.ok) {
     return (
@@ -121,15 +126,21 @@ export default async function SupplierReplacementDetailPage({
           <CardTitle>{t("destinationTitle")}</CardTitle>
         </CardHeader>
         <CardBody>
-          <p className="mb-3 text-sm text-content-muted">{t("destinationNotice")}</p>
           <FactList>
             <Fact label={t("locationName")} value={replacement.locationName} />
-            <Fact
-              label={t("city")}
-              value={
-                localized(appLocale, replacement.cityNameAr, replacement.cityNameEn) ?? ""
-              }
-            />
+            {/*
+              HIDDEN WHEN THERE IS NO CITY, rather than rendered blank.
+              A branch may name a region and no city, and the region
+              Fact below always says where the shipment went.
+            */}
+            {localized(appLocale, replacement.cityNameAr, replacement.cityNameEn) ? (
+              <Fact
+                label={t("city")}
+                value={
+                  localized(appLocale, replacement.cityNameAr, replacement.cityNameEn)!
+                }
+              />
+            ) : null}
             <Fact
               label={t("region")}
               value={
@@ -198,7 +209,7 @@ export default async function SupplierReplacementDetailPage({
       <section className="flex flex-wrap gap-3">
         <Link
           href={`/${appLocale}/supplier/orders/${replacement.orderId}`}
-          className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+          className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("openOrder")}
         </Link>
@@ -206,7 +217,7 @@ export default async function SupplierReplacementDetailPage({
             own boundary. */}
         <Link
           href={`/${appLocale}/supplier/disputes/${replacement.disputeId}`}
-          className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+          className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("openDispute")}
         </Link>
@@ -218,7 +229,7 @@ export default async function SupplierReplacementDetailPage({
 function Breadcrumb({ href, label, back }: { href: string; label: string; back: string }) {
   return (
     <nav aria-label={label} className="text-sm">
-      <Link href={href} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+      <Link href={href} className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {back}
       </Link>
     </nav>

@@ -115,3 +115,77 @@ export function formatPercentage(value: number, locale: AppLocale): string | nul
     numberingSystem: NUMBERING_SYSTEM,
   }).format(value / 100);
 }
+
+/**
+ * An amount split into its number and its currency.
+ *
+ * WHY THIS EXISTS. The Saudi riyal's official symbol has no Unicode
+ * code point, so it cannot be a character inside a formatted string —
+ * it has to be drawn. Rendering it therefore means knowing where the
+ * currency sits in this locale's pattern, which is what `Intl` already
+ * decides: before the number in `en-SA`, after it in `ar-SA`.
+ *
+ * `formatToParts`, NOT A SPLIT ON THE STRING. The currency text, the
+ * separators and the bidi marks all vary by locale; asking `Intl` which
+ * piece is which is the only way that does not eventually cut an amount
+ * in the wrong place.
+ *
+ * THE BIDI MARKS ARE DROPPED ON PURPOSE. They exist to hold a currency
+ * and a number together in one text run, and the two are separate
+ * elements here — the component isolates the pair itself, which is the
+ * same job done where it can actually be seen.
+ *
+ * WHERE the currency sits is NOT returned. `Intl` would say "before"
+ * in English and "after" in Arabic; the owner settled on one side for
+ * the whole platform, so the answer is the component's, not this
+ * function's, and a field nothing reads would only invite disagreement.
+ *
+ * `formatMoney` above is UNCHANGED and stays: an accessible name, a
+ * document title and a plain-text export all need the whole amount as
+ * one string, and none of them can hold a drawing.
+ */
+export interface MoneyParts {
+  /** The number alone — grouped, two decimals, Latin digits. */
+  number: string;
+  /** The currency exactly as this locale writes it: «ر.س.» or "SAR". */
+  currency: string;
+}
+
+export function formatMoneyParts(
+  amount: string,
+  currency: string,
+  locale: AppLocale
+): MoneyParts | null {
+  // The same three guards `formatMoney` applies, in the same order and
+  // for the same reasons — a second entry point that trusts its input
+  // is how a malformed amount reaches a screen as "NaN".
+  if (!isMoneyString(amount)) return null;
+  if (!isAppLocale(locale)) return null;
+
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return null;
+
+  const parts = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    numberingSystem: NUMBERING_SYSTEM,
+  }).formatToParts(value);
+
+  const currencyAt = parts.findIndex((part) => part.type === "currency");
+  if (currencyAt === -1) return null;
+
+  const number = parts
+    .filter((part) =>
+      part.type === "integer" ||
+      part.type === "group" ||
+      part.type === "decimal" ||
+      part.type === "fraction" ||
+      part.type === "minusSign"
+    )
+    .map((part) => part.value)
+    .join("");
+
+  return { number, currency: parts[currencyAt]!.value };
+}

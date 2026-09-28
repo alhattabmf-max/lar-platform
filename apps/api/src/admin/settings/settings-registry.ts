@@ -1,8 +1,13 @@
 import { SETTINGS_KEYS } from "../../settings/settings-keys.constants";
 import {
+  BANNER_POLICY_SETTING_KEY,
+  FAQ_ITEMS_SETTING_KEY,
+  FAQ_MAX_ITEMS,
   HEADER_NAV_MAX_ITEMS,
   SITE_CONTENT_FIELDS,
   SITE_CONTENT_LIMITS,
+  isBannerImageShape,
+  isFaqItem,
   isSiteContentText,
 } from "@platform/types";
 
@@ -104,6 +109,29 @@ function validateHeaderNav(value: unknown): boolean {
   return true;
 }
 
+/**
+ * The FAQ list: every entry well-formed, bounded, and no two sharing an
+ * id.
+ *
+ * Validated here rather than trusted, for the same reason every other
+ * JSON setting is — this arrives as a request body, and "the admin
+ * screen would never send that" is not a guarantee.
+ */
+function validateFaqItems(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length > FAQ_MAX_ITEMS) return false;
+
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (!isFaqItem(entry)) return false;
+    // Two items sharing an id makes reordering ambiguous and editing
+    // destructive: the screen would update whichever came first.
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+  }
+  return true;
+}
+
 export const SETTINGS_REGISTRY: Record<string, SettingDefinition> = {
   [SETTINGS_KEYS.EMAIL_VERIFICATION_ENABLED]: {
     key: SETTINGS_KEYS.EMAIL_VERIFICATION_ENABLED,
@@ -132,6 +160,30 @@ export const SETTINGS_REGISTRY: Record<string, SettingDefinition> = {
     adminWritable: true,
     failSafeBehavior: "safe-default-on-failure",
     validate: validateHomepageContent,
+  },
+  [BANNER_POLICY_SETTING_KEY]: {
+    key: BANNER_POLICY_SETTING_KEY,
+    type: "json",
+    description:
+      "Promotional banner policy: upload size and pixel ceilings, accepted content types, how many banners may be live at once per placement, and the image SHAPE — minimum dimensions and the accepted aspect-ratio band. The admin screen reads the shape from here so the browser pre-check and the server decision cannot disagree; the server always re-validates.",
+    adminWritable: true,
+    failSafeBehavior: "safe-default-on-failure",
+    validate: (value) => {
+      if (typeof value !== "object" || value === null) return false;
+      const v = value as Record<string, unknown>;
+      // A missing shape block is tolerated: rows written before the
+      // shape existed carry none and fall back to the shipped default.
+      return v.imageShape === undefined || isBannerImageShape(v.imageShape);
+    },
+  },
+  [FAQ_ITEMS_SETTING_KEY]: {
+    key: FAQ_ITEMS_SETTING_KEY,
+    type: "json",
+    description:
+      "Frequently asked questions as ordered items, each a question and answer in Arabic and English with an active flag. Rendered as text nodes only — never HTML or Markdown. A malformed value falls back to no questions rather than breaking the page.",
+    adminWritable: true,
+    failSafeBehavior: "safe-default-on-failure",
+    validate: validateFaqItems,
   },
   [SETTINGS_KEYS.HEADER_NAV]: {
     key: SETTINGS_KEYS.HEADER_NAV,

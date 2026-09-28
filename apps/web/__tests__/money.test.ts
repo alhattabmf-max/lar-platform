@@ -79,16 +79,24 @@ describe("there is no number path left to fall back to", () => {
     expect(SOURCE).not.toMatch(/const DECIMAL_STRING = \//);
   });
 
-  it("exports exactly one money formatter, and it takes a string", () => {
+  it("takes a decimal STRING, and offers no other way in", () => {
     // A second entry point accepting a number existed while
     // /trader/opportunities/* still sent one. The endpoint now sends a
     // decimal string like every other, and the number path was removed
     // rather than left available: a tolerated shape comes back.
     expect(SOURCE).not.toContain("formatMoneyFromApiNumber");
     expect(SOURCE).toMatch(/export function formatMoney\(\s*amount: string/);
+
+    // TWO EXPORTS NOW, AND ONLY TWO. `formatMoneyParts` joined it when
+    // the riyal's official symbol turned out to have no Unicode code
+    // point: a drawn mark cannot live inside a formatted string, so
+    // the number and the currency have to be handed over separately.
+    // Both take the same decimal string and neither takes a number.
     expect(SOURCE.match(/export function formatMoney\w*/g)).toEqual([
       "export function formatMoney",
+      "export function formatMoneyParts",
     ]);
+    expect(SOURCE).toMatch(/export function formatMoneyParts\(\s*amount: string/);
   });
 
   it("rejects a number handed to it at runtime, not just at compile time", () => {
@@ -149,7 +157,13 @@ describe("the money module does no arithmetic", () => {
     const signatures = SOURCE.match(/export function \w+\([\s\S]*?\): [\w |]+ \{/g) ?? [];
     expect(signatures.length).toBeGreaterThan(0);
     for (const signature of signatures) {
-      expect(signature).toMatch(/\): string( \| null)? \{$/);
+      // `MoneyParts` is two STRINGS — the grouped number and the
+      // currency — and no more computable than the one string was.
+      expect(signature).toMatch(/\): (string|MoneyParts)( \| null)? \{$/);
     }
+
+    // And what it hands back is text, not a value to do sums with.
+    expect(SOURCE).toMatch(/number: string;/);
+    expect(SOURCE).toMatch(/currency: string;/);
   });
 });

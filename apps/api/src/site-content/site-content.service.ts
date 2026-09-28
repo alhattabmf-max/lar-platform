@@ -1,12 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import {
+  FAQ_ITEMS_SETTING_KEY,
+  FAQ_MAX_ITEMS,
   HEADER_NAV_MAX_ITEMS,
   HEADER_NAV_SETTING_KEY,
   SITE_CONTENT_FIELDS,
   SITE_CONTENT_LIMITS,
   SITE_CONTENT_SETTING_KEY,
+  isFaqItem,
   isSiteContentText,
   type HeaderNavItem,
+  type PublicFaqItem,
   type SiteContent,
   type SiteContentText,
 } from "@platform/types";
@@ -39,22 +43,55 @@ export class SiteContentService {
   constructor(private readonly prisma: PrismaService) {}
 
   async get(): Promise<SiteContent> {
-    const [contentRow, navRow] = await Promise.all([
-      this.prisma.systemSetting.findUnique({ where: { key: SITE_CONTENT_SETTING_KEY } }),
-      this.prisma.systemSetting.findUnique({ where: { key: HEADER_NAV_SETTING_KEY } }),
+    const [contentRow, navRow, faqRow] = await Promise.all([
+      this.prisma.systemSetting.findUnique({
+        where: { key: SITE_CONTENT_SETTING_KEY },
+      }),
+      this.prisma.systemSetting.findUnique({
+        where: { key: HEADER_NAV_SETTING_KEY },
+      }),
+      this.prisma.systemSetting.findUnique({
+        where: { key: FAQ_ITEMS_SETTING_KEY },
+      }),
     ]);
 
     const text = this.readText(contentRow?.value);
     const headerNav = await this.readHeaderNav(navRow?.value);
+    const faqItems = this.readFaqItems(faqRow?.value);
 
-    return {
-      heroTitle: text.heroTitle,
-      heroDescription: text.heroDescription,
-      featuredTitle: text.featuredTitle,
-      policiesTitle: text.policiesTitle,
-      policiesDescription: text.policiesDescription,
-      headerNav,
-    };
+    // Spread the parsed text rather than naming each field: `readText`
+    // already walks SITE_CONTENT_FIELDS, so restating them here is a
+    // second list to forget to update.
+    return { ...text, headerNav, faqItems };
+  }
+
+  /**
+   * The ACTIVE questions, in the operator's order, projected down to
+   * what a visitor may see.
+   *
+   * `isActive` and `sortOrder` are dropped rather than merely ignored by
+   * the page: a retired question must not be discoverable by reading the
+   * payload, and the ordering is already expressed by the array.
+   *
+   * A malformed entry is skipped rather than failing the whole read —
+   * losing the entire FAQ because one item is wrong is a worse outcome
+   * than showing the rest.
+   */
+  private readFaqItems(value: unknown): PublicFaqItem[] {
+    if (!Array.isArray(value)) return [];
+
+    return value
+      .filter(isFaqItem)
+      .filter((item) => item.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .slice(0, FAQ_MAX_ITEMS)
+      .map(({ id, questionAr, questionEn, answerAr, answerEn }) => ({
+        id,
+        questionAr,
+        questionEn,
+        answerAr,
+        answerEn,
+      }));
   }
 
   /**
@@ -68,10 +105,12 @@ export class SiteContentService {
    * homepage is worse than the default sentence, and truncating stored
    * content silently is how a bound becomes invisible.
    */
-  private readText(value: unknown): Record<(typeof SITE_CONTENT_FIELDS)[number], SiteContentText> {
+  private readText(
+    value: unknown,
+  ): Record<(typeof SITE_CONTENT_FIELDS)[number], SiteContentText> {
     const empty: SiteContentText = { ar: null, en: null };
     const result = Object.fromEntries(
-      SITE_CONTENT_FIELDS.map((field) => [field, { ...empty }])
+      SITE_CONTENT_FIELDS.map((field) => [field, { ...empty }]),
     ) as Record<(typeof SITE_CONTENT_FIELDS)[number], SiteContentText>;
 
     if (typeof value !== "object" || value === null) return result;
@@ -83,8 +122,10 @@ export class SiteContentService {
 
       const limit = SITE_CONTENT_LIMITS[field];
       result[field] = {
-        ar: typeof raw.ar === "string" && raw.ar.length <= limit ? raw.ar : null,
-        en: typeof raw.en === "string" && raw.en.length <= limit ? raw.en : null,
+        ar:
+          typeof raw.ar === "string" && raw.ar.length <= limit ? raw.ar : null,
+        en:
+          typeof raw.en === "string" && raw.en.length <= limit ? raw.en : null,
       };
     }
 
@@ -103,7 +144,10 @@ export class SiteContentService {
     if (!Array.isArray(value)) return [];
 
     const ids = value
-      .filter((entry): entry is string => typeof entry === "string" && entry.length > 0)
+      .filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.length > 0,
+      )
       // De-duplicated: the same category twice in a menu is a mistake, not
       // an intention.
       .filter((id, index, all) => all.indexOf(id) === index)
@@ -123,7 +167,9 @@ export class SiteContentService {
     return ids.flatMap((id) => {
       const node = byId.get(id);
       if (!node) return [];
-      return [{ taxonomyNodeId: node.id, nameAr: node.nameAr, nameEn: node.nameEn }];
+      return [
+        { taxonomyNodeId: node.id, nameAr: node.nameAr, nameEn: node.nameEn },
+      ];
     });
   }
 }

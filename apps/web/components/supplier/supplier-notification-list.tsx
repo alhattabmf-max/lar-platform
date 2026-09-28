@@ -90,7 +90,7 @@ export function SupplierNotificationList({
             type="button"
             size="sm"
             variant="secondary"
-            className="min-h-11"
+           
             disabled={busy}
             isLoading={busy}
             onClick={() => void mutate(() => apiClient.post("/supplier/notifications/read-all"))}
@@ -128,7 +128,7 @@ export function SupplierNotificationList({
                 {href ? (
                   <Link
                     href={href}
-                    className="inline-flex min-h-11 items-center text-sm text-secondary hover:opacity-90"
+                    className="inline-flex items-center text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
                   >
                     {labels.open}
                   </Link>
@@ -144,7 +144,7 @@ export function SupplierNotificationList({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="min-h-11"
+                   
                     disabled={busy}
                     onClick={() =>
                       void mutate(() =>

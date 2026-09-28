@@ -1,32 +1,32 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
-import { loadSalesUnits, loadTaxonomy } from "@/lib/marketplace-data";
-import { referenceFailureRequestId } from "@/lib/reference-data";
-import { EMPTY_PRODUCT_FORM } from "@/lib/product-form";
+import { loadTaxonomy } from "@/lib/marketplace-data";
 import { ErrorState } from "@/components/ui/states";
-import { ProductForm } from "@/components/supplier/product-form";
-import { productFormLabels } from "@/components/supplier/product-form-labels";
+import { ButtonLink } from "@/components/ui/button";
+import { ListingForm } from "@/components/supplier/listing-form";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.products");
 
 /**
- * Creating a product.
+ * ADDING A PRODUCT — and nothing else.
  *
- * CREATING IS NOT APPROVING. The product is saved as a DRAFT and nothing
- * else happens: the technical checks run only when the supplier submits it,
- * and they require a main image, which a brand-new product cannot have. The
- * copy says so before the form rather than after a confusing refusal.
+ * WHAT IS RECORDED HERE IS NOT FOR SALE. A product is the supplier's
+ * own record of a thing they stock: its names, its category, its
+ * picture, the unit it is sold in, what is in the carton, and what a
+ * carrier needs to move it. No trader sees any of it until an OFFER is
+ * made on it, and that is a separate act on the product's own page.
  *
- * The three steps stay three requests — create, then upload, then submit.
- * Presenting them as one action would be a transaction this product does
- * not have: the id has to exist before an image can be attached to it, and
- * an upload that failed after a successful create must not read as though
- * nothing was saved.
+ * THIS PAGE ONCE DID BOTH. Adding and publishing were one submission,
+ * which left a supplier no way to build a catalogue ahead of selling
+ * from it and no way to offer the same goods twice — the owner's rule:
+ * «يسجّل المورد كل منتجاته وتُحفظ لديه، ثم يُنشئ عرضًا على منتجات
+ * مختارة، ويعيد الكرّة على نفس المنتج».
  *
- * Taxonomy and sales units are anonymous, cacheable reference data. If
- * either cannot be read the form is NOT rendered — a category picker with
- * no categories would invite someone to fill in everything else and then
- * discover they cannot finish.
+ * NOTHING ABOUT THE COMPANY'S RECORD BLOCKS IT. An unverified company
+ * with no bank account can fill its catalogue today; the gate is on
+ * selling, and it lives where selling happens.
  */
 export default async function NewSupplierProductPage({
   params,
@@ -37,53 +37,58 @@ export default async function NewSupplierProductPage({
   const appLocale = locale as AppLocale;
   await requireRoleOrRedirect(appLocale, "SUPPLIER");
 
-  const t = await getTranslations({ locale: appLocale, namespace: "supplier.products" });
-  const states = await getTranslations({ locale: appLocale, namespace: "states" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "supplier.products",
+  });
+  const states = await getTranslations({
+    locale: appLocale,
+    namespace: "states",
+  });
 
-  const [taxonomy, salesUnits] = await Promise.all([loadTaxonomy(), loadSalesUnits()]);
+  const taxonomy = await loadTaxonomy();
 
   const backHref = `/${appLocale}/supplier/products`;
 
   return (
-    <div className="flex flex-col gap-6">
-      <nav aria-label={t("breadcrumbLabel")} className="text-sm">
-        <Link href={backHref} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+    <div className="flex flex-col gap-2">
+      {/* THE TITLE AND THE WAY BACK, ON ONE ROW — «زر العودة في
+          إضافة منتج خلّه يسار موازيًا لكلمة إضافة منتج».
+
+          THE SAME ROW THE PRODUCT PAGE NOW HAS, so the two screens
+          are left and re-entered the same way. The form's own
+          «إلغاء» stays where it is at the foot of the last card:
+          that one abandons what has been typed and belongs beside
+          the button that saves it, while this one is simply the way
+          out of a page.
+
+          NO LINE UNDER IT. «ألغِ الشرح أسفل عناوين الصفحات والأقسام
+          والخيارات في كامل المنصه» — the catalogue still carries the
+          sentence, and the page does not print it. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <h1 className="text-lg font-semibold text-content">{t("new.title")}</h1>
+        <ButtonLink href={backHref} variant="ghost">
           {t("backToProducts")}
-        </Link>
-      </nav>
-
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("new.title")}</h1>
-        <p className="text-sm text-content-muted">{t("new.description")}</p>
-      </header>
-
-      {/* Said before the form, not after: what saving does and what it
-          does not do. */}
-      <div className="rounded-lg border border-line bg-surface p-4">
-        <h2 className="text-sm font-semibold text-content">{t("new.nextStepsTitle")}</h2>
-        <ol className="mt-2 flex list-decimal flex-col gap-1 ps-5 text-sm text-content-muted">
-          <li>{t("new.step1")}</li>
-          <li>{t("new.step2")}</li>
-          <li>{t("new.step3")}</li>
-        </ol>
+        </ButtonLink>
       </div>
 
-      {!taxonomy.ok || !salesUnits.ok ? (
+      {!taxonomy.ok ? (
         <ErrorState
           title={states("errorTitle")}
           description={states("errorDescription")}
-          requestId={referenceFailureRequestId(taxonomy, salesUnits)}
+          requestId={taxonomy.error.requestId}
           requestIdLabel={states("requestIdLabel")}
         />
       ) : (
-        <ProductForm
-          mode="create"
+        // NO BRANCHES AND NO POLICY BOUNDS ARE READ HERE. Both belong to
+        // an offer — where it ships from and how long it runs — and a
+        // page that fetched them would be paying for answers this form
+        // does not ask for.
+        <ListingForm
+          scope="product"
           locale={appLocale}
-          initialValues={EMPTY_PRODUCT_FORM}
           taxonomy={taxonomy.data}
-          salesUnits={salesUnits.data}
           backHref={backHref}
-          labels={await productFormLabels(appLocale)}
         />
       )}
     </div>

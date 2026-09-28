@@ -7,6 +7,7 @@ import { CheckoutSettingsService } from "../src/settings/checkout-settings.servi
 import { AuditService } from "../src/audit/audit.service";
 import { AdminOpportunitiesService } from "../src/admin/opportunities/admin-opportunities.service";
 import { AdminProductsService } from "../src/admin/products/admin-products.service";
+import { ProductsService } from "../src/products/products.service";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.fixture";
 
 const rawPrisma = checkoutFixturePrisma;
@@ -73,7 +74,7 @@ describe("Checkout lock release races and side effects (integration, real DB)", 
     await rawPrisma.opportunity.update({ where: { id: fixture.opportunityId }, data: { fundedQuantity: 17 } });
     const session = await createLockedSession(fixture, "cancel-release-key");
 
-    const adminOpportunities = new AdminOpportunitiesService(rawPrisma as unknown as PrismaService);
+    const adminOpportunities = new AdminOpportunitiesService(rawPrisma as unknown as PrismaService, {} as never);
     await adminOpportunities.cancel(fixture.opportunityId, "test cancellation", { actorId: crypto.randomUUID(), requestId: "req-cancel" });
 
     const row = await rawPrisma.checkoutSession.findUniqueOrThrow({ where: { id: session.id } });
@@ -103,7 +104,14 @@ describe("Checkout lock release races and side effects (integration, real DB)", 
     const session = await createLockedSession(fixture, "close-release-key");
 
     const productId = (await rawPrisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } })).productId;
-    const adminProducts = new AdminProductsService(rawPrisma as unknown as PrismaService, new AuditService(rawPrisma as unknown as PrismaService));
+    const adminProducts = new AdminProductsService(
+      rawPrisma as unknown as PrismaService,
+      new AuditService(rawPrisma as unknown as PrismaService),
+      new ProductsService(
+        rawPrisma as unknown as PrismaService,
+        new AuditService(rawPrisma as unknown as PrismaService)
+      )
+    );
     await adminProducts.close(productId, "test product close", crypto.randomUUID(), { requestId: "req-close" });
 
     const row = await rawPrisma.checkoutSession.findUniqueOrThrow({ where: { id: session.id } });

@@ -37,25 +37,9 @@ export class CreateBannerDto {
   @IsEnum(BannerPlacementDto)
   placement!: BannerPlacementDto;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(TITLE_MAX)
-  titleAr!: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(TITLE_MAX)
-  titleEn!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(BODY_MAX)
-  bodyAr?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(BODY_MAX)
-  bodyEn?: string | null;
+  // NO TITLE AND NO BODY. A banner is artwork; every word a visitor
+  // reads is drawn inside the image, so there is nothing here for an
+  // operator to write and nothing to render.
 
   @IsOptional()
   @IsString()

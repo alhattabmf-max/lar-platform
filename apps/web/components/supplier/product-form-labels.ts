@@ -25,12 +25,6 @@ export async function productFormLabels(locale: AppLocale): Promise<ProductFormL
       packaging: t("sections.packaging"),
       dimensions: t("sections.dimensions"),
     },
-    sectionHints: {
-      identity: t("sectionHints.identity"),
-      classification: t("sectionHints.classification"),
-      packaging: t("sectionHints.packaging"),
-      dimensions: t("sectionHints.dimensions"),
-    },
     fields: {
       taxonomyNodeId: t("fields.taxonomyNodeId"),
       salesUnitId: t("fields.salesUnitId"),
@@ -47,11 +41,6 @@ export async function productFormLabels(locale: AppLocale): Promise<ProductFormL
       packageContentQuantity: t("fields.packageContentQuantity"),
       packageContentUnitNameAr: t("fields.packageContentUnitNameAr"),
       packageContentUnitNameEn: t("fields.packageContentUnitNameEn"),
-    },
-    hints: {
-      salesUnitId: t("hints.salesUnitId"),
-      packageGroup: t("hints.packageGroup"),
-      snapshotNames: t("hints.snapshotNames"),
     },
     placeholderTaxonomy: t("placeholderTaxonomy"),
     placeholderSalesUnit: t("placeholderSalesUnit"),

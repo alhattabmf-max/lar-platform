@@ -1,37 +1,47 @@
-import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
+import {
+  createScratchDatabase,
+  dropScratchDatabase,
+  migrateInto,
+  scratchUrl,
+} from "./scratch-database";
 import type { PrismaService } from "../src/database/prisma.service";
 import { CheckoutSessionService } from "../src/checkout/checkout-session.service";
 import { ShippingTariffPolicyService } from "../src/settings/shipping-tariff-policy.service";
 import { CheckoutSettingsService } from "../src/settings/checkout-settings.service";
 import { AuditService } from "../src/audit/audit.service";
+import { uniqueMobile } from "./fixtures/unique";
 
 const ISOLATED_DB = "platform_checkout_no_tariff_test";
-const ISOLATED_URL = `postgresql://platform:platform@localhost:5432/${ISOLATED_DB}?schema=public`;
+
+/**
+ * Built from `DATABASE_URL`, not written out here.
+ *
+ * The literal this replaces pinned host, port and credentials, so the
+ * suite ignored the very redirection that keeps tests off the
+ * development database.
+ */
+const ISOLATED_URL = scratchUrl(ISOLATED_DB);
 
 describe("Checkout without any configured shipping tariff — isolated empty DB (integration, real Postgres)", () => {
   let prisma: PrismaClient;
 
-  beforeAll(() => {
-    execSync(`PGPASSWORD=platform psql -h localhost -U platform -d postgres -c "DROP DATABASE IF EXISTS ${ISOLATED_DB};"`, {
-      stdio: "pipe",
-    });
-    execSync(`PGPASSWORD=platform psql -h localhost -U platform -d postgres -c "CREATE DATABASE ${ISOLATED_DB} OWNER platform;"`, {
-      stdio: "pipe",
-    });
-    execSync(`DATABASE_URL="${ISOLATED_URL}" npx prisma migrate deploy`, {
-      cwd: `${__dirname}/..`,
-      stdio: "pipe",
-    });
+  // NO SHELL, NO `psql`. Both were why this suite could not run on
+  // this project's own machine: `execSync` uses `cmd.exe` on Windows,
+  // which has no `VAR=value command` form, and there is no Postgres
+  // client on the host at all — the server runs in a container.
+  // `CREATE DATABASE` is an ordinary statement, so it goes over the
+  // connection every other test already uses.
+  beforeAll(async () => {
+    await createScratchDatabase(ISOLATED_DB);
+    migrateInto(ISOLATED_URL, { cwd: `${__dirname}/..` });
     prisma = new PrismaClient({ datasources: { db: { url: ISOLATED_URL } } });
-  }, 60_000);
+  }, 120_000);
 
   afterAll(async () => {
-    await prisma.$disconnect();
-    execSync(`PGPASSWORD=platform psql -h localhost -U platform -d postgres -c "DROP DATABASE IF EXISTS ${ISOLATED_DB};"`, {
-      stdio: "pipe",
-    });
-  });
+    await prisma?.$disconnect();
+    await dropScratchDatabase(ISOLATED_DB);
+  }, 60_000);
 
   it("no shipping_tariff_policy_versions row exists on a fresh migrate-deploy install", async () => {
     const count = await prisma.shippingTariffPolicyVersion.count();
@@ -50,8 +60,8 @@ describe("Checkout without any configured shipping tariff — isolated empty DB 
         companyId: trader.id,
         email: `notariff-${Date.now()}@example.com`,
         passwordHash: "x",
-        primaryMobile1: "+966500000001",
-        primaryMobile2: "+966500000002",
+        primaryMobile1: uniqueMobile(),
+        primaryMobile2: uniqueMobile(),
         emailVerificationStatus: "VERIFIED",
       },
     });
@@ -79,6 +89,7 @@ describe("Checkout without any configured shipping tariff — isolated empty DB 
     const supplierLoc = await prisma.companyLocation.create({
       data: {
         companyId: supplier.id,
+        regionId: region.id,
         cityId: city.id,
         name: "s-loc",
         shortAddress: "a",
@@ -92,6 +103,7 @@ describe("Checkout without any configured shipping tariff — isolated empty DB 
     const traderLoc = await prisma.companyLocation.create({
       data: {
         companyId: trader.id,
+        regionId: region.id,
         cityId: city.id,
         name: "t-loc",
         shortAddress: "a",

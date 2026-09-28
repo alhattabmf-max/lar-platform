@@ -4,8 +4,9 @@ const VALID_CONFIG = {
   minDurationHours: 24,
   maxDurationDays: 30,
   minTargetQuantity: 1,
-  maxTargetQuantity: 1_000_000,
+  maxTargetQuantity: 100_000_000,
   showScheduledPubliclyEnabled: false,
+  extensionDays: 3,
 };
 
 const DEFAULT_CONFIG = VALID_CONFIG;
@@ -37,6 +38,40 @@ describe("OpportunitySettingsService", () => {
       const findUnique = jest.fn().mockResolvedValue({ value: stored });
       const service = new OpportunitySettingsService(fakePrisma({ findUnique }), auditStub);
       await expect(service.getConfig()).resolves.toEqual(stored);
+    });
+
+    /**
+     * A ROW WRITTEN BEFORE THE FIELD EXISTED still reads.
+     *
+     * `extensionDays` arrived after this setting had shipped, so a
+     * platform that had configured its commercial bounds carries a row
+     * with the other five fields and not this one. Refusing that row —
+     * which is what every other missing field does here, deliberately —
+     * would take the whole listings surface down on deploy, because
+     * `getConfig` throws rather than degrading.
+     *
+     * Three is not a guess: it is the number that was written into the
+     * extension's SQL for the entire life of any such row.
+     */
+    it("reads a row saved before extensionDays existed, as the value that was in force", async () => {
+      const legacy = { ...VALID_CONFIG } as Record<string, unknown>;
+      delete legacy.extensionDays;
+      const findUnique = jest.fn().mockResolvedValue({ value: legacy });
+      const service = new OpportunitySettingsService(fakePrisma({ findUnique }), auditStub);
+
+      await expect(service.getConfig()).resolves.toEqual({
+        ...VALID_CONFIG,
+        extensionDays: 3,
+      });
+    });
+
+    it("still refuses an extensionDays that is present and out of bounds", async () => {
+      const findUnique = jest
+        .fn()
+        .mockResolvedValue({ value: { ...VALID_CONFIG, extensionDays: 0 } });
+      const service = new OpportunitySettingsService(fakePrisma({ findUnique }), auditStub);
+
+      await expect(service.getConfig()).rejects.toThrow(/malformed value/);
     });
   });
 
@@ -88,8 +123,10 @@ describe("OpportunitySettingsService", () => {
 
     it("rejects maxTargetQuantity above its bound", async () => {
       const service = new OpportunitySettingsService(fakePrisma(), auditStub);
+      // The ceiling moved with the default: a hundred million is the
+      // most an administrator may set, and one more is refused.
       await expect(
-        service.setConfig({ ...VALID_CONFIG, maxTargetQuantity: 10_000_001 }, ctx)
+        service.setConfig({ ...VALID_CONFIG, maxTargetQuantity: 100_000_001 }, ctx)
       ).rejects.toMatchObject({ response: expect.objectContaining({ code: "VALIDATION_FAILED" }) });
     });
 
@@ -98,6 +135,27 @@ describe("OpportunitySettingsService", () => {
       await expect(
         service.setConfig({ ...VALID_CONFIG, minTargetQuantity: 100, maxTargetQuantity: 50 }, ctx)
       ).rejects.toMatchObject({ response: expect.objectContaining({ code: "VALIDATION_FAILED" }) });
+    });
+
+    it("rejects an extension of zero days — that is not an extension", async () => {
+      const service = new OpportunitySettingsService(fakePrisma(), auditStub);
+      await expect(
+        service.setConfig({ ...VALID_CONFIG, extensionDays: 0 }, ctx)
+      ).rejects.toMatchObject({ response: expect.objectContaining({ code: "VALIDATION_FAILED" }) });
+    });
+
+    it("rejects an extension longer than the longest listing anyone may create", async () => {
+      const service = new OpportunitySettingsService(fakePrisma(), auditStub);
+      await expect(
+        service.setConfig({ ...VALID_CONFIG, extensionDays: 31 }, ctx)
+      ).rejects.toMatchObject({ response: expect.objectContaining({ code: "VALIDATION_FAILED" }) });
+    });
+
+    it("accepts an extension anywhere inside the bound", async () => {
+      const upsert = jest.fn().mockResolvedValue({});
+      const service = new OpportunitySettingsService(fakePrisma({ upsert }), auditStub);
+      await service.setConfig({ ...VALID_CONFIG, extensionDays: 14 }, ctx);
+      expect(upsert).toHaveBeenCalled();
     });
 
     it("rejects a duration window too narrow for the minimum duration (maxDurationDays*24 < minDurationHours)", async () => {
@@ -117,6 +175,7 @@ describe("OpportunitySettingsService", () => {
           minTargetQuantity: 1,
           maxTargetQuantity: 10_000_000,
           showScheduledPubliclyEnabled: true,
+          extensionDays: 1,
         },
         ctx
       );

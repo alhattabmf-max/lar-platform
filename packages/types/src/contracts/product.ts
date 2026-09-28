@@ -67,6 +67,30 @@ export interface ProductSummary {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * WHAT A CATALOGUE CARD DRAWS BESIDE THE NAME.
+   *
+   * These were on the DETAIL alone, and the supplier catalogue drew all
+   * of them — so the page listed the products and then fetched the
+   * detail of every one, a request per row. A supplier with five hundred
+   * products opened one screen with five hundred and two requests.
+   *
+   * They are columns of the product itself, so carrying them on the
+   * summary joins nothing and costs the list nothing. `ProductDetail`
+   * inherits them rather than repeating them.
+   */
+  descriptionAr: string | null;
+  descriptionEn: string | null;
+  /** Decimal string at scale 3. Not money. */
+  weightPerUnit: string;
+  /** Decimal strings at scale 2. Not money. */
+  lengthCm: string;
+  widthCm: string;
+  heightCm: string;
+  /** Decimal string at scale 3, or null when the unit is not divisible. */
+  packageContentQuantity: string | null;
+  packageContentUnitNameAr: string | null;
+  packageContentUnitNameEn: string | null;
 }
 
 export const PRODUCT_SUMMARY_KEYS = [
@@ -82,6 +106,15 @@ export const PRODUCT_SUMMARY_KEYS = [
   "archivedAt",
   "createdAt",
   "updatedAt",
+  "descriptionAr",
+  "descriptionEn",
+  "weightPerUnit",
+  "lengthCm",
+  "widthCm",
+  "heightCm",
+  "packageContentQuantity",
+  "packageContentUnitNameAr",
+  "packageContentUnitNameEn",
 ] as const satisfies readonly (keyof ProductSummary)[];
 
 /**
@@ -100,8 +133,6 @@ export const PRODUCT_SUMMARY_KEYS = [
  * a product has no use for them.
  */
 export interface ProductDetail extends ProductSummary {
-  descriptionAr: string | null;
-  descriptionEn: string | null;
   taxonomyNodeId: string;
   /**
    * The SOFT sales-unit reference, or null.
@@ -115,16 +146,6 @@ export interface ProductDetail extends ProductSummary {
    * autocomplete source, and null is a perfectly normal value.
    */
   salesUnitId: string | null;
-  /** Decimal string at scale 3. Not money. */
-  weightPerUnit: string;
-  /** Decimal strings at scale 2. Not money. */
-  lengthCm: string;
-  widthCm: string;
-  heightCm: string;
-  /** Decimal string at scale 3, or null when the unit is not divisible. */
-  packageContentQuantity: string | null;
-  packageContentUnitNameAr: string | null;
-  packageContentUnitNameEn: string | null;
   /** Every image in display order, each with its own delivery paths. */
   media: ProductMediaView[];
 }
@@ -186,16 +207,29 @@ export function productMediaImagePath(
 
 export const PRODUCT_DETAIL_KEYS = [
   ...PRODUCT_SUMMARY_KEYS,
-  "descriptionAr",
-  "descriptionEn",
   "taxonomyNodeId",
   "salesUnitId",
-  "weightPerUnit",
-  "lengthCm",
-  "widthCm",
-  "heightCm",
-  "packageContentQuantity",
-  "packageContentUnitNameAr",
-  "packageContentUnitNameEn",
   "media",
 ] as const satisfies readonly (keyof ProductDetail)[];
+
+/**
+ * The same image, addressed from the admin console.
+ *
+ * A SECOND PATH FOR THE SAME BYTES, and it has to be: the supplier's
+ * route is `companies/me/...`, and «me» there is the SESSION'S company.
+ * An administrator has no company, so that route can never serve them —
+ * it would 404 on every image on the platform. The admin route resolves
+ * the media by its own two ids behind the admin session guard.
+ *
+ * Neither path is proof of anything. Each re-checks, in its own query,
+ * that the media belongs to this product — and the admin one additionally
+ * that the caller holds an admin session. A guessed path answers 404.
+ */
+export function adminProductMediaImagePath(
+  productId: string,
+  mediaId: string,
+  variant: "main" | "thumb" = "main"
+): string {
+  const base = `/api/v1/admin/products/${productId}/media/${mediaId}/image`;
+  return variant === "thumb" ? `${base}?variant=thumb` : base;
+}

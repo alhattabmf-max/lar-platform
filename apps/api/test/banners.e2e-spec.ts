@@ -37,12 +37,12 @@ const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
 const ORIGIN = "http://localhost:3001";
 
 const ADMIN_BANNER_MUTATIONS: Array<[string, string, object]> = [
-  ["post", "/api/v1/admin/banners", { placement: "PUBLIC_HOME", titleAr: "ع", titleEn: "e" }],
-  ["patch", "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111", { titleEn: "x" }],
+  ["post", "/api/v1/admin/banners", { placement: "PUBLIC_HOME" }],
+  ["patch", "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111", { linkUrl: "/x" }],
   ["post", "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/schedule", {}],
   ["post", "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/toggle", { isActive: true }],
   ["post", "/api/v1/admin/banners/reorder", { placement: "PUBLIC_HOME", bannerIds: [] }],
-  ["delete", "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/image", {}],
+  ["delete", "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/image?locale=ar-SA", {}],
 ];
 
 async function resetThrottleCounters(): Promise<void> {
@@ -108,7 +108,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
 
     it("refuses the admin image preview with 401", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/image"
+        "/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/image?locale=ar-SA"
       );
       expect(res.status).toBe(401);
     });
@@ -124,7 +124,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
 
     it("refuses the image upload with 401", async () => {
       const res = await request(app.getHttpServer())
-        .post("/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/image")
+        .post("/api/v1/admin/banners/11111111-1111-1111-1111-111111111111/image?locale=ar-SA")
         .set("Origin", ORIGIN)
         .attach("file", Buffer.from("x"), "x.jpg");
 
@@ -170,7 +170,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const res = await adminAgent
         .post("/api/v1/admin/banners")
         .set("Origin", "https://attacker.example.com")
-        .send({ placement: "PUBLIC_HOME", titleAr: "ع", titleEn: "e" });
+        .send({ placement: "PUBLIC_HOME" });
 
       expect(res.status).toBe(403);
     });
@@ -191,46 +191,48 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
   describe("public banner list", () => {
     it("requires no session", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/banners?placement=PUBLIC_HOME"
+        "/api/v1/banners?placement=PUBLIC_HOME&locale=ar-SA"
       );
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
     });
 
     it("rejects a missing placement with 400", async () => {
-      const res = await request(app.getHttpServer()).get("/api/v1/banners");
+      const res = await request(app.getHttpServer()).get("/api/v1/banners?locale=ar-SA");
       expect(res.status).toBe(400);
     });
 
     it("returns only LIVE banners, never DRAFT, SCHEDULED or EXPIRED", async () => {
       const admin = "22222222-2222-2222-2222-222222222222";
-      const base = { placement: "PUBLIC_HOME" as const, createdByAdminUserId: admin, titleEn: "e" };
+      const base = { placement: "PUBLIC_HOME" as const, createdByAdminUserId: admin };
 
       await prisma.promotionalBanner.createMany({
         data: [
-          { ...base, titleAr: "draft", isActive: false },
+          { ...base, linkUrl: "/draft", isActive: false },
           {
             ...base,
-            titleAr: "scheduled",
+            linkUrl: "/scheduled",
             isActive: true,
             startsAt: new Date(Date.now() + 3_600_000),
           },
           {
             ...base,
-            titleAr: "expired",
+            linkUrl: "/expired",
             isActive: true,
             endsAt: new Date(Date.now() - 3_600_000),
           },
-          { ...base, titleAr: "live", isActive: true },
+          { ...base, linkUrl: "/live", isActive: true },
         ],
       });
 
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/banners?placement=PUBLIC_HOME"
+        "/api/v1/banners?placement=PUBLIC_HOME&locale=ar-SA"
       );
 
       expect(res.status).toBe(200);
-      expect(res.body.map((b: { titleAr: string }) => b.titleAr)).toEqual(["live"]);
+      // Banners have no text at all now, so the LINK is what distinguishes
+      // one fixture from another.
+      expect(res.body.map((b: { linkUrl: string }) => b.linkUrl)).toEqual(["/live"]);
     });
 
     it("treats startsAt exactly now as LIVE and endsAt exactly now as not LIVE", async () => {
@@ -240,11 +242,11 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const base = { placement: "PUBLIC_HOME" as const, createdByAdminUserId: admin, titleEn: "e" };
 
       await prisma.promotionalBanner.create({
-        data: { ...base, titleAr: "just-ended", isActive: true, endsAt: new Date() },
+        data: { ...base, linkUrl: "/just-ended", isActive: true, endsAt: new Date() },
       });
 
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/banners?placement=PUBLIC_HOME"
+        "/api/v1/banners?placement=PUBLIC_HOME&locale=ar-SA"
       );
 
       expect(res.body).toHaveLength(0);
@@ -252,7 +254,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
 
     it("never exposes an object key", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/banners?placement=PUBLIC_HOME"
+        "/api/v1/banners?placement=PUBLIC_HOME&locale=ar-SA"
       );
 
       const serialised = JSON.stringify(res.body);
@@ -269,7 +271,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
   describe("public image route", () => {
     it("needs no session, and 404s for an unknown banner", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/banners/11111111-1111-1111-1111-111111111111/image"
+        "/api/v1/banners/11111111-1111-1111-1111-111111111111/image?locale=ar-SA"
       );
       expect(res.status).toBe(404);
     });
@@ -278,18 +280,16 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const banner = await prisma.promotionalBanner.create({
         data: {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
           isActive: false,
           createdByAdminUserId: "22222222-2222-2222-2222-222222222222",
         },
       });
 
       const draft = await request(app.getHttpServer()).get(
-        `/api/v1/banners/${banner.id}/image`
+        `/api/v1/banners/${banner.id}/image?locale=ar-SA`
       );
       const unknown = await request(app.getHttpServer()).get(
-        "/api/v1/banners/33333333-3333-3333-3333-333333333333/image"
+        "/api/v1/banners/33333333-3333-3333-3333-333333333333/image?locale=ar-SA"
       );
 
       expect(draft.status).toBe(404);
@@ -301,7 +301,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       "rejects variant=%s with 400 rather than falling back to main",
       async (variant) => {
         const res = await request(app.getHttpServer()).get(
-          `/api/v1/banners/11111111-1111-1111-1111-111111111111/image?variant=${encodeURIComponent(variant)}`
+          `/api/v1/banners/11111111-1111-1111-1111-111111111111/image?locale=ar-SA&variant=${encodeURIComponent(variant)}`
         );
         expect(res.status).toBe(400);
       }
@@ -309,7 +309,7 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
 
     it("rejects a repeated variant parameter with 400", async () => {
       const res = await request(app.getHttpServer()).get(
-        "/api/v1/banners/11111111-1111-1111-1111-111111111111/image?variant=main&variant=thumb"
+        "/api/v1/banners/11111111-1111-1111-1111-111111111111/image?locale=ar-SA&variant=main&variant=thumb"
       );
       expect(res.status).toBe(400);
     });
@@ -320,27 +320,25 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const banner = await prisma.promotionalBanner.create({
         data: {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
           isActive: false,
           createdByAdminUserId: "22222222-2222-2222-2222-222222222222",
         },
       });
 
       const upload = await adminAgent
-        .post(`/api/v1/admin/banners/${banner.id}/image`)
+        .post(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`)
         .set("Origin", ORIGIN)
         .attach("file", jpegFixture(), "banner.jpg");
       expect(upload.status).toBe(201);
 
       // Public refuses it — the banner is not live.
       const publicRes = await request(app.getHttpServer()).get(
-        `/api/v1/banners/${banner.id}/image`
+        `/api/v1/banners/${banner.id}/image?locale=ar-SA`
       );
       expect(publicRes.status).toBe(404);
 
       // Admin sees it.
-      const adminRes = await adminAgent.get(`/api/v1/admin/banners/${banner.id}/image`);
+      const adminRes = await adminAgent.get(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`);
       expect(adminRes.status).toBe(200);
       expect(adminRes.headers["content-type"]).toContain("image/");
       expect(adminRes.headers.etag).toMatch(/^"[0-9a-f]{64}"$/);
@@ -351,20 +349,18 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const banner = await prisma.promotionalBanner.create({
         data: {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
           isActive: false,
           createdByAdminUserId: "22222222-2222-2222-2222-222222222222",
         },
       });
       await adminAgent
-        .post(`/api/v1/admin/banners/${banner.id}/image`)
+        .post(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`)
         .set("Origin", ORIGIN)
         .attach("file", jpegFixture(), "banner.jpg");
 
-      const first = await adminAgent.get(`/api/v1/admin/banners/${banner.id}/image`);
+      const first = await adminAgent.get(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`);
       const second = await adminAgent
-        .get(`/api/v1/admin/banners/${banner.id}/image`)
+        .get(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`)
         .set("If-None-Match", first.headers.etag);
 
       expect(second.status).toBe(304);
@@ -375,20 +371,18 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const banner = await prisma.promotionalBanner.create({
         data: {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
           isActive: false,
           createdByAdminUserId: "22222222-2222-2222-2222-222222222222",
         },
       });
       await adminAgent
-        .post(`/api/v1/admin/banners/${banner.id}/image`)
+        .post(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`)
         .set("Origin", ORIGIN)
         .attach("file", jpegFixture(), "banner.jpg");
 
-      const main = await adminAgent.get(`/api/v1/admin/banners/${banner.id}/image`);
+      const main = await adminAgent.get(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`);
       const thumb = await adminAgent.get(
-        `/api/v1/admin/banners/${banner.id}/image?variant=thumb`
+        `/api/v1/admin/banners/${banner.id}/image?locale=ar-SA&variant=thumb`
       );
 
       expect(main.headers.etag).not.toBe(thumb.headers.etag);
@@ -398,15 +392,13 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const banner = await prisma.promotionalBanner.create({
         data: {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
           isActive: false,
           createdByAdminUserId: "22222222-2222-2222-2222-222222222222",
         },
       });
 
       const res = await adminAgent
-        .post(`/api/v1/admin/banners/${banner.id}/image`)
+        .post(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`)
         .set("Origin", ORIGIN)
         .attach("file", Buffer.from('<svg onload="alert(1)"></svg>'), "x.svg");
 
@@ -417,15 +409,13 @@ describe("Banners (e2e) — WRITTEN, NOT EXECUTED", () => {
       const banner = await prisma.promotionalBanner.create({
         data: {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
           isActive: false,
           createdByAdminUserId: "22222222-2222-2222-2222-222222222222",
         },
       });
 
       const res = await adminAgent
-        .post(`/api/v1/admin/banners/${banner.id}/image`)
+        .post(`/api/v1/admin/banners/${banner.id}/image?locale=ar-SA`)
         .set("Origin", ORIGIN)
         .attach("file", Buffer.from("not an image at all"), "looks-real.jpg");
 

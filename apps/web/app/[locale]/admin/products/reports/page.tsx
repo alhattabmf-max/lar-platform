@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
@@ -7,7 +8,7 @@ import { formatDate, formatDateTime } from "@/lib/localized";
 import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
-import { AdminFilters } from "@/components/admin/admin-filters";
+import { ListToolbar } from "@/components/admin/list-toolbar";
 import { AdminAction } from "@/components/admin/admin-action";
 import { firstParam } from "@/components/admin/admin-pagination";
 
@@ -28,7 +29,29 @@ import { firstParam } from "@/components/admin/admin-pagination";
  * storage key is not on the contract and is selected by no query behind
  * this screen.
  */
-const REPORT_STATUSES = ["OPEN", "CLARIFICATION_REQUESTED", "DISMISSED", "RESOLVED"] as const;
+const REPORT_STATUSES = [
+  "OPEN",
+  "CLARIFICATION_REQUESTED",
+  "DISMISSED",
+  "RESOLVED",
+] as const;
+
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.reports",
+  });
+  return { title: t("title") };
+}
 
 export default async function AdminProductReportsPage({
   params,
@@ -41,32 +64,50 @@ export default async function AdminProductReportsPage({
   const appLocale = locale as AppLocale;
   await requireAdminOrRedirect(appLocale);
 
-  const t = await getTranslations({ locale: appLocale, namespace: "admin.reports" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
-  const filters = await getTranslations({ locale: appLocale, namespace: "admin.filters" });
-  const vocab = await getTranslations({ locale: appLocale, namespace: "admin.vocab" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.reports",
+  });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
+  const filters = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.filters",
+  });
+  const toolbar = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.toolbar",
+  });
+  const vocab = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.vocab",
+  });
 
   const status = firstParam(query.status);
-  const basePath = `/${appLocale}/admin/products/reports`;
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
-      <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-content-muted">
-        {t("noAutoActionNotice")}
-      </p>
 
-      <AdminFilters
-        action={basePath}
+      <ListToolbar
+        searchable={false}
+        labels={{
+          regionLabel: toolbar("regionLabel"),
+          openLabel: filters("search"),
+          searchLabel: filters("search"),
+          searchPlaceholder: toolbar("searchPlaceholder"),
+          filtersPanelLabel: toolbar("filtersPanelLabel"),
+          reset: toolbar("reset"),
+        }}
         selects={[
           {
             name: "status",
             label: t("status"),
-            value: status,
             options: [
               { value: "", label: filters("any") },
               ...REPORT_STATUSES.map((value) => ({
@@ -76,11 +117,6 @@ export default async function AdminProductReportsPage({
             ],
           },
         ]}
-        labels={{
-          regionLabel: filters("regionLabel"),
-          apply: filters("apply"),
-          clear: filters("clear"),
-        }}
       />
 
       <Suspense
@@ -93,7 +129,13 @@ export default async function AdminProductReportsPage({
   );
 }
 
-async function Reports({ locale, status }: { locale: AppLocale; status?: string }) {
+async function Reports({
+  locale,
+  status,
+}: {
+  locale: AppLocale;
+  status?: string;
+}) {
   const t = await getTranslations({ locale, namespace: "admin.reports" });
   const vocab = await getTranslations({ locale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale, namespace: "states" });
@@ -113,7 +155,9 @@ async function Reports({ locale, status }: { locale: AppLocale; status?: string 
   }
 
   if (result.data.length === 0) {
-    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
+    return (
+      <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+    );
   }
 
   const actionLabels = {
@@ -162,7 +206,10 @@ async function Reports({ locale, status }: { locale: AppLocale; status?: string 
                     <span className="text-sm text-content-muted">
                       {vocab(`reportReason.${report.reasonCode}`)}
                     </span>
-                    <time dateTime={report.createdAt} className="text-sm text-content-muted">
+                    <time
+                      dateTime={report.createdAt}
+                      className="text-sm text-content-muted"
+                    >
                       {formatDate(report.createdAt, locale)}
                     </time>
                   </div>
@@ -177,8 +224,12 @@ async function Reports({ locale, status }: { locale: AppLocale; status?: string 
                   {report.evidence.length > 0 ? (
                     <ul className="flex list-none flex-col gap-1">
                       {report.evidence.map((item) => (
-                        <li key={item.id} className="text-xs text-content-muted">
-                          {item.contentType} · {t("bytes", { size: item.sizeBytes })} ·{" "}
+                        <li
+                          key={item.id}
+                          className="text-xs text-content-muted"
+                        >
+                          {item.contentType} ·{" "}
+                          {t("bytes", { size: item.sizeBytes })} ·{" "}
                           <time dateTime={item.createdAt}>
                             {formatDateTime(item.createdAt, locale)}
                           </time>
@@ -186,12 +237,16 @@ async function Reports({ locale, status }: { locale: AppLocale; status?: string 
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-xs text-content-muted">{t("noEvidence")}</p>
+                    <p className="text-xs text-content-muted">
+                      {t("noEvidence")}
+                    </p>
                   )}
 
                   {report.adminDecisionNote ? (
                     <p className="rounded-md border border-line p-2 text-sm text-content">
-                      <span className="text-content-muted">{t("decisionNote")}: </span>
+                      <span className="text-content-muted">
+                        {t("decisionNote")}:{" "}
+                      </span>
                       {report.adminDecisionNote}
                     </p>
                   ) : null}
@@ -204,7 +259,10 @@ async function Reports({ locale, status }: { locale: AppLocale; status?: string 
                         <AdminAction
                           path={`/admin/products/reports/${report.id}/request-clarification`}
                           variant="secondary"
-                          reason={note(t("clarificationNote"), t("clarificationHint"))}
+                          reason={note(
+                            t("clarificationNote"),
+                            t("clarificationHint"),
+                          )}
                           labels={{
                             ...actionLabels,
                             action: t("requestClarification"),
@@ -233,7 +291,9 @@ async function Reports({ locale, status }: { locale: AppLocale; status?: string 
                       />
                     </div>
                   ) : (
-                    <p className="text-sm text-content-muted">{t("terminalNotice")}</p>
+                    <p className="text-sm text-content-muted">
+                      {t("terminalNotice")}
+                    </p>
                   )}
                 </div>
               </CardBody>

@@ -42,6 +42,7 @@ async function seedActiveOpportunity(): Promise<string> {
   const location = await prisma.companyLocation.create({
     data: {
       companyId: company.id,
+      regionId: region.id,
       cityId: city.id,
       name: "loc",
       shortAddress: "addr",
@@ -102,7 +103,7 @@ describe("AdminOpportunitiesService — concurrent pause (integration, real DB)"
 
   it("only one of two concurrent pause attempts on the same ACTIVE opportunity succeeds", async () => {
     const id = await seedActiveOpportunity();
-    const service = new AdminOpportunitiesService(prisma);
+    const service = new AdminOpportunitiesService(prisma, {} as never);
     const ctx = { actorId: crypto.randomUUID(), requestId: "req-concurrent" };
 
     const results = await Promise.allSettled([

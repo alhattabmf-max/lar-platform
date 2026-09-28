@@ -5,11 +5,16 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadTraderOrders } from "@/lib/trader-data";
 import { localized, formatDate } from "@/lib/localized";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatQuantity } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { ButtonLink } from "@/components/ui/button";
 import { StatusBadge } from "@/components/trader/status-badge";
 import { TraderPagination, parsePage } from "@/components/trader/trader-pagination";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.orders");
+
 
 /**
  * The trader's orders.
@@ -51,8 +56,11 @@ export default async function TraderOrdersPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
+        {/* THE TAB ABOVE IS THIS PAGE'S TITLE — «ألغِ التسمية المكررة مثل
+              ما سوّينا في صفحة المورد». The heading stays for the document
+              outline and for anyone reading by structure; a tab is a link
+              and can never stand in for one. */}
+          <h1 className="sr-only">{t("title")}</h1>
       </header>
 
       {!result.ok ? (
@@ -118,7 +126,6 @@ async function OrderList({
       {needsAttention.length > 0 ? (
         <section aria-label={t("needsAttention")} className="flex flex-col gap-3">
           <h2 className="text-base font-semibold text-warning-text">{t("needsAttention")}</h2>
-          <p className="text-sm text-content-muted">{t("needsAttentionDescription")}</p>
           <ul className="flex list-none flex-col gap-3">
             {needsAttention.map((order) => (
               <li key={order.id}>
@@ -154,7 +161,6 @@ async function OrderRow({ order, locale }: { order: OrderSummary; locale: AppLoc
   const statuses = await getTranslations({ locale, namespace: "trader.status" });
 
   const name = localized(locale, order.productNameAr, order.productNameEn);
-  const total = formatMoney(order.totalAmount, order.currency, locale);
   const paid = formatDate(order.paidAt, locale);
 
   return (
@@ -182,7 +188,14 @@ async function OrderRow({ order, locale }: { order: OrderSummary; locale: AppLoc
         <div className="flex gap-2">
           <dt className="text-content-muted">{t("total")}:</dt>
           <dd className="text-content">
-            {total ?? <span className="text-content-muted">{t("amountUnavailable")}</span>}
+            <Money
+              amount={order.totalAmount}
+              currency={order.currency}
+              locale={locale}
+              fallback={
+                <span className="text-content-muted">{t("amountUnavailable")}</span>
+              }
+            />
           </dd>
         </div>
         <div className="flex gap-2">

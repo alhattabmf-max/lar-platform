@@ -27,6 +27,7 @@ const SESSION: MeResponse = {
     accountType: "TRADER",
     verificationStatus: "VERIFIED",
   },
+  profile: { complete: true, missing: [] },
 };
 
 function withCookies(pairs: Array<{ name: string; value: string }>) {

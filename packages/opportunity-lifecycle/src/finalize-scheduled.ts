@@ -17,7 +17,16 @@ export async function finalizeOneScheduledOpportunity(tx: Tx, id: string): Promi
     where: { id },
     include: {
       product: { select: { approvalStatus: true, archivedAt: true } },
-      fulfillmentLocation: { select: { isActive: true, city: { select: { isActive: true } } } },
+      // The region decides; the city refines. Both are read because
+      // both are checked — the region always, the city only when the
+      // branch names one.
+      fulfillmentLocation: {
+        select: {
+          isActive: true,
+          region: { select: { isActive: true } },
+          city: { select: { isActive: true } },
+        },
+      },
       company: {
         select: {
           verificationStatus: true,

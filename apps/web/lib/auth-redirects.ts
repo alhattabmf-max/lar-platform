@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 import type { AppLocale } from "@/i18n/routing";
-import { ForbiddenRoleError, UnauthenticatedError, getSession, type PortalRole } from "./session";
+import {
+  ForbiddenRoleError,
+  UnauthenticatedError,
+  getSession,
+  type PortalRole,
+} from "./session";
+import { landingPathFor, loginPath, unauthorizedPath } from "./portal-paths";
 
 /**
  * Turns the session helpers' thrown outcomes into real navigations.
@@ -16,35 +22,12 @@ import { ForbiddenRoleError, UnauthenticatedError, getSession, type PortalRole }
  * best, since the page payload would already have been produced.
  */
 
-export function loginPath(locale: AppLocale, returnTo?: string): string {
-  const base = `/${locale}/login`;
-  if (!returnTo) return base;
-  // Only ever an internal path. An absolute URL here would make the
-  // login page an open redirect.
-  const safe = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
-  return `${base}?returnTo=${encodeURIComponent(safe)}`;
-}
-
-export function unauthorizedPath(locale: AppLocale): string {
-  return `/${locale}/unauthorized`;
-}
-
-export function portalPathFor(locale: AppLocale, role: PortalRole): string {
-  return role === "TRADER" ? `/${locale}/trader` : `/${locale}/supplier`;
-}
-
-/**
- * Requires ANY authenticated session. Redirects to login when absent.
- *
- * `redirect()` throws a Next control-flow signal, so nothing after this
- * call runs for an unauthenticated visitor — the page body is never
- * rendered, not merely hidden.
- */
-export async function requireSession(locale: AppLocale, returnTo?: string) {
-  const session = await getSession();
-  if (!session) redirect(loginPath(locale, returnTo));
-  return session;
-}
+export {
+  loginPath,
+  unauthorizedPath,
+  portalPathFor,
+  landingPathFor,
+} from "./portal-paths";
 
 /**
  * Requires a session belonging to `role`.
@@ -57,7 +40,7 @@ export async function requireSession(locale: AppLocale, returnTo?: string) {
 export async function requireRoleOrRedirect(
   locale: AppLocale,
   role: PortalRole,
-  returnTo?: string
+  returnTo?: string,
 ) {
   const session = await getSession();
   if (!session) redirect(loginPath(locale, returnTo));
@@ -66,17 +49,24 @@ export async function requireRoleOrRedirect(
     redirect(unauthorizedPath(locale));
   }
 
+  // AN INCOMPLETE RECORD BLOCKS NOTHING HERE. Signing in, reaching the
+  // dashboard, changing language and signing out are never withheld
+  // because a branch or a bank account is missing — the portal says
+  // what is missing and links to it. What an incomplete record closes
+  // is the commercial work that genuinely cannot be done without the
+  // data, and that is enforced where the work happens.
+
   return session;
 }
 
 /**
- * For the (auth) group: sends an already-signed-in visitor to their own
- * portal instead of showing them a login form.
+ * For the (auth) group: sends an already-signed-in visitor where they
+ * belong instead of showing them a login form.
  */
 export async function redirectIfAuthenticated(locale: AppLocale) {
   const session = await getSession();
   if (session) {
-    redirect(portalPathFor(locale, session.company.accountType as PortalRole));
+    redirect(landingPathFor(locale, session));
   }
 }
 

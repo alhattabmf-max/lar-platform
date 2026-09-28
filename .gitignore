@@ -9,6 +9,8 @@
 # Dependencies
 # ============================================================
 node_modules/
+.preview-tools/
+PREVIEW_URL.txt
 
 # ============================================================
 # Build output
@@ -65,3 +67,9 @@ generated/
 # NOTE: pnpm-lock.yaml is intentionally NOT ignored — it is
 # committed to guarantee reproducible installs.
 # ============================================================
+.backups/
+
+# Measurement scratch: perf scripts, logs and a TOTP secret. Never committed.
+apps/api/.perf/
+.claude/launch.json
+/apps/api/.tmp/

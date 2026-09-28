@@ -16,6 +16,7 @@ import { publishTestPolicy } from "./fixtures/policy.fixture";
 import { ensureTestCity } from "./fixtures/city.fixture";
 import { checkoutFixturePrisma, seedCheckoutFixture } from "./fixtures/checkout.fixture";
 import { ensureCommissionTaxPolicy, seedSupplierBilling } from "./fixtures/payment.fixture";
+import { uniqueMobile } from "./fixtures/unique";
 
 /**
  * STATUS: WRITTEN — NOT EXECUTED — STATUS UNKNOWN.
@@ -198,6 +199,8 @@ describe("full purchase journey (e2e, real HTTP)", () => {
       providerEventId: `evt-journey-${Date.now()}`,
       eventType: "SUCCESS",
       currency: attempt.body.currency,
+      // A SUCCESS carries the moment of capture; the webhook refuses one that does not.
+      providerCapturedAt: new Date(),
       providerCapturedAmount: Number(attempt.body.amount),
     });
 
@@ -326,8 +329,8 @@ describe("full purchase journey (e2e, real HTTP)", () => {
         companyId: fixture.traderCompanyId,
         email: `colleague-${Date.now()}@example.com`,
         passwordHash: "x",
-        primaryMobile1: "+966500000003",
-        primaryMobile2: "+966500000004",
+        primaryMobile1: uniqueMobile(),
+        primaryMobile2: uniqueMobile(),
       },
     });
 
@@ -390,6 +393,8 @@ describe("full purchase journey (e2e, real HTTP)", () => {
       providerEventId: `evt-redeliver-${Date.now()}`,
       eventType: "SUCCESS",
       currency: attempt.body.currency,
+      // A SUCCESS carries the moment of capture; the webhook refuses one that does not.
+      providerCapturedAt: new Date(),
       providerCapturedAmount: Number(attempt.body.amount),
     });
 

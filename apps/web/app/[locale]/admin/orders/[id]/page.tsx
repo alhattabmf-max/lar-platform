@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminOrder, loadOrderInvoiceDrafts } from "@/lib/admin-data";
 import { formatDate, formatDateTime } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ErrorState } from "@/components/ui/states";
 import { StatusBadge, allocationTone } from "@/components/trader/status-badge";
 import { AdminAction } from "@/components/admin/admin-action";
+import { InvoiceDraftsPanel } from "@/components/admin/invoice-drafts-panel";
 import { SettleAllocationForm } from "@/components/admin/order-allocation-actions";
 
 /**
@@ -29,6 +30,23 @@ import { SettleAllocationForm } from "@/components/admin/order-allocation-action
  * is what the operator sees on a second press — better than hiding a
  * control that may well be the right one.
  */
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.orders",
+  });
+  return { title: t("detailTitle") };
+}
+
 export default async function AdminOrderDetailPage({
   params,
 }: {
@@ -72,6 +90,25 @@ export default async function AdminOrderDetailPage({
     requestIdLabel: states("requestIdLabel"),
   };
 
+  const adjustmentLabels = {
+    open: t("adjustmentOpen"),
+    legend: t("adjustmentLegend"),
+    amount: t("adjustmentAmount"),
+    currencySuffix: currency,
+    sourceDescription: t("adjustmentDescription"),
+    sourceReferenceId: t("adjustmentReference"),
+    sourceReferenceOptional: t("adjustmentReferenceOptional"),
+    submit: t("adjustmentSubmit"),
+    cancel: actions("cancel"),
+    working: actions("working"),
+    saved: t("adjustmentSaved"),
+    required: actions("required"),
+    errorTitle: states("errorTitle"),
+    requestIdLabel: states("requestIdLabel"),
+    errorAmount: t("adjustmentErrorAmount"),
+    errorDescription: t("adjustmentErrorDescription"),
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -99,13 +136,13 @@ export default async function AdminOrderDetailPage({
             <div className="flex flex-wrap gap-2">
               <dt className="text-content-muted">{t("totalAmount")}</dt>
               <dd className="text-content">
-                {formatMoney(order.totalAmount, currency, appLocale) ?? "—"}
+                <Money amount={order.totalAmount} currency={currency} locale={appLocale} fallback={<span className="text-content-muted">—</span>} />
               </dd>
             </div>
             <div className="flex flex-wrap gap-2">
               <dt className="text-content-muted">{t("supplierPayable")}</dt>
               <dd className="text-content">
-                {formatMoney(order.supplierPayableAmount, currency, appLocale) ?? "—"}
+                <Money amount={order.supplierPayableAmount} currency={currency} locale={appLocale} fallback={<span className="text-content-muted">—</span>} />
               </dd>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -211,36 +248,39 @@ export default async function AdminOrderDetailPage({
             ) : invoices.data.length === 0 ? (
               <p className="text-sm text-content-muted">{t("noInvoices")}</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table caption={t("invoicesCaption")}>
-                  <THead>
-                    <TR>
-                      <TH>{t("documentType")}</TH>
-                      <TH>{t("documentReference")}</TH>
-                      <TH>{t("amount")}</TH>
-                      <TH>{t("issuedAt")}</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {invoices.data.map((document) => (
-                      <TR key={document.id}>
-                        <TD>{vocab(`invoiceDocumentType.${document.documentType}`)}</TD>
-                        <TD className="break-all font-mono text-xs">
-                          {document.internalDocumentReference}
-                        </TD>
-                        <TD>
-                          {formatMoney(document.amount, document.currency, appLocale) ?? "—"}
-                        </TD>
-                        <TD>
-                          <time dateTime={document.issuedAt}>
-                            {formatDate(document.issuedAt, appLocale)}
-                          </time>
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
-              </div>
+              // THE TABLE AND THE CORRECTION PATH IT NEVER HAD. The
+              // adjustment form is NOT a sixth column: a table cell is
+              // sized by the table's layout, and a three-field form put
+              // in one rendered eighty-one pixels wide. The row carries
+              // a button; the form opens under the table.
+              <InvoiceDraftsPanel
+                rows={invoices.data.map((document) => ({
+                  id: document.id,
+                  documentType: vocab(`invoiceDocumentType.${document.documentType}`),
+                  internalDocumentReference: document.internalDocumentReference,
+                  amount:
+                    (
+                      <Money
+                        amount={document.amount}
+                        currency={document.currency}
+                        locale={appLocale}
+                        fallback={<span className="text-content-muted">—</span>}
+                      />
+                    ),
+                  issuedAt: document.issuedAt,
+                  issuedAtLabel: formatDate(document.issuedAt, appLocale) ?? "—",
+                }))}
+                labels={{
+                  caption: t("invoicesCaption"),
+                  documentType: t("documentType"),
+                  documentReference: t("documentReference"),
+                  amount: t("amount"),
+                  issuedAt: t("issuedAt"),
+                  adjustmentColumn: t("adjustmentColumn"),
+                  adjustmentOpen: t("adjustmentOpen"),
+                }}
+                adjustmentLabels={adjustmentLabels}
+              />
             )}
 
             <div className="flex flex-wrap gap-2">
@@ -266,6 +306,35 @@ export default async function AdminOrderDetailPage({
                   ...actionLabels,
                   action: t("createCommissionDraft"),
                   prompt: t("createCommissionDraftPrompt"),
+                }}
+              />
+              {/* THE BILLING IDENTITY ON THIS ORDER, refreshed from the
+                  buyer's current tax profile.
+                  `POST /admin/orders/:id/buyer-billing-override` has
+                  existed with no screen able to call it — so an order
+                  captured against a stale or wrong profile could not be
+                  corrected at all.
+
+                  The body carries ONLY the reason. An administrator
+                  cannot type a VAT number or a legal name: the override
+                  copies the trader's own `TraderTaxProfile` verbatim,
+                  which is what keeps this a correction rather than an
+                  invention. */}
+              <AdminAction
+                path={`/admin/orders/${order.id}/buyer-billing-override`}
+                variant="secondary"
+                reason={{
+                  field: "reasonNote",
+                  label: t("billingOverrideReason"),
+                  // ADMIN_REASON_MIN / MAX on the API.
+                  minLength: 5,
+                  maxLength: 2000,
+                  hint: t("billingOverrideHint"),
+                }}
+                labels={{
+                  ...actionLabels,
+                  action: t("billingOverride"),
+                  prompt: t("billingOverridePrompt"),
                 }}
               />
             </div>

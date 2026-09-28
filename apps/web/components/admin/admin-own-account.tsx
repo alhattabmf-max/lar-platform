@@ -181,7 +181,7 @@ export function AdminOwnAccount({
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="min-h-11"
+               
                 onClick={() => open("password")}
               >
                 {labels.changePassword}
@@ -194,7 +194,7 @@ export function AdminOwnAccount({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className="min-h-11"
+                 
                   onClick={() => open("recovery")}
                 >
                   {labels.regenerate}
@@ -238,12 +238,8 @@ export function AdminOwnAccount({
                   minLength={PASSWORD_MIN}
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
-                  aria-describedby={`${ids}-password-hint`}
                   required
                 />
-                <p id={`${ids}-password-hint`} className="text-xs text-content-muted">
-                  {labels.passwordHint}
-                </p>
               </div>
 
               {failureBlock}
@@ -252,7 +248,7 @@ export function AdminOwnAccount({
                 <Button
                   type="submit"
                   size="sm"
-                  className="min-h-11"
+                 
                   isLoading={busy}
                   disabled={busy || newPassword.length < PASSWORD_MIN || currentPassword === ""}
                 >
@@ -262,7 +258,7 @@ export function AdminOwnAccount({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-h-11"
+                 
                   disabled={busy}
                   onClick={close}
                 >
@@ -298,7 +294,7 @@ export function AdminOwnAccount({
                 <Button
                   type="submit"
                   size="sm"
-                  className="min-h-11"
+                 
                   isLoading={busy}
                   disabled={busy || currentPassword === ""}
                 >
@@ -308,7 +304,7 @@ export function AdminOwnAccount({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-h-11"
+                 
                   disabled={busy}
                   onClick={close}
                 >

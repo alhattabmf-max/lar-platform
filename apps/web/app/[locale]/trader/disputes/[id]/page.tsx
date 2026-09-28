@@ -8,6 +8,10 @@ import { loadDispute } from "@/lib/trader-data";
 import { formatDateTime } from "@/lib/localized";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge, disputeTone } from "@/components/trader/status-badge";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.disputes");
+
 
 /**
  * One dispute.
@@ -46,7 +50,7 @@ export default async function TraderDisputeDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label={t("breadcrumbLabel")} className="text-sm">
-        <Link href={`/${appLocale}/trader/disputes`} className="text-secondary hover:opacity-90">
+        <Link href={`/${appLocale}/trader/disputes`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("backToList")}
         </Link>
       </nav>
@@ -116,7 +120,7 @@ async function DisputeBody({ locale, id }: { locale: AppLocale; id: string }) {
 
         <Link
           href={`/${locale}/trader/orders/${dispute.orderId}`}
-          className="self-start text-sm text-secondary hover:opacity-90"
+          className="self-start text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("viewOrder")}
         </Link>
@@ -126,7 +130,7 @@ async function DisputeBody({ locale, id }: { locale: AppLocale; id: string }) {
         <h2 className="text-base font-semibold text-content">{t("yourDescription")}</h2>
         {/* The trader's own words, as a text node. `whitespace-pre-wrap`
             keeps their line breaks; nothing is parsed or linked. */}
-        <p className="whitespace-pre-wrap rounded-lg border border-line bg-surface p-4 text-sm text-content">
+        <p className="whitespace-pre-wrap rounded-card bg-surface shadow-card px-card-x py-card-y text-sm text-content">
           {dispute.description}
         </p>
       </section>
@@ -172,7 +176,7 @@ async function DisputeBody({ locale, id }: { locale: AppLocale; id: string }) {
       {dispute.supplierResponse ? (
         <section aria-label={t("supplierResponse.title")} className="flex flex-col gap-2">
           <h2 className="text-base font-semibold text-content">{t("supplierResponse.title")}</h2>
-          <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+          <div className="flex flex-col gap-2 rounded-card bg-surface shadow-card px-card-x py-card-y">
             <p className="text-sm font-medium text-content">
               {t(`supplierResponse.type.${dispute.supplierResponse.responseType}`)}
             </p>
@@ -199,7 +203,7 @@ async function DisputeBody({ locale, id }: { locale: AppLocale; id: string }) {
             {dispute.decisions.map((decision) => (
               <li
                 key={decision.sequenceNumber}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-4 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-surface shadow-card px-card-x py-card-y text-sm"
               >
                 {/* The exact decision type. No internal note, and no
                     member of staff named — neither reaches this page. */}

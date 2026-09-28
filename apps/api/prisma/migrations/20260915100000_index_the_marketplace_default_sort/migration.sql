@@ -1,0 +1,33 @@
+-- THE SORT EVERY VISITOR SEES FIRST HAD NO INDEX.
+--
+-- `DEFAULT_OPPORTUNITY_SORT` is `NEWEST` — `ORDER BY created_at DESC,
+-- id ASC` — and it is what the marketplace answers with before anybody
+-- chooses anything.
+--
+-- MEASURED, at 42,000 active offers on a seeded copy:
+--
+--   ENDING_SOON   0.33 ms   Index Scan        (covered by (status, end_at))
+--   NEWEST       36–96 ms   SEQ SCAN + Sort   (covered by nothing)
+--
+-- The table already carried ten indexes. None of them started with
+-- `created_at`, so the default listing read every ACTIVE row and sorted
+-- the lot to hand back twelve. The cost grew with the platform: 0.55 ms
+-- at 42 offers, 2.08 at 600, 14.77 at 6,000, 96 at 42,000.
+--
+-- `id` IS IN THE INDEX, not decoration. The ordering ends in `id ASC`
+-- so that rows sharing a `created_at` cannot swap places between pages;
+-- an index without that column can locate the rows but not produce the
+-- order, and the planner adds the sort back.
+--
+-- DESC ON THE DATE, ASC ON THE KEY, exactly as the query asks for them.
+-- Postgres can read an index backwards, but not two columns in opposite
+-- directions at once — a plain ascending index would leave the sort in
+-- the plan.
+--
+-- CONCURRENTLY IS NOT USED: Prisma runs each migration inside a
+-- transaction, and `CREATE INDEX CONCURRENTLY` cannot run in one. On a
+-- table this size the build is brief; on a much larger production table
+-- the index should be created concurrently by hand first, after which
+-- this statement becomes a no-op.
+CREATE INDEX IF NOT EXISTS "opportunities_status_created_at_id_idx"
+  ON "opportunities" ("status", "created_at" DESC, "id");

@@ -15,6 +15,19 @@ export const MASTER_ORDER_STATUSES = ["IN_FULFILLMENT", "FULFILLED"] as const;
 export type MasterOrderStatus = (typeof MASTER_ORDER_STATUSES)[number];
 
 export const ORDER_ALLOCATION_STATUSES = [
+  /**
+   * PAID, AND WAITING FOR THE OFFER TO REACH ITS TARGET.
+   *
+   * «المشترون يشترون حصصهم، إذا اكتمل الهدف يتم إرسال الطلبات للمورد» —
+   * so an allocation is born here and no work is owed against it. It
+   * carries no `preparationDueAt`, appears in no supplier action list
+   * (see `SUPPLIER_ALLOCATION_ACTIONS`, which names no action for it),
+   * and can never be late.
+   *
+   * FIRST IN THE LIST, so the order of the array still reads as the
+   * journey a buyer's share actually takes.
+   */
+  "AWAITING_FUNDING",
   "AWAITING_PREPARATION",
   "PREPARING",
   "READY_TO_SHIP",
@@ -128,13 +141,28 @@ export interface OrderAllocationDetail {
   status: OrderAllocationStatus;
   quantity: number;
   locationName: string;
-  cityNameAr: string;
-  cityNameEn: string;
+  /**
+   * Null when the branch named no city.
+   *
+   * This is a FROZEN SNAPSHOT of what the branch was called when the
+   * record was written, and a branch may name a region and no city —
+   * so there is nothing to freeze. The region below is never null, so
+   * a reader always has a place to read.
+   */
+  cityNameAr: string | null;
+  cityNameEn: string | null;
   regionNameAr: string;
   regionNameEn: string;
   address: string;
   /** ISO 8601. When preparation is contractually due. */
-  preparationDueAt: string;
+  /**
+   * NULL WHILE THE OFFER IS STILL GATHERING ITS TARGET.
+   *
+   * «لا يتم شحن البضاعة إلا بعد ما يتم العرض شروطه ووصوله لهدفه» — the
+   * clock starts when the offer closes, not when this buyer paid, so
+   * until then there is no date to show and none to be late against.
+   */
+  preparationDueAt: string | null;
   /** True when `preparationDueAt` has passed and nothing has shipped. */
   isPreparationOverdue: boolean;
   preparationStartedAt: string | null;

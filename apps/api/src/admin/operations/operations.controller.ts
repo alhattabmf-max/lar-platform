@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/comm
 import type { Request } from "express";
 import { OperationsService } from "./operations.service";
 import { RejectSupplierDto } from "./dto/reject-supplier.dto";
+import { ReturnSupplierDto } from "./dto/return-supplier.dto";
 import { AdminSessionAuthGuard } from "../admin-auth/admin-session-auth.guard";
 import { CsrfGuard } from "../../common/security/csrf.guard";
 import { CurrentAdminSession } from "../admin-auth/current-admin-session.decorator";
@@ -34,6 +35,30 @@ export class OperationsController {
   ) {
     await this.operations.approveSupplier(companyId, session.adminUserId, ctxFrom(req));
     return { status: "VERIFIED" };
+  }
+
+  /**
+   * Send the request back with what is missing.
+   *
+   * A THIRD OUTCOME, and the one that was absent. Without it an
+   * administrator faced with a nearly-complete supplier had only
+   * "approve" or "reject", and rejection is terminal — so the only
+   * safe move was to leave the request sitting.
+   */
+  @Post("suppliers/:companyId/return")
+  async returnForCompletion(
+    @Param("companyId") companyId: string,
+    @Body() dto: ReturnSupplierDto,
+    @CurrentAdminSession() session: AdminSessionData,
+    @Req() req: Request,
+  ) {
+    await this.operations.returnSupplier(
+      companyId,
+      session.adminUserId,
+      dto.reason,
+      ctxFrom(req),
+    );
+    return { status: "RETURNED_FOR_COMPLETION" };
   }
 
   @Post("suppliers/:companyId/reject")

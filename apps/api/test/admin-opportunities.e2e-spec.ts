@@ -9,7 +9,9 @@ import { AppModule } from "../src/app.module";
 import { createE2eApplication } from "./support/create-e2e-application";
 import { hashPassword } from "../src/common/security/argon2.util";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
-import { ensureTestCity } from "./fixtures/city.fixture";
+import { ensureTestPlace, type TestPlace } from "./fixtures/city.fixture";
+import { createBranch, verifySupplierThroughReview } from "./fixtures/branch.fixture";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -72,8 +74,8 @@ async function createAuthenticatedAdminAgent(app: INestApplication) {
 
 describe("Admin Opportunities (e2e)", () => {
   let app: INestApplication;
+  let place: TestPlace;
   let adminAgent: request.Agent;
-  let cityId: string;
   let taxonomyNodeId: string;
   let salesUnitId: string;
 
@@ -83,7 +85,9 @@ describe("Admin Opportunities (e2e)", () => {
     await resetThrottleCounters();
 
     await publishTestPolicy(prisma);
-    cityId = await ensureTestCity(prisma);
+    // Registration no longer creates a branch; each company makes its
+    // own through the branches endpoint, which needs a real region.
+    place = await ensureTestPlace(prisma);
     await prisma.systemSetting.deleteMany({
       where: { key: { in: ["company_verification_mode", "email_verification_enabled"] } },
     });
@@ -119,27 +123,27 @@ describe("Admin Opportunities (e2e)", () => {
         legalName: "Admin Opp Supplier",
         email: `adminopp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
         password,
-        primaryMobile1: "+966500000001",
-        primaryMobile2: "+966500000002",
-        cityId,
-        shortAddress: "Riyadh",
-        latitude: 24.7136,
-        longitude: 46.6753,
+        primaryMobile1: uniqueMobile(),
         acceptedPolicyVersionIds,
       });
-    await prisma.company.updateMany({ where: { crNumber }, data: { verificationStatus: "VERIFIED" } });
     const agent = await loginAgent(app, crNumber, password);
 
-    const bankRes = await agent
+    // THE RECORD IS COMPLETED FIRST, THEN REVIEWED — a supplier becomes
+    // VERIFIED only by an approved review, and that same approval is
+    // what activates the bank account, which is why
+    // `POST /admin/bank-accounts/:id/approve` no longer exists.
+    await agent
       .post("/api/v1/companies/me/bank-account")
       .set("Origin", ORIGIN)
-      .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
-    await adminAgent.post(`/api/v1/admin/bank-accounts/${bankRes.body.id}/approve`).set("Origin", ORIGIN);
+      .send({ accountHolderName: "Holder", iban: VALID_IBAN });
     await agent.put("/api/v1/companies/me/tax-profile").set("Origin", ORIGIN).send({ isVatRegistered: false });
     await agent
       .put("/api/v1/companies/me/invoicing-profile")
       .set("Origin", ORIGIN)
       .send({ invoicingLegalName: "Admin Opp Supplier LLC" });
+    const branch = await createBranch(agent, ORIGIN, place);
+    const fulfillmentLocationId = branch.id;
+    await verifySupplierThroughReview(agent, adminAgent, ORIGIN, branch.companyId as string);
 
     const productRes = await agent
       .post("/api/v1/companies/me/products")
@@ -160,8 +164,6 @@ describe("Admin Opportunities (e2e)", () => {
     await submitWithMainImage(agent, productId);
     await adminAgent.post(`/api/v1/admin/products/${productId}/approve`).set("Origin", ORIGIN);
 
-    const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
-    const fulfillmentLocationId = locationRes.body[0].id;
 
     const createRes = await agent
       .post("/api/v1/companies/me/opportunities")

@@ -1,19 +1,18 @@
 import { getTranslations } from "next-intl/server";
+import type { Metadata } from "next";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import {
   loadAdminCities,
   loadAdminRegions,
   loadAdminSalesUnits,
-  loadAdminTaxonomy,
 } from "@/lib/admin-data";
-import { localized } from "@/lib/localized";
 import { ErrorState } from "@/components/ui/states";
 import {
   ReferenceDataManager,
   type ReferenceDataManagerLabels,
-  type ReferenceRow,
 } from "@/components/admin/reference-data-manager";
+import { GeographyManager } from "@/components/admin/geography-manager";
 
 /**
  * The platform's reference data, on one screen.
@@ -33,6 +32,23 @@ import {
  * ambiguous and because the API refuses to create a city under an
  * inactive region.
  */
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.catalogue",
+  });
+  return { title: t("title") };
+}
+
 export default async function AdminCataloguePage({
   params,
 }: {
@@ -45,8 +61,7 @@ export default async function AdminCataloguePage({
   const t = await getTranslations({ locale: appLocale, namespace: "admin.catalogue" });
   const states = await getTranslations({ locale: appLocale, namespace: "states" });
 
-  const [taxonomy, salesUnits, regions, cities] = await Promise.all([
-    loadAdminTaxonomy(),
+  const [salesUnits, regions, cities] = await Promise.all([
     loadAdminSalesUnits(),
     loadAdminRegions(),
     loadAdminCities(),
@@ -81,42 +96,18 @@ export default async function AdminCataloguePage({
   );
 
   // Category names, so a child node can show which parent it sits under.
-  const taxonomyNames = taxonomy.ok
-    ? new Map(taxonomy.data.map((node) => [node.id, localized(appLocale, node.nameAr, node.nameEn)]))
-    : new Map<string, string>();
-
-  const taxonomyRows: ReferenceRow[] = taxonomy.ok
-    ? taxonomy.data.map((node) => ({
-        id: node.id,
-        nameAr: node.nameAr,
-        nameEn: node.nameEn,
-        isActive: node.isActive,
-        context: node.parentId
-          ? t("underParent", { parent: taxonomyNames.get(node.parentId) ?? t("unknownParent") })
-          : undefined,
-      }))
-    : [];
-
   return (
     <div className="flex flex-col gap-10">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-content">{t("taxonomyTitle")}</h2>
-        <p className="text-sm text-content-muted">{t("taxonomyHint")}</p>
-        {taxonomy.ok ? (
-          <ReferenceDataManager basePath="/admin/taxonomy" rows={taxonomyRows} labels={labels} />
-        ) : (
-          failed
-        )}
-      </section>
+      {/* CATEGORIES ARE NOT HERE ANY MORE. They are a tree, and this
+          page showed one flattened into rows with a parent name printed
+          beside each. They have their own screen: «إدارة التصنيفات». */}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-content">{t("salesUnitsTitle")}</h2>
-        <p className="text-sm text-content-muted">{t("salesUnitsHint")}</p>
         {salesUnits.ok ? (
           <ReferenceDataManager
             basePath="/admin/sales-units"
@@ -133,55 +124,62 @@ export default async function AdminCataloguePage({
         )}
       </section>
 
+      {/*
+        ONE SECTION FOR BOTH, hierarchical. They were two flat lists, so
+        a hundred and fifty-two cities filled a column with their region
+        printed underneath each as a caption — the list was shaped the
+        opposite way round from the data. A region is the operational
+        unit and its cities belong to it.
+      */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-content">{t("regionsTitle")}</h2>
-        {regions.ok ? (
-          <ReferenceDataManager
-            basePath="/admin/regions"
-            rows={regions.data.map((region) => ({
+        <h2 className="text-lg font-semibold text-content">
+          {t("geographyTitle")}
+        </h2>
+        {regions.ok && cities.ok ? (
+          <GeographyManager
+            regions={regions.data.map((region) => ({
               id: region.id,
               nameAr: region.nameAr,
               nameEn: region.nameEn,
               isActive: region.isActive,
+              cities: cities.data
+                .filter((city) => city.regionId === region.id)
+                .map((city) => ({
+                  id: city.id,
+                  nameAr: city.nameAr,
+                  nameEn: city.nameEn,
+                  isActive: city.isActive,
+                })),
             }))}
-            labels={labels}
+            labels={{
+              addRegion: t("addRegion"),
+              addCity: t("addCity"),
+              nameAr: t("nameAr"),
+              nameEn: t("nameEn"),
+              add: t("add"),
+              rename: t("rename"),
+              save: t("save"),
+              cancel: t("cancel"),
+              activate: t("activate"),
+              deactivate: t("deactivate"),
+              deactivateRegionPrompt: t("deactivateRegionPrompt"),
+              deactivateCityPrompt: t("deactivateCityPrompt"),
+              activePill: t("activePill"),
+              inactivePill: t("inactivePill"),
+              regionInactiveNotice: t("regionInactiveNotice"),
+              noCities: t("noCities"),
+              working: t("working"),
+              required: t("required"),
+              notDeleteNotice: t("notDeleteNotice"),
+              errorTitle: states("errorTitle"),
+              requestIdLabel: states("requestIdLabel"),
+            }}
           />
         ) : (
           failed
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-content">{t("citiesTitle")}</h2>
-        {cities.ok && regions.ok ? (
-          <ReferenceDataManager
-            basePath="/admin/cities"
-            rows={cities.data.map((city) => ({
-              id: city.id,
-              nameAr: city.nameAr,
-              nameEn: city.nameEn,
-              isActive: city.isActive,
-              context: localized(appLocale, city.regionNameAr, city.regionNameEn),
-            }))}
-            parentField={{
-              name: "regionId",
-              label: t("region"),
-              // ACTIVE regions only: the API refuses to create a city
-              // under an inactive one, so offering them would be
-              // offering a choice that always fails.
-              options: regions.data
-                .filter((region) => region.isActive)
-                .map((region) => ({
-                  value: region.id,
-                  label: localized(appLocale, region.nameAr, region.nameEn),
-                })),
-            }}
-            labels={labels}
-          />
-        ) : (
-          failed
-        )}
-      </section>
     </div>
   );
 }

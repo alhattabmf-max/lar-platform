@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { requireVerifiedSupplierCompany } from "./require-verified-supplier";
+import { requireSupplierCompany } from "./require-verified-supplier";
+import { SupplierVerificationRequestService } from "../verification/supplier-verification-request.service";
 import type { UpdateInvoicingProfileDto } from "./dto/update-invoicing-profile.dto";
 
 interface ActorContext {
@@ -17,7 +18,8 @@ interface ActorContext {
 export class InvoicingProfileService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly verificationRequests: SupplierVerificationRequestService
   ) {}
 
   async get(companyId: string) {
@@ -25,7 +27,10 @@ export class InvoicingProfileService {
   }
 
   async upsert(dto: UpdateInvoicingProfileDto, ctx: ActorContext) {
-    await requireVerifiedSupplierCompany(this.prisma, ctx.companyId);
+    // A SUPPLIER ACCOUNT, APPROVED OR NOT — see the note in
+    // `require-verified-supplier.ts`. Who a commission document is
+    // addressed to is reviewed with the rest of the record.
+    await requireSupplierCompany(this.prisma, ctx.companyId);
 
     const before = await this.get(ctx.companyId);
 
@@ -48,6 +53,14 @@ export class InvoicingProfileService {
       ipAddress: ctx.ipAddress,
       userAgent: ctx.userAgent,
     });
+
+    // WHO THE INVOICE IS ADDRESSED TO. Same reason as the tax
+    // number: it is printed on a document, not a note in a screen.
+    await this.verificationRequests.markChangedSinceApproval(
+      ctx.companyId,
+      "INVOICING_NAME",
+      ctx,
+    );
 
     return profile;
   }

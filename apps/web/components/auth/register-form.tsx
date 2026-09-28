@@ -1,44 +1,44 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { PASSWORD_MIN_LENGTH } from "@platform/types";
 import { apiClient } from "@/lib/api-client";
 import {
   isRegistrationConflict,
   toUserFacingError,
   type UserFacingError,
 } from "@/lib/error-messages";
-import { hasUsableCoordinates, type Coordinates } from "@/lib/geolocation";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { LocationPicker } from "./location-picker";
-
-export interface CityOption {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-}
-
-/**
- * `title` is already resolved for the active locale by the caller.
- *
- * Unlike a city, a policy has no stored bilingual pair to choose
- * between: a PolicyDocument carries a code, and the display name comes
- * from this app's message catalogue. Carrying `titleAr`/`titleEn` here
- * would be inventing a distinction the data does not have.
- */
-export interface PolicyOption {
-  id: string;
-  title: string;
-}
+import {
+  AccountTypeChoice,
+  type AccountTypeLabels,
+  type AccountTypeValue,
+} from "./account-type-choice";
+import {
+  PoliciesDialog,
+  type PoliciesDialogLabels,
+  type PolicyDocument,
+} from "./policies-dialog";
 
 export interface RegisterFormProps {
   locale: string;
-  accountType: "TRADER" | "SUPPLIER";
-  cities: CityOption[];
-  policies: PolicyOption[];
+
+  /**
+   * The published versions, already resolved for the active locale.
+   *
+   * Both documents, in the order the API returned them. The form does
+   * not fetch them: a Server Component reads `/policies/active` and
+   * hands them down, so what is agreed to is what the server published.
+   */
+  policies: PolicyDocument[];
+  labels: {
+    accountType: AccountTypeLabels;
+    policiesDialog: PoliciesDialogLabels;
+  };
 }
 
 /**
@@ -47,10 +47,17 @@ export interface RegisterFormProps {
  * No one-time code: the account is created with a CR number, an email
  * and a password, and the user signs in with the CR number afterwards.
  *
- * Submission is blocked until real coordinates exist — from the browser
- * or typed by hand. No sentinel, no city centroid, no default pair.
+ * NOTHING ABOUT A LOCATION IS COLLECTED HERE. The company's first
+ * branch — its name, city, national address, contact and map link — is
+ * asked for after the account exists, from "complete your profile". No
+ * branch is invented in the meantime: an account simply has none until
+ * somebody enters one.
+ *
+ * Submission is blocked until the kind of account has been CHOSEN and
+ * the consent box is TICKED. Neither has a default and neither can be
+ * satisfied by arriving from a particular link.
  */
-export function RegisterForm({ locale, accountType, cities, policies }: RegisterFormProps) {
+export function RegisterForm({ locale, policies, labels }: RegisterFormProps) {
   const t = useTranslations("register");
   const common = useTranslations("common");
   const root = useTranslations();
@@ -64,50 +71,79 @@ export function RegisterForm({ locale, accountType, cities, policies }: Register
     email: "",
     password: "",
     primaryMobile1: "",
-    primaryMobile2: "",
-    cityId: "",
-    shortAddress: "",
   });
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
-  const [acceptedPolicyIds, setAcceptedPolicyIds] = useState<string[]>([]);
+  /** NULL UNTIL CHOSEN. There is no default kind of account. */
+  const [accountType, setAccountType] = useState<AccountTypeValue | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [policiesOpen, setPoliciesOpen] = useState(false);
+  const policiesButton = useRef<HTMLButtonElement | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState<UserFacingError | null>(null);
   const [conflict, setConflict] = useState(false);
 
-  const allPoliciesAccepted =
-    policies.length > 0 && policies.every((p) => acceptedPolicyIds.includes(p.id));
+  /**
+   * WHAT IS WRONG WITH A FIELD, SAID BESIDE THAT FIELD.
+   *
+   * Only after somebody has typed something: marking an untouched form
+   * red is scolding a person for not having started yet. The rules are
+   * the SERVER'S — `PASSWORD_MIN_LENGTH` is the shared constant the
+   * API's own DTO is asserted against — so the form cannot promise to
+   * accept something the API will refuse.
+   */
+  const fieldErrors = {
+    email:
+      form.email.trim() !== "" && !form.email.includes("@")
+        ? t("validation.email")
+        : undefined,
+    password:
+      form.password !== "" && form.password.length < PASSWORD_MIN_LENGTH
+        ? t("validation.passwordTooShort", { min: PASSWORD_MIN_LENGTH })
+        : undefined,
+  };
 
   const canSubmit =
     !submitting &&
-    hasUsableCoordinates(coordinates) &&
-    allPoliciesAccepted &&
-    form.cityId !== "" &&
+    // THE KIND IS REQUIRED. It decides the endpoint, the stored
+    // `accountType`, the permissions and the portal.
+    accountType !== null &&
+    // OPENING THE DIALOG IS NOT AGREEING. Only this box is.
+    accepted &&
+    policies.length > 0 &&
     form.crNumber.trim() !== "" &&
+    form.legalName.trim() !== "" &&
     form.email.trim() !== "" &&
-    form.password !== "";
+    form.password !== "" &&
+    // A form that submits what the server will refuse teaches people
+    // to distrust the button.
+    fieldErrors.email === undefined &&
+    fieldErrors.password === undefined &&
+    form.primaryMobile1.trim() !== "";
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function togglePolicy(id: string) {
-    setAcceptedPolicyIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
+  function closePolicies() {
+    setPoliciesOpen(false);
+    // Focus returns to the button that opened it — a keyboard user
+    // dropped at the top of the document has lost their place.
+    policiesButton.current?.focus();
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // Guarded rather than merely disabled: a disabled button is a UI
     // affordance, not a constraint, and Enter can still submit a form.
-    if (!canSubmit || !coordinates) return;
+    if (!canSubmit || accountType === null) return;
 
     setSubmitting(true);
     setFailure(null);
     setConflict(false);
 
     const path =
-      accountType === "TRADER" ? "/auth/register/trader" : "/auth/register/supplier";
+      accountType === "TRADER"
+        ? "/auth/register/trader"
+        : "/auth/register/supplier";
 
     try {
       await apiClient.post(path, {
@@ -116,12 +152,11 @@ export function RegisterForm({ locale, accountType, cities, policies }: Register
         email: form.email.trim(),
         password: form.password,
         primaryMobile1: form.primaryMobile1.trim(),
-        primaryMobile2: form.primaryMobile2.trim(),
-        cityId: form.cityId,
-        shortAddress: form.shortAddress.trim(),
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-        acceptedPolicyVersionIds: acceptedPolicyIds,
+        // EVERY VERSION, SEPARATELY. One checkbox covers both documents
+        // on screen, but each is its own agreement and each is recorded
+        // against its own version id — which is what the acceptance
+        // table stores and what an audit would be read from.
+        acceptedPolicyVersionIds: policies.map((policy) => policy.id),
       });
 
       router.replace(`/${locale}/login`);
@@ -138,62 +173,96 @@ export function RegisterForm({ locale, accountType, cities, policies }: Register
     }
   }
 
-  const cityLabel = (city: CityOption) => (locale.startsWith("ar") ? city.nameAr : city.nameEn);
-
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      <Field label={t("crNumber")} required requiredLabel={common("required")}>
-        {({ inputId }) => (
-          <Input
-            id={inputId}
-            inputMode="numeric"
-            autoComplete="off"
-            required
-            value={form.crNumber}
-            onChange={(e) => set("crNumber", e.target.value)}
-          />
-        )}
-      </Field>
+    <>
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <AccountTypeChoice
+          value={accountType}
+          onChange={setAccountType}
+          disabled={submitting}
+          labels={labels.accountType}
+        />
 
-      <Field label={t("legalName")} required requiredLabel={common("required")}>
-        {({ inputId }) => (
-          <Input
-            id={inputId}
-            required
-            value={form.legalName}
-            onChange={(e) => set("legalName", e.target.value)}
-          />
-        )}
-      </Field>
+        <Field
+          label={t("crNumber")}
+          required
+          requiredLabel={common("required")}
+        >
+          {({ inputId }) => (
+            <Input
+              id={inputId}
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              value={form.crNumber}
+              onChange={(e) => set("crNumber", e.target.value)}
+            />
+          )}
+        </Field>
 
-      <Field label={t("email")} required requiredLabel={common("required")}>
-        {({ inputId }) => (
-          <Input
-            id={inputId}
-            type="email"
-            autoComplete="email"
-            required
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-          />
-        )}
-      </Field>
+        <Field
+          label={t("legalName")}
+          required
+          requiredLabel={common("required")}
+        >
+          {({ inputId }) => (
+            <Input
+              id={inputId}
+              required
+              value={form.legalName}
+              onChange={(e) => set("legalName", e.target.value)}
+            />
+          )}
+        </Field>
 
-      <Field label={t("password")} required requiredLabel={common("required")}>
-        {({ inputId }) => (
-          <Input
-            id={inputId}
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-            value={form.password}
-            onChange={(e) => set("password", e.target.value)}
-          />
-        )}
-      </Field>
+        <Field
+          label={t("email")}
+          required
+          requiredLabel={common("required")}
+          error={fieldErrors.email}
+        >
+          {({ inputId, errorId, invalid }) => (
+            <Input
+              id={inputId}
+              type="email"
+              autoComplete="email"
+              required
+              invalid={invalid}
+              describedById={invalid ? errorId : undefined}
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+            />
+          )}
+        </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label={t("password")}
+          required
+          requiredLabel={common("required")}
+          error={fieldErrors.password}
+        >
+          {({ inputId, errorId, invalid }) => (
+            <Input
+              id={inputId}
+              type="password"
+              autoComplete="new-password"
+              // The SHARED constant, not a number typed twice: a contract
+              // test asserts the API's DTO uses the same one.
+              minLength={PASSWORD_MIN_LENGTH}
+              required
+              invalid={invalid}
+              describedById={invalid ? errorId : undefined}
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
+            />
+          )}
+        </Field>
+
+        {/* ONE NUMBER, AND IT IS REQUIRED. A second mobile and a named
+          contact person used to stand between a company and an account.
+          They are a DETAIL of the company's record and are collected —
+          optionally, and only as a pair — from «بيانات المنشأة» inside
+          the portal. */}
         <Field label={t("mobile1")} required requiredLabel={common("required")}>
           {({ inputId }) => (
             <Input
@@ -206,107 +275,122 @@ export function RegisterForm({ locale, accountType, cities, policies }: Register
           )}
         </Field>
 
-        <Field label={t("mobile2")} required requiredLabel={common("required")}>
-          {({ inputId }) => (
-            <Input
-              id={inputId}
-              inputMode="tel"
-              required
-              value={form.primaryMobile2}
-              onChange={(e) => set("primaryMobile2", e.target.value)}
-            />
-          )}
-        </Field>
-      </div>
+        {/* NO CITY, NO ADDRESS, NO MAP. Registration opens an account;
+          the branch is added afterwards from "complete your profile",
+          against the endpoint that already exists for it. */}
 
-      <Field label={t("city")} required requiredLabel={common("required")}>
-        {({ inputId }) => (
-          <select
-            id={inputId}
-            required
-            value={form.cityId}
-            onChange={(e) => set("cityId", e.target.value)}
-            className="block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-content"
-          >
-            <option value="">{t("cityPlaceholder")}</option>
-            {cities.map((city) => (
-              <option key={city.id} value={city.id}>
-                {cityLabel(city)}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+        {/* ONE BUTTON, ONE CHECKBOX.
 
-      <Field label={t("shortAddress")} required requiredLabel={common("required")}>
-        {({ inputId }) => (
-          <Input
-            id={inputId}
-            required
-            value={form.shortAddress}
-            onChange={(e) => set("shortAddress", e.target.value)}
-          />
-        )}
-      </Field>
+          The button opens both documents in a dialog over this form —
+          it navigates nowhere, so nothing typed above is lost. Opening
+          it is NOT agreeing: the checkbox below is the only thing that
+          records consent, and the submit button stays unpressable until
+          it is ticked. */}
+        <fieldset className="flex flex-col gap-3 rounded-lg border border-line p-4">
+          <legend className="px-1 text-sm font-medium text-content">
+            {t("policies.legend")}
+          </legend>
 
-      <LocationPicker value={coordinates} onChange={setCoordinates} />
-
-      <fieldset className="flex flex-col gap-2 rounded-lg border border-line p-4">
-        <legend className="px-1 text-sm font-medium text-content">{t("policies.legend")}</legend>
-
-        {policies.length === 0 ? (
-          <p className="text-sm text-warning-text">{t("policies.unavailable")}</p>
-        ) : (
-          policies.map((policy) => (
-            <label key={policy.id} className="flex items-start gap-2 text-sm text-content">
-              <input
-                type="checkbox"
-                checked={acceptedPolicyIds.includes(policy.id)}
-                onChange={() => togglePolicy(policy.id)}
-                className="mt-1 border-line-strong"
-              />
-              <span>{policy.title}</span>
-            </label>
-          ))
-        )}
-      </fieldset>
-
-      <div id={errorId} role="alert" aria-live="assertive">
-        {failure ? (
-          <div className="rounded-md border border-danger bg-surface px-3 py-3">
-            <p className="text-sm text-content">{root(failure.messageKey)}</p>
-
-            {conflict ? (
-              <div className="mt-2 flex flex-wrap gap-4 text-sm">
-                <Link href={`/${locale}/login`} className="text-secondary hover:opacity-90">
-                  {t("conflict.signIn")}
-                </Link>
-                <Link
-                  href={`/${locale}/forgot-password`}
-                  className="text-secondary hover:opacity-90"
+          {policies.length === 0 ? (
+            <p
+              className="text-sm text-warning-text"
+              data-testid="policies-unavailable"
+            >
+              {t("policies.unavailable")}
+            </p>
+          ) : (
+            <>
+              <div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  ref={policiesButton}
+                  onClick={() => setPoliciesOpen(true)}
+                  aria-haspopup="dialog"
+                  data-testid="open-policies"
                 >
-                  {t("conflict.recoverAccess")}
-                </Link>
+                  {t("policies.openButton")}
+                </Button>
               </div>
-            ) : null}
 
-            {failure.requestId ? (
-              <p className="mt-2 text-xs text-content-muted">
-                {root("errors.requestIdLabel")}:{" "}
-                <span className="font-mono">{failure.requestId}</span>
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+              {/* THE BOX STAYS 13 PIXELS; WHAT GREW IS THE REACH.
 
-      {!hasUsableCoordinates(coordinates) ? (
-        <p className="text-sm text-content-muted">{t("location.requiredNotice")}</p>
+                  Measured: a 13×13 checkbox inside a 356×20 label — the
+                  whole target twenty pixels tall, on the one control
+                  that stands between a person and an account.
+
+                  `min-h-[44px]` with vertical padding gives the label
+                  the reach without touching the box, the type size or
+                  the layout: the negative margin puts the row back
+                  where it was, so nothing around it moves.
+
+                  A LABEL WRAPPING ITS INPUT is already the whole of it
+                  — pressing anywhere in it toggles the box, with no
+                  `htmlFor` to keep in step. */}
+              <label className="-my-2 flex min-h-[44px] items-center gap-2 py-2 text-sm text-content">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={(event) => setAccepted(event.target.checked)}
+                  data-testid="accept-policies"
+                  className="shrink-0 border-line-strong"
+                />
+                <span>{t("policies.consent")}</span>
+              </label>
+            </>
+          )}
+        </fieldset>
+
+        <div id={errorId} role="alert" aria-live="assertive">
+          {failure ? (
+            <div className="rounded-md border border-danger bg-surface px-3 py-3">
+              <p className="text-sm text-content">{root(failure.messageKey)}</p>
+
+              {conflict ? (
+                <div className="mt-2 flex flex-wrap gap-4 text-sm">
+                  <Link
+                    href={`/${locale}/login`}
+                    className="text-secondary hover:opacity-[var(--state-hover-opacity)]"
+                  >
+                    {t("conflict.signIn")}
+                  </Link>
+                  <Link
+                    href={`/${locale}/forgot-password`}
+                    className="text-secondary hover:opacity-[var(--state-hover-opacity)]"
+                  >
+                    {t("conflict.recoverAccess")}
+                  </Link>
+                </div>
+              ) : null}
+
+              {failure.requestId ? (
+                <p className="mt-2 text-xs text-content-muted">
+                  {root("errors.requestIdLabel")}:{" "}
+                  <span className="font-mono">{failure.requestId}</span>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <Button
+          type="submit"
+          variant="secondary"
+          disabled={!canSubmit}
+          isLoading={submitting}
+        >
+          {submitting ? common("loading") : t("submit")}
+        </Button>
+      </form>
+
+      {policiesOpen ? (
+        <PoliciesDialog
+          documents={policies}
+          labels={labels.policiesDialog}
+          onClose={closePolicies}
+        />
       ) : null}
-
-      <Button type="submit" variant="secondary" disabled={!canSubmit} isLoading={submitting}>
-        {submitting ? common("loading") : t("submit")}
-      </Button>
-    </form>
+    </>
   );
 }

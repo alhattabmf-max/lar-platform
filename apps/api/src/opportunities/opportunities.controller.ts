@@ -4,6 +4,7 @@ import type { SupplierOpportunityDetail, SupplierOpportunitySummary } from "@pla
 import { OpportunitiesService } from "./opportunities.service";
 import { CreateOpportunityDto } from "./dto/create-opportunity.dto";
 import { UpdateOpportunityDto } from "./dto/update-opportunity.dto";
+import { SetDirectStockDto } from "./dto/set-direct-stock.dto";
 import { SessionAuthGuard } from "../common/security/session-auth.guard";
 import { CsrfGuard } from "../common/security/csrf.guard";
 import { CurrentSession } from "../common/security/current-session.decorator";
@@ -89,6 +90,28 @@ export class OpportunitiesController {
     return this.opportunities.getOwnedProjected(id, session.companyId);
   }
 
+  /**
+   * CLOSE AT WHAT IT REACHED — the supplier's other answer inside his
+   * twenty-four hours.
+   *
+   * «إذا قرر أن تقفل الصفقة ويعتمدها أوك، وإذا أراد أن تكتمل مئة
+   *  بالمئة فعنده خيار التمديد.» Two routes, one window, and the
+   * decision is taken on the offer's own screen — «يقرر المورد في
+   * العرض نفسه».
+   *
+   * NO BODY. There is nothing to say: the quantity is whatever was
+   * bought, and the only question was whether to take it.
+   */
+  @Post(":id/close-at-reached")
+  async closeAtReached(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentSession() session: SessionData,
+    @Req() req: Request
+  ): Promise<SupplierOpportunityDetail> {
+    await this.opportunities.closeAtReached(id, ctxFrom(session, req));
+    return this.opportunities.getOwnedProjected(id, session.companyId);
+  }
+
   @Post(":id/extend")
   async extend(
     @Param("id", new ParseUUIDPipe()) id: string,
@@ -97,5 +120,50 @@ export class OpportunitiesController {
   ): Promise<SupplierOpportunityDetail> {
     await this.opportunities.extend(id, ctxFrom(session, req));
     return this.opportunities.getOwnedProjected(id, session.companyId);
+  }
+
+  /**
+   * RESTOCK, OR TAKE STOCK OFF THE SHELF — a DIRECT listing only.
+   *
+   * SEPARATE FROM `PATCH :id`, and deliberately. That route refuses
+   * every edit once a buyer has committed, because price, branch and
+   * preparation days are what a buyer was shown. Stock is the opposite:
+   * it changes BECAUSE units were sold, and it changes nothing anyone
+   * already agreed to. The floor it may not cross is computed under the
+   * offer's own row lock — see `setDirectStock`.
+   *
+   * It answers with the listing AND what is actually available on it,
+   * which is the number the supplier's screen was asking about.
+   */
+  @Post(":id/stock")
+  async setStock(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body() dto: SetDirectStockDto,
+    @CurrentSession() session: SessionData,
+    @Req() req: Request
+  ) {
+    return this.opportunities.setDirectStock(id, dto, ctxFrom(session, req));
+  }
+
+  /**
+   * STOP SELLING — a DIRECT listing only.
+   *
+   * «يوقف المورد النشرة وينشئ واحدة جديدة بالسعر الجديد.» This is how a
+   * price changes on a listing that has sales: it does not. The terms of
+   * a sale that already happened are frozen on the row every order,
+   * invoice and settlement points back at, so the supplier ends this
+   * listing and publishes another.
+   *
+   * NOBODY IS REFUNDED. Every paid order on a direct listing went to
+   * preparation when it was paid and is unaffected. Open baskets are
+   * released, exactly as any cancellation releases them.
+   */
+  @Post(":id/stop")
+  async stop(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentSession() session: SessionData,
+    @Req() req: Request
+  ): Promise<SupplierOpportunityDetail> {
+    return this.opportunities.stopDirect(id, ctxFrom(session, req));
   }
 }

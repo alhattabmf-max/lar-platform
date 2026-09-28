@@ -42,6 +42,35 @@ export class ProductMediaImageService {
    * id exists, not whether it belongs to someone, not whether the caller
    * merely got the product wrong.
    */
+  /**
+   * The same image, resolved WITHOUT an ownership clause.
+   *
+   * FOR THE ADMIN ROUTE ONLY, and the boundary moves rather than
+   * disappears: `findOwnedTarget` is gated by the session's COMPANY, this
+   * one by the admin session guard on the controller that calls it. There
+   * is no company to compare against — an administrator has none — so an
+   * ownership clause here could only ever match nothing.
+   *
+   * IT STILL BINDS THE MEDIA TO THE PRODUCT. `productId` stays in the
+   * query: a media id from one product must not be servable through
+   * another product's address, or the two ids in the path would stop
+   * meaning anything together and a mistyped route would quietly serve the
+   * wrong picture.
+   *
+   * Unknown media, media under a different product, and an unservable key
+   * are ONE answer, exactly as on the supplier route.
+   */
+  async findAnyTarget(
+    productId: string,
+    mediaId: string,
+    variant: "main" | "thumb"
+  ): Promise<ImageTarget | null> {
+    const media = await this.prisma.productMedia.findFirst({
+      where: { id: mediaId, productId },
+      select: { objectKey: true, thumbnailObjectKey: true, createdAt: true },
+    });
+    return media ? this.toTarget(media, variant) : null;
+  }
   async findOwnedTarget(
     companyId: string,
     productId: string,
@@ -64,9 +93,26 @@ export class ProductMediaImageService {
       },
     });
     if (!media) return null;
+    return this.toTarget(media, variant);
+  }
 
+  /**
+   * One media row and a variant, to something servable.
+   *
+   * Shared by both resolvers on purpose. The two differ ONLY in what they
+   * are allowed to find; once a row is found, the key it serves, the
+   * content type it claims and the validator it returns must be identical,
+   * or a cached admin preview could satisfy a supplier request and vice
+   * versa.
+   */
+  private toTarget(
+    media: { objectKey: string; thumbnailObjectKey: string; createdAt: Date },
+    variant: "main" | "thumb"
+  ): ImageTarget | null {
     const objectKey = variant === "thumb" ? media.thumbnailObjectKey : media.objectKey;
     const contentType = contentTypeFromObjectKey(objectKey);
+    // An extension nothing can be served as is indistinguishable from a
+    // missing row, on purpose.
     if (!contentType) return null;
 
     return {

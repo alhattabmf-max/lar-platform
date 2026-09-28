@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { cn } from "@/lib/cn";
-import { buttonClasses } from "@/components/ui/button";
 
 /**
  * Paging through an admin list, without losing the filters.
@@ -43,62 +40,6 @@ export interface AdminPaginationProps {
   className?: string;
 }
 
-export function AdminPagination({
-  basePath,
-  page,
-  pageSize,
-  total,
-  query = {},
-  labels,
-  className,
-}: AdminPaginationProps) {
-  const lastPage = Math.max(1, Math.ceil(total / pageSize));
-
-  // One page of results needs no pager at all.
-  if (lastPage <= 1) return null;
-
-  function href(target: number): string {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(query)) {
-      // `page` is owned by this component; anything else the caller
-      // passed is a filter and travels along.
-      if (key === "page" || value === undefined || value === "") continue;
-      params.set(key, value);
-    }
-    // Page 1 is left implicit, so the canonical first-page URL of an
-    // unfiltered list is bare.
-    if (target > 1) params.set("page", String(target));
-
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
-
-  return (
-    <nav
-      aria-label={labels.navLabel}
-      className={cn("flex flex-wrap items-center justify-between gap-3", className)}
-    >
-      {page > 1 ? (
-        <Link href={href(page - 1)} className={buttonClasses("ghost", "sm")}>
-          {labels.previous}
-        </Link>
-      ) : (
-        <span className="text-sm text-content-muted">{labels.previous}</span>
-      )}
-
-      <span className="text-sm text-content-muted">{labels.status}</span>
-
-      {page < lastPage ? (
-        <Link href={href(page + 1)} className={buttonClasses("ghost", "sm")}>
-          {labels.next}
-        </Link>
-      ) : (
-        <span className="text-sm text-content-muted">{labels.next}</span>
-      )}
-    </nav>
-  );
-}
-
 /** Reads a `?page=` value, clamped to something sane. */
 export function parseAdminPage(raw: string | string[] | undefined): number {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -119,25 +60,3 @@ export function firstParam(raw: string | string[] | undefined): string | undefin
   return value === undefined || value === "" ? undefined : value;
 }
 
-/**
- * Builds the four pagination labels from the shared `pagination`
- * namespace.
- *
- * A helper rather than the same ten lines on twenty pages: the
- * "Page N of M" interpolation needs `lastPage`, which is derived from
- * the total and the page size, and deriving it separately on each page
- * is how one of them ends up off by one on an exact multiple.
- */
-export function adminPaginationLabels(
-  t: (key: string, values?: Record<string, string | number>) => string,
-  page: number,
-  pageSize: number,
-  total: number
-): AdminPaginationProps["labels"] {
-  return {
-    navLabel: t("navLabel"),
-    previous: t("previous"),
-    next: t("next"),
-    status: t("status", { page, lastPage: Math.max(1, Math.ceil(total / pageSize)) }),
-  };
-}

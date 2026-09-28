@@ -48,7 +48,8 @@ export class AdminOutboxService {
   async stats(): Promise<OutboxStats> {
     const now = new Date();
 
-    const [grouped, deferred, leased, lastPublished, oldestPending, total] = await Promise.all([
+    const [grouped, deferred, leased, lastPublished, oldestPending, oldestPendingAny, total] =
+      await Promise.all([
       this.prisma.outboxEvent.groupBy({ by: ["status"], _count: { _all: true } }),
       // Deferred for backoff: a future attempt time means not eligible
       // now, which is the difference between "stuck" and "waiting".
@@ -87,6 +88,25 @@ export class AdminOutboxService {
         select: { createdAt: true },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       }),
+      /**
+       * The oldest pending row of ANY type — a different question from
+       * the one above, and the reason the screen contradicted itself.
+       *
+       * `counts.PENDING` is unfiltered, so an operator read "21 waiting"
+       * beside "no backlog" and reasonably concluded one of them was
+       * wrong. Neither was: the relay carries a single event type, and
+       * all 21 are domain events it will never pick up.
+       *
+       * Both facts are now reported separately. This one answers "how
+       * long has anything been sitting there"; the relay-scoped one
+       * answers "is mail actually stalled". Folding them together in
+       * either direction is what produced the contradiction.
+       */
+      this.prisma.outboxEvent.findFirst({
+        where: { status: OutboxStatus.PENDING },
+        select: { createdAt: true },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      }),
       this.prisma.outboxEvent.count(),
     ]);
 
@@ -110,6 +130,7 @@ export class AdminOutboxService {
       leased,
       lastPublishedAt: lastPublished?.publishedAt?.toISOString() ?? null,
       oldestPendingAt: oldestPending?.createdAt.toISOString() ?? null,
+      oldestPendingAnyAt: oldestPendingAny?.createdAt.toISOString() ?? null,
       total,
     };
   }

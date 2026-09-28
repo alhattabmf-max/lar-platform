@@ -1,8 +1,20 @@
 import { Type } from "class-transformer";
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from "class-validator";
 import {
   ADMIN_ACCOUNT_TYPES,
   BANK_ACCOUNT_VERIFICATION_STATUSES,
+  COMPANY_OPERATIONAL_STATUSES,
   COMPANY_VERIFICATION_STATUSES_ADMIN,
   PRODUCT_APPROVAL_STATUSES,
 } from "@platform/types";
@@ -48,6 +60,28 @@ export class AdminCompaniesQueryDto extends BaseListQueryDto {
   @IsOptional()
   @IsIn(COMPANY_VERIFICATION_STATUSES_ADMIN)
   verificationStatus?: string;
+
+  /**
+   * Running or stopped, which both registers have.
+   *
+   * Separate from `verificationStatus` even though both read the same
+   * column: an operator asking "which suppliers are suspended" is
+   * asking a different question from "which are rejected", and folding
+   * the two into one control would make the second unaskable.
+   */
+  @IsOptional()
+  @IsIn(COMPANY_OPERATIONAL_STATUSES)
+  operationalStatus?: string;
+
+  /** Registered on or after this day, inclusive. `YYYY-MM-DD`. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  registeredFrom?: string;
+
+  /** Registered on or before this day, inclusive. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  registeredTo?: string;
 }
 
 export class AdminProductsQueryDto extends BaseListQueryDto {
@@ -79,4 +113,46 @@ export class AdminBankAccountsQueryDto extends BaseListQueryDto {
   @IsOptional()
   @IsUUID()
   companyId?: string;
+}
+
+/**
+ * The one parameter a chooser's source takes.
+ *
+ * NOT `AdminCompaniesQueryDto`. That one carries a page, a page size
+ * and four filters, and answers a table; this answers a chooser.
+ *
+ * THE SEARCH IS THE PAGING. The chooser used to receive the register
+ * and filter it in the browser, which is why this took no `q` — and
+ * why it answered 5.8 MB. The server narrows now, and returns at most
+ * fifty, so there is nothing left to page THROUGH: what is not in the
+ * answer is reached by typing more, not by asking for page two.
+ */
+export class AdminCompanyNamesQueryDto {
+  @IsOptional()
+  @IsIn(ADMIN_ACCOUNT_TYPES)
+  accountType?: string;
+
+  /**
+   * WHAT THE OPERATOR HAS TYPED. The chooser asks the server; the
+   * server never hands over the register.
+   *
+   * Measured before this existed: at 70,000 companies the unpaged list
+   * answered 5.8 MB in 994 ms, on three separate console pages, with no
+   * caching — so opening the products page cost six megabytes to fill a
+   * dropdown nobody had touched yet.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  /**
+   * How many to return. Bounded at 50 by the service whatever arrives
+   * here, so the answer can never scale with the platform.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number;
 }

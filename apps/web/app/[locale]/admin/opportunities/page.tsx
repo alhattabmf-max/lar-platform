@@ -1,22 +1,27 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { SUPPLIER_OPPORTUNITY_STATUSES } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
-import { loadAdminOpportunities } from "@/lib/admin-data";
+import {
+  loadAdminCompany,
+  loadAdminOpportunities,
+} from "@/lib/admin-data";
 import { formatDate } from "@/lib/localized";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatQuantity } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
-import { AdminFilters } from "@/components/admin/admin-filters";
+import { ListToolbar } from "@/components/admin/list-toolbar";
 import {
-  AdminPagination,
-  adminPaginationLabels,
   firstParam,
   parseAdminPage,
 } from "@/components/admin/admin-pagination";
+import { DataTablePagination } from "@/components/admin/data-table-pagination";
+import { parsePageSize } from "@/lib/admin-list-query";
 
 /**
  * Every opportunity, for monitoring.
@@ -31,7 +36,23 @@ import {
  * transition table, so it cannot drift from what the lifecycle actually
  * produces.
  */
-const PAGE_SIZE = 25;
+
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.opportunities",
+  });
+  return { title: t("title") };
+}
 
 export default async function AdminOpportunitiesPage({
   params,
@@ -44,33 +65,87 @@ export default async function AdminOpportunitiesPage({
   const appLocale = locale as AppLocale;
   await requireAdminOrRedirect(appLocale);
 
-  const t = await getTranslations({ locale: appLocale, namespace: "admin.opportunities" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
-  const filters = await getTranslations({ locale: appLocale, namespace: "admin.filters" });
-  const vocab = await getTranslations({ locale: appLocale, namespace: "admin.vocab" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.opportunities",
+  });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
+  const toolbar = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.toolbar",
+  });
+  const filters = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.filters",
+  });
+  const vocab = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.vocab",
+  });
 
   const page = parseAdminPage(query.page);
+  const pageSize = parsePageSize(query.pageSize);
   const status = firstParam(query.status);
-  const basePath = `/${appLocale}/admin/opportunities`;
+  const companyId = firstParam(query.companyId);
+
+  // THE NAME BEHIND THE FILTER, and only when there IS one.
+  //
+  // The chooser used to be filled with every supplier on the platform —
+  // 5.8 MB at 70,000 companies, on a page nobody had typed into yet. It
+  // asks the server as the operator types now, so the only thing this
+  // page still needs is the name behind an id already in the address,
+  // so the box shows a name rather than a UUID. One row, and only while
+  // the filter is set.
+  const currentSupplier = companyId ? await loadAdminCompany(companyId) : null;
+  const currentSupplierName =
+    currentSupplier?.ok ? currentSupplier.data.legalName : undefined;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
-      </header>
+      {/* STILL A HEADING, just not a second copy of the sidebar.
+          Reading it off the screen was redundant; reading it with a
+          screen reader is how somebody knows which page they landed
+          on, because they cannot see which sidebar entry is lit. */}
+      <h1 className="sr-only">{t("title")}</h1>
 
-      <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-content-muted">
-        {t("monitorOnlyNotice")}
-      </p>
 
-      <AdminFilters
-        action={basePath}
+      <ListToolbar
+        searchable={false}
+        labels={{
+          regionLabel: toolbar("regionLabel"),
+          openLabel: filters("search"),
+          searchLabel: filters("search"),
+          searchPlaceholder: toolbar("searchPlaceholder"),
+          filtersPanelLabel: toolbar("filtersPanelLabel"),
+          reset: toolbar("reset"),
+        }}
         selects={[
+          // WHOSE PRODUCTS — «أضف خيار اختيار اسم المورّد في بطاقة
+          // البحث»، وبنفس نظام الحالة: يُختار ولا يُكتب.
+          //
+          // It writes `companyId`, which both this list and the offers
+          // list have always accepted and nothing could reach: the
+          // register could be narrowed to one supplier only by arriving
+          // from that supplier's own page.
+          {
+            name: "companyId",
+            label: t("supplier"),
+            // THE SUPPLIER LIST IS NOT SHIPPED. It was every supplier on
+            // the platform — 5.8 MB at 70,000 — to fill a dropdown.
+            options: [],
+            remote: {
+              path: "/admin/companies/names?accountType=SUPPLIER",
+              hint: filters("any"),
+              valueKey: "id",
+              currentLabel: currentSupplierName,
+            },
+          },
           {
             name: "status",
             label: t("status"),
-            value: status,
             options: [
               { value: "", label: filters("any") },
               // The same eight values the domain's transition table
@@ -83,18 +158,19 @@ export default async function AdminOpportunitiesPage({
             ],
           },
         ]}
-        labels={{
-          regionLabel: filters("regionLabel"),
-          apply: filters("apply"),
-          clear: filters("clear"),
-        }}
       />
 
       <Suspense
         key={`${page}:${status ?? ""}`}
         fallback={<LoadingState label={common("loading")} rows={6} />}
       >
-        <Opportunities locale={appLocale} basePath={basePath} page={page} status={status} />
+        <Opportunities
+          locale={appLocale}
+          page={page}
+          pageSize={pageSize}
+          status={status}
+          companyId={companyId}
+        />
       </Suspense>
     </div>
   );
@@ -102,21 +178,30 @@ export default async function AdminOpportunitiesPage({
 
 async function Opportunities({
   locale,
-  basePath,
   page,
+  pageSize,
   status,
+  companyId,
 }: {
   locale: AppLocale;
-  basePath: string;
   page: number;
+  pageSize: number;
   status?: string;
+  /** One supplier, chosen from the card above. */
+  companyId?: string;
 }) {
   const t = await getTranslations({ locale, namespace: "admin.opportunities" });
   const vocab = await getTranslations({ locale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale, namespace: "states" });
+  const toolbar = await getTranslations({ locale, namespace: "admin.toolbar" });
   const pagination = await getTranslations({ locale, namespace: "pagination" });
 
-  const result = await loadAdminOpportunities({ page, pageSize: PAGE_SIZE, status });
+  const result = await loadAdminOpportunities({
+    page,
+    pageSize,
+    status,
+    companyId,
+  });
 
   if (!result.ok) {
     return (
@@ -130,7 +215,9 @@ async function Opportunities({
   }
 
   if (result.data.total === 0) {
-    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
+    return (
+      <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+    );
   }
 
   return (
@@ -169,7 +256,12 @@ async function Opportunities({
                   />
                 </TD>
                 <TD>
-                  {formatMoney(opportunity.unitPriceAmount, opportunity.currency, locale) ?? "—"}
+                  <Money
+                    amount={opportunity.unitPriceAmount}
+                    currency={opportunity.currency}
+                    locale={locale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
                 </TD>
                 {/* Funded of target, as the two figures the server sent.
                     No percentage is computed here — a share of a
@@ -182,10 +274,21 @@ async function Opportunities({
                   })}
                 </TD>
                 <TD>
-                  <span className="flex flex-col gap-1 text-xs">
+                  {/* SIDE BY SIDE, AND EACH SAYS WHICH IT IS — «حاط
+                       فترة العرض وتحتها تاريخين فوق بعض، خلّهم
+                       موازيين لبعض وأضف كلمة من وكلمة إلى».
+
+                      TWO BARE DATES STACKED are two dates: nothing
+                      said which one opened the offer and which
+                      closed it, and a reader had to know the order
+                      they were written in. The words cost less than
+                      the line they save. */}
+                  <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+                    <span className="text-content-muted">{t("windowFrom")}</span>
                     <time dateTime={opportunity.startAt}>
                       {formatDate(opportunity.startAt, locale)}
                     </time>
+                    <span className="text-content-muted">{t("windowTo")}</span>
                     <time dateTime={opportunity.endAt}>
                       {formatDate(opportunity.endAt, locale)}
                     </time>
@@ -194,7 +297,7 @@ async function Opportunities({
                 <TD>
                   <Link
                     href={`/${locale}/admin/opportunities/${opportunity.id}`}
-                    className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                    className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                   >
                     {t("openDetail")}
                   </Link>
@@ -205,18 +308,27 @@ async function Opportunities({
         </Table>
       </div>
 
-      <AdminPagination
-        basePath={basePath}
+      <DataTablePagination
         page={result.data.page}
         pageSize={result.data.pageSize}
         total={result.data.total}
-        query={{ status }}
-        labels={adminPaginationLabels(
-          pagination,
-          result.data.page,
-          result.data.pageSize,
-          result.data.total
-        )}
+        labels={{
+          navLabel: pagination("navLabel"),
+          first: pagination("first"),
+          previous: pagination("previous"),
+          next: pagination("next"),
+          last: pagination("last"),
+          rowsPerPage: toolbar("rowsPerPage"),
+          rowsPerPageUnit: toolbar("rowsPerPageUnit"),
+          range: pagination("range", {
+            from: (result.data.page - 1) * result.data.pageSize + 1,
+            to: Math.min(
+              result.data.page * result.data.pageSize,
+              result.data.total,
+            ),
+            total: result.data.total,
+          }),
+        }}
       />
     </div>
   );

@@ -15,15 +15,7 @@ import { CurrentSession } from "../common/security/current-session.decorator";
 import type { SessionData } from "../common/security/session.service";
 import { SESSION_COOKIE_NAME } from "../common/security/session-cookie.constants";
 import { buildClearSessionCookieOptions, buildSessionCookieOptions } from "../common/security/session-cookie.util";
-import { getRequestId } from "../common/logger/request-id.util";
-
-function ctxFrom(req: Request) {
-  return {
-    requestId: getRequestId(req),
-    ipAddress: req.ip,
-    userAgent: req.headers["user-agent"],
-  };
-}
+import { ctxFrom } from "./request-context";
 
 @Controller("auth")
 @UseGuards(CsrfGuard)
@@ -33,12 +25,24 @@ export class AuthController {
     @Inject(APP_ENV) private readonly env: Env
   ) {}
 
+  /**
+   * RATE-LIMITED LIKE LOGIN, and for the reason login is.
+   *
+   * These endpoints now answer WHICH identity was already taken, which
+   * is what the owner asked for and is genuinely more useful to a
+   * person who mistyped. It also makes registration able to answer
+   * "does this CR number exist here" — so it is throttled at the same
+   * five a minute the sign-in form has always carried. A limit is not
+   * a cure for enumeration; it is what turns a list into a crawl.
+   */
   @Post("register/trader")
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   registerTrader(@Body() dto: RegisterCompanyDto, @Req() req: Request) {
     return this.auth.registerTrader(dto, ctxFrom(req));
   }
 
   @Post("register/supplier")
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   registerSupplier(@Body() dto: RegisterCompanyDto, @Req() req: Request) {
     return this.auth.registerSupplier(dto, ctxFrom(req));
   }

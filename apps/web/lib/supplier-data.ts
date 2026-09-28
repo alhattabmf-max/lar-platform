@@ -18,6 +18,8 @@ import type {
   SupplierOpportunitySummary,
   SupplierOrderSummary,
   SupplierReplacementSummary,
+  DashboardPeriod,
+  SupplierDashboardOverview,
 } from "@platform/types";
 import { apiClient } from "./api-client";
 import { toUserFacingError, type UserFacingError } from "./error-messages";
@@ -247,9 +249,11 @@ export function loadSupplierSettlement(id: string): Promise<Found<SettlementDeta
 /**
  * The supplier's catalogue.
  *
- * NOT paginated by the API — it returns the company's own list — so
- * this does not invent a pager. A page control over an unpaginated
- * endpoint is a lie about what the next page contains.
+ * PAGED AND SEARCHED BY THE API, which it was not: the endpoint used
+ * to answer with the whole catalogue under a five-hundred ceiling, and
+ * every screen that drew it drew all of it. Every narrowing below is a
+ * query parameter — none of it happens in the browser, because
+ * narrowing one page of a paged list hides every match on the others.
  *
  * `ProductSummary` carries `thumbnailUrl` as a relative API path built
  * from ids. It is an address, not a capability: the delivery route
@@ -257,8 +261,32 @@ export function loadSupplierSettlement(id: string): Promise<Found<SettlementDeta
  * possessing the string grants nothing. No storage key crosses the
  * wire, and nothing here is presigned.
  */
-export function loadSupplierProducts(): Promise<Loaded<ProductSummary[]>> {
-  return load<ProductSummary[]>("/companies/me/products");
+export interface SupplierProductQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  /** true = what the supplier must act on · false = everything else. */
+  needsAttention?: boolean;
+  /** APPROVED and unarchived — what an offer can be published on. */
+  publishable?: boolean;
+}
+
+export function loadSupplierProducts(
+  query: SupplierProductQuery = {},
+): Promise<Loaded<Paginated<ProductSummary>>> {
+  const params = new URLSearchParams();
+  if (query.page && query.page > 1) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.search) params.set("search", query.search);
+  if (query.needsAttention !== undefined) {
+    params.set("needsAttention", String(query.needsAttention));
+  }
+  if (query.publishable) params.set("publishable", "true");
+
+  const qs = params.toString();
+  return load<Paginated<ProductSummary>>(
+    qs ? `/companies/me/products?${qs}` : "/companies/me/products",
+  );
 }
 
 export function loadSupplierProduct(id: string): Promise<Found<ProductDetail>> {
@@ -344,10 +372,6 @@ export interface SupplierBankAccount {
   createdAt: string;
 }
 
-export function loadSupplierBankAccounts(): Promise<Loaded<SupplierBankAccount[]>> {
-  return load<SupplierBankAccount[]>("/companies/me/bank-account");
-}
-
 /**
  * VAT registration, or null.
  *
@@ -393,4 +417,23 @@ export interface SupplierLocation {
 
 export function loadSupplierLocations(): Promise<Loaded<SupplierLocation[]>> {
   return load<SupplierLocation[]>("/companies/me/locations");
+}
+
+/**
+ * THE LANDING SCREEN, as one read.
+ *
+ * It replaces six list reads whose LENGTHS the page used to count —
+ * which answers "how many came back on the first page", never "how
+ * many are there". Every figure in the response is a sum or a count
+ * the database performed.
+ *
+ * `no-store`, like every other read in this module: a dashboard served
+ * from a cache is a dashboard that is wrong about the last hour.
+ */
+export function loadSupplierDashboard(
+  period: DashboardPeriod,
+): Promise<Loaded<SupplierDashboardOverview>> {
+  return load<SupplierDashboardOverview>(
+    `/supplier/dashboard/overview?period=${period}`,
+  );
 }

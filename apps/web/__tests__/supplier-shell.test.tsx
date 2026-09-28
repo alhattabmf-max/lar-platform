@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PortalNav } from "@/components/shell/portal-nav";
-import {
-  SUPPLIER_NAV_DESTINATIONS,
-  SupplierNav,
-  type SupplierNavKey,
-} from "@/components/shell/supplier-nav";
+import { PortalTopNav } from "@/components/portal/portal-top-nav";
+import { portalPages } from "@/components/portal/portal-nav";
+import { SUPPLIER_PORTAL_MAP } from "@/components/supplier/supplier-portal-nav";
 
 const ROOT = join(__dirname, "..");
 const read = (relative: string) => readFileSync(join(ROOT, relative), "utf8");
@@ -23,10 +21,11 @@ const strip = (source: string) =>
  */
 function supplierPages(
   dir = join(ROOT, "app", "[locale]", "supplier"),
-  prefix = "supplier"
+  prefix = "supplier",
 ): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    if (entry.isDirectory()) return supplierPages(join(dir, entry.name), `${prefix}/${entry.name}`);
+    if (entry.isDirectory())
+      return supplierPages(join(dir, entry.name), `${prefix}/${entry.name}`);
     return entry.name === "page.tsx" ? [`${prefix}/page.tsx`] : [];
   });
 }
@@ -56,10 +55,13 @@ class RedirectSignal extends Error {
 
 const getSessionMock = vi.fn();
 
+const nav = vi.hoisted(() => ({ pathname: "/ar-SA/supplier" }));
+
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw new RedirectSignal(to);
   },
+  usePathname: () => nav.pathname,
 }));
 
 vi.mock("@/lib/session", () => ({
@@ -68,9 +70,13 @@ vi.mock("@/lib/session", () => ({
   UnauthenticatedError: class UnauthenticatedError extends Error {},
 }));
 
-const { requireRoleOrRedirect, portalPathFor } = await import("@/lib/auth-redirects");
+const { requireRoleOrRedirect, portalPathFor } =
+  await import("@/lib/auth-redirects");
 
-function sessionFor(accountType: "TRADER" | "SUPPLIER") {
+function sessionFor(
+  accountType: "TRADER" | "SUPPLIER",
+  profileComplete = true,
+) {
   return {
     userId: "u-1",
     email: "owner@example.com",
@@ -83,6 +89,12 @@ function sessionFor(accountType: "TRADER" | "SUPPLIER") {
       legalName: "Example Supply Co.",
       accountType,
       verificationStatus: "VERIFIED",
+    },
+    // Defaults to FINISHED, because that is the ordinary case these
+    // tests are about. The unfinished case has its own test below.
+    profile: {
+      complete: profileComplete,
+      missing: profileComplete ? [] : ["mainBranch"],
     },
   };
 }
@@ -109,7 +121,9 @@ describe("the supplier segment is guarded on the server", () => {
   it("sends an unauthenticated visitor to login", async () => {
     getSessionMock.mockResolvedValue(null);
 
-    expect(await redirectFrom(requireRoleOrRedirect("ar-SA", "SUPPLIER"))).toBe("/ar-SA/login");
+    expect(await redirectFrom(requireRoleOrRedirect("ar-SA", "SUPPLIER"))).toBe(
+      "/ar-SA/login",
+    );
   });
 
   it("sends a TRADER to /unauthorized, not to login", async () => {
@@ -118,7 +132,7 @@ describe("the supplier segment is guarded on the server", () => {
     getSessionMock.mockResolvedValue(sessionFor("TRADER"));
 
     expect(await redirectFrom(requireRoleOrRedirect("ar-SA", "SUPPLIER"))).toBe(
-      "/ar-SA/unauthorized"
+      "/ar-SA/unauthorized",
     );
   });
 
@@ -134,7 +148,7 @@ describe("the supplier segment is guarded on the server", () => {
     getSessionMock.mockResolvedValue(sessionFor("TRADER"));
 
     expect(await redirectFrom(requireRoleOrRedirect("en-SA", "SUPPLIER"))).toBe(
-      "/en-SA/unauthorized"
+      "/en-SA/unauthorized",
     );
   });
 
@@ -143,23 +157,51 @@ describe("the supplier segment is guarded on the server", () => {
     // page behind it, so the one thing the product did with a supplier
     // account was redirect it to a 404.
     expect(portalPathFor("ar-SA", "SUPPLIER")).toBe("/ar-SA/supplier");
-    expect(existsSync(join(ROOT, "app", "[locale]", "supplier", "page.tsx"))).toBe(true);
+    expect(
+      existsSync(join(ROOT, "app", "[locale]", "supplier", "page.tsx")),
+    ).toBe(true);
+  });
+
+  it("LETS a supplier with no branch into the portal", async () => {
+    // It used to divert them to a page of their own, which meant the
+    // one screen they were allowed to see was a form. An incomplete
+    // record now closes the commercial work that genuinely needs the
+    // data and nothing else: the dashboard opens, says what is missing,
+    // and links to the section that fixes it.
+    getSessionMock.mockResolvedValue(sessionFor("SUPPLIER", false));
+
+    const session = await requireRoleOrRedirect("ar-SA", "SUPPLIER");
+    expect(session.company.accountType).toBe("SUPPLIER");
+  });
+
+  it("checks the ROLE before the profile, so a trader is still refused", async () => {
+    // Otherwise a trader with no branch would be invited to complete a
+    // profile for a portal they may never enter.
+    getSessionMock.mockResolvedValue(sessionFor("TRADER", false));
+
+    expect(await redirectFrom(requireRoleOrRedirect("ar-SA", "SUPPLIER"))).toBe(
+      "/ar-SA/unauthorized",
+    );
   });
 
   it("calls requireRoleOrRedirect for the SUPPLIER role in the layout", () => {
-    expect(strip(LAYOUT)).toContain('requireRoleOrRedirect(appLocale, "SUPPLIER")');
+    expect(strip(LAYOUT)).toContain(
+      'requireRoleOrRedirect(appLocale, "SUPPLIER")',
+    );
   });
 
   it("guards before rendering any child", () => {
     const code = strip(LAYOUT);
 
-    expect(code.indexOf("requireRoleOrRedirect")).toBeLessThan(code.indexOf("return ("));
+    expect(code.indexOf("requireRoleOrRedirect")).toBeLessThan(
+      code.indexOf("return ("),
+    );
   });
 
   it("re-guards on every page, so moving one cannot unguard it", () => {
     for (const page of SUPPLIER_PAGES) {
       expect(strip(read(`app/[locale]/${page}`)), page).toContain(
-        'requireRoleOrRedirect(appLocale, "SUPPLIER")'
+        'requireRoleOrRedirect(appLocale, "SUPPLIER")',
       );
     }
   });
@@ -180,7 +222,10 @@ describe("the supplier segment is guarded on the server", () => {
   it("protects nothing in the browser", () => {
     // A client-side check is advisory at best: the payload would already
     // have been produced by the time it ran.
-    for (const page of [...SUPPLIER_PAGES.map((p) => `app/[locale]/${p}`), "app/[locale]/supplier/layout.tsx"]) {
+    for (const page of [
+      ...SUPPLIER_PAGES.map((p) => `app/[locale]/${p}`),
+      "app/[locale]/supplier/layout.tsx",
+    ]) {
       const source = read(page);
       expect(source, page).not.toContain('"use client"');
       expect(source, page).not.toContain("useEffect");
@@ -199,7 +244,8 @@ describe("supplier reads never come from a cache", () => {
     const requests = code.match(/apiClient\.get<[^>]*>\([^)]*\)/gs) ?? [];
 
     expect(requests.length).toBeGreaterThan(0);
-    for (const request of requests) expect(request).toContain('cache: "no-store"');
+    for (const request of requests)
+      expect(request).toContain('cache: "no-store"');
   });
 
   it("forwards the session cookie on every private read", () => {
@@ -235,7 +281,7 @@ describe("supplier reads never come from a cache", () => {
     for (const path of paths) {
       expect(
         path.startsWith("/supplier/") || path.startsWith("/companies/me/"),
-        path
+        path,
       ).toBe(true);
     }
   });
@@ -260,12 +306,17 @@ describe("private supplier routes are never statically rendered", () => {
 
   it("does not rely on each page repeating the declaration", () => {
     for (const page of SUPPLIER_PAGES) {
-      expect(strip(read(`app/[locale]/${page}`)), page).not.toContain("force-dynamic");
+      expect(strip(read(`app/[locale]/${page}`)), page).not.toContain(
+        "force-dynamic",
+      );
     }
   });
 
   it("generates no static params for a private segment", () => {
-    for (const page of [...SUPPLIER_PAGES.map((p) => `app/[locale]/${p}`), "app/[locale]/supplier/layout.tsx"]) {
+    for (const page of [
+      ...SUPPLIER_PAGES.map((p) => `app/[locale]/${p}`),
+      "app/[locale]/supplier/layout.tsx",
+    ]) {
       expect(strip(read(page)), page).not.toContain("generateStaticParams");
     }
   });
@@ -274,176 +325,328 @@ describe("private supplier routes are never statically rendered", () => {
 // --------------------------------------------------------------- chrome
 
 describe("the shell is applied exactly once", () => {
-  it("wraps the segment in AppShell at the layout", () => {
-    expect(strip(LAYOUT)).toContain("<AppShell");
+  /**
+   * THE WORKSPACE FRAME, NOT THE STOREFRONT'S.
+   *
+   * The segment used to wrap itself in `AppShell` — the marketplace
+   * header, the category bar and the public footer. A supplier working
+   * through orders is not shopping, and this batch replaced that chrome
+   * with the control panel's: a navy rail and a white bar, the same
+   * ones the console wears.
+   */
+  it("wraps the segment in the portal chrome at the layout", () => {
+    // Through the portal's OWN client entry, which is where the nav map
+    // is bound. A layout that passed the map itself would be handing a
+    // Lucide icon — a function — across the server boundary, and React
+    // refuses to serialise one: every request 500s.
+    expect(strip(LAYOUT)).toContain("<SupplierChrome");
+    expect(strip(read("components/supplier/supplier-chrome.tsx"))).toContain(
+      "<PortalChrome",
+    );
   });
 
-  it("does not re-wrap AppShell inside a supplier page", () => {
-    // The layout supplies the chrome once; a page repeating it would
-    // nest headers, footers and skip links.
+  it("no longer dresses the workspace as a storefront", () => {
+    expect(strip(LAYOUT)).not.toContain("<AppShell");
+  });
+
+  it("does not re-wrap the chrome inside a supplier page", () => {
+    // The layout supplies it once; a page repeating it would nest
+    // sidebars, bars and skip links.
     for (const page of SUPPLIER_PAGES) {
-      expect(strip(read(`app/[locale]/${page}`)), page).not.toContain("<AppShell");
+      const source = strip(read(`app/[locale]/${page}`));
+      expect(source, page).not.toContain("<AppShell");
+      expect(source, page).not.toContain("<PortalChrome");
+      expect(source, page).not.toContain("<SupplierChrome");
     }
   });
 
-  it("uses one AppShell in the whole segment, counted", () => {
+  it("uses one chrome in the whole segment, counted", () => {
     const occurrences = [
       strip(LAYOUT),
       ...SUPPLIER_PAGES.map((page) => strip(read(`app/[locale]/${page}`))),
     ]
       .join("\n")
-      .match(/<AppShell/g);
+      .match(/<SupplierChrome/g);
 
     expect(occurrences).toHaveLength(1);
   });
 
-  it("shares the nav renderer with the trader portal rather than copying it", () => {
-    // Two copies of a nav that must agree on coming-soon handling,
-    // badges and wrapping would be free to drift — and the drift shows
-    // up as one portal 404-ing on an unbuilt destination.
-    expect(read("components/shell/trader-nav.tsx")).toContain("./portal-nav");
-    expect(read("components/shell/supplier-nav.tsx")).toContain("./portal-nav");
+  it("shares the frame with the console rather than copying it", () => {
+    // Two copies of a rail that must agree on the active marker, the
+    // collapse, the drawer and the direction would be free to drift.
+    expect(strip(read("components/supplier/supplier-chrome.tsx"))).toContain(
+      "@/components/portal/portal-chrome",
+    );
+    expect(strip(read("components/admin/control-panel-chrome.tsx"))).toContain(
+      "@/components/portal/portal-chrome",
+    );
+  });
+
+  it("shares the components WITHOUT sharing the session", () => {
+    // The line this batch had to hold. The company portals read `/me`
+    // with the `sid` cookie through `requireRoleOrRedirect`; the
+    // console reads `/admin/auth/me` with `asid`. Neither loader,
+    // guard nor cookie crosses over.
+    const layout = strip(LAYOUT);
+
+    expect(layout).toContain("requireRoleOrRedirect");
+    expect(layout).not.toContain("admin-session");
+    expect(layout).not.toContain("getAdminSession");
+    expect(layout).not.toContain("admin-data");
+    expect(layout).not.toContain("AdminSignOut");
   });
 });
 
 // ------------------------------------------------------------------ nav
 
 describe("navigation", () => {
-  const LABELS: Record<SupplierNavKey, string> = {
-    dashboard: "الرئيسية",
-    orders: "الطلبات",
-    opportunities: "الفرص",
-    products: "المنتجات",
-    settlements: "المستحقات",
-    disputes: "النزاعات",
-    replacements: "الاستبدالات",
-    notifications: "الإشعارات",
-    account: "الحساب",
+  /**
+   * THE NAVIGATION THE CONSOLE WEARS, bound to the supplier's own map.
+   *
+   * The shared portal navigation, across the top:
+   * navy from the identity tokens, an accent underline beneath the
+   * active item, Lucide icons, and one button opening a column at phone
+   * widths. The RENDERER is shared with the console and the other
+   * company portal; the DESTINATIONS are not, and cannot be — it draws
+   * the map it is handed and knows of no other.
+   */
+  const PAGE_LABELS: Record<string, string> = {};
+  for (const page of portalPages(SUPPLIER_PORTAL_MAP))
+    PAGE_LABELS[page.key] = `page:${page.key}`;
+
+  const GROUP_LABELS: Record<string, string> = {};
+  for (const group of SUPPLIER_PORTAL_MAP.groups)
+    GROUP_LABELS[group.key] = `group:${group.key}`;
+
+  const LABELS = {
+    navLabel: "تنقل لوحة التحكم",
+    closeMenu: "إغلاق القائمة",
+    openMenu: "فتح القائمة",
+    groupNames: GROUP_LABELS,
+    pageNames: PAGE_LABELS,
   };
 
-  const renderNav = (unreadCount?: number) =>
-    render(
-      <SupplierNav
-        locale="ar-SA"
-        navLabel="تنقل حساب المورّد"
-        labels={LABELS}
-        comingSoonLabel="قريبًا"
-        unreadCount={unreadCount}
-      />
+  const MAP = SUPPLIER_PORTAL_MAP;
+
+  /**
+   * Puts every destination in the document at once.
+   *
+   * THROUGH THE PHONE PANEL, because only one group's panel is open at
+   * a time on a wide screen — that is the design, not a limitation, and
+   * opening them in turn would only ever leave the last one mounted.
+   * The phone panel lists every group and every page together, so it is
+   * the honest way to walk the whole map.
+   */
+  async function openEveryGroup(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTestId("portal-menu-button"));
+  }
+
+  /** Opens the one group holding a page, for a case about that page. */
+  async function openGroupOf(
+    user: ReturnType<typeof userEvent.setup>,
+    pageKey: string,
+  ) {
+    const group = MAP.groups.find((g) =>
+      g.pages.some((page) => page.key === pageKey),
     );
+    if (group) await user.click(screen.getByTestId(`nav-group-${group.key}`));
+  }
+
+  function renderNav(pathname = "/ar-SA/supplier") {
+    nav.pathname = pathname;
+    return render(
+      <PortalTopNav
+        basePath="/ar-SA/supplier"
+        map={SUPPLIER_PORTAL_MAP}
+        labels={LABELS}
+        pathname={pathname}
+      />,
+    );
+  }
 
   it("is a landmark with an accessible name", () => {
     renderNav();
 
-    expect(screen.getByRole("navigation", { name: "تنقل حساب المورّد" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "تنقل لوحة التحكم" }),
+    ).toBeInTheDocument();
   });
 
-  it("uses links for navigation, never buttons", () => {
+  it("carries no portal name of its own", () => {
+    // The rail printed one in its head. The mark in the white bar above
+    // is the platform's name, and a second name beneath it was what
+    // made one product read as three.
     renderNav();
 
-    expect(screen.getByRole("link", { name: "الرئيسية" })).toHaveAttribute("href", "/ar-SA/supplier");
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryByTestId("control-panel-name")).toBeNull();
   });
 
-  it("links every BUILT destination and no unbuilt one", () => {
+  it("uses links for navigation, never click handlers on plain elements", () => {
     renderNav();
 
-    for (const destination of SUPPLIER_NAV_DESTINATIONS) {
-      const label = LABELS[destination.key];
-      const link = screen.queryByRole("link", { name: new RegExp(label) });
+    expect(
+      screen.getByRole("link", { name: /page:dashboard/ }),
+    ).toHaveAttribute("href", "/ar-SA/supplier");
+  });
 
-      expect([destination.key, link !== null]).toEqual([destination.key, destination.built]);
+  it("builds every href from the portal root and the segment", async () => {
+    const user = userEvent.setup();
+    renderNav();
+    await openEveryGroup(user);
+
+    for (const page of portalPages(SUPPLIER_PORTAL_MAP)) {
+      const link = screen.getByTestId(`nav-page-${page.key}`);
+      const expected = page.segment
+        ? `/ar-SA/supplier/${page.segment}`
+        : "/ar-SA/supplier";
+      expect([page.key, link.getAttribute("href")]).toEqual([
+        page.key,
+        expected,
+      ]);
     }
   });
 
   it("has a real page behind every destination it links to", () => {
     // A link with no page is a 404 the reader reaches by following our
     // own menu; a page with no link is unreachable.
-    for (const destination of SUPPLIER_NAV_DESTINATIONS.filter((d) => d.built)) {
-      const expected = destination.segment
-        ? `supplier/${destination.segment}/page.tsx`
+    for (const page of portalPages(SUPPLIER_PORTAL_MAP)) {
+      const expected = page.segment
+        ? `supplier/${page.segment}/page.tsx`
         : "supplier/page.tsx";
-
-      expect(SUPPLIER_PAGES, destination.key).toContain(expected);
+      expect(SUPPLIER_PAGES, page.key).toContain(expected);
     }
   });
 
-  it("renders an unbuilt destination as inert text, not a link that 404s", () => {
-    // Phase 8E ships every destination, so there is none left to render
-    // inert. The RULE is what matters, and it is asserted directly on the
-    // renderer with a synthetic unbuilt item — the day a tenth
-    // destination is declared ahead of its page, this still holds.
-    render(
-      <PortalNav
-        navLabel="nav"
-        items={[{ key: "future", label: "قادم", href: null, comingSoonLabel: "قريبًا" }]}
-      />
-    );
-
-    expect(screen.queryByRole("link", { name: "قادم" })).not.toBeInTheDocument();
-    expect(screen.getByText("قادم").closest("span")).toHaveAttribute("aria-disabled", "true");
-    // It explains itself rather than being hidden: a gap in the menu is
-    // harder to understand than an item that says it is not ready.
-    expect(screen.getByText("قريبًا")).toBeInTheDocument();
-  });
-
-  it("has every supplier destination built, with no coming-soon left", () => {
+  it("names ONLY the supplier's own destinations", () => {
+    // The security line this batch had to hold: a shared renderer must
+    // not become a way for one portal's links to reach another's
+    // reader.
     renderNav();
 
-    expect(SUPPLIER_NAV_DESTINATIONS.filter((d) => !d.built)).toHaveLength(0);
-    expect(screen.queryByText("قريبًا")).not.toBeInTheDocument();
-  });
-
-  it("shows an unread badge only when there is something unread", () => {
-    const { unmount } = renderNav(3);
-    expect(screen.getByText("3")).toBeInTheDocument();
-    unmount();
-
-    renderNav(0);
-    expect(screen.queryByText("0")).not.toBeInTheDocument();
-  });
-
-  it("carries the unread badge on the notifications link", () => {
-    renderNav(5);
-
-    const notifications = screen.getByRole("link", { name: /الإشعارات/ });
-    expect(notifications).toHaveAttribute("href", "/ar-SA/supplier/notifications");
-    expect(within(notifications).getByText("5")).toBeInTheDocument();
-  });
-
-  it("keeps the badge on an item even while its screen is unbuilt", () => {
-    // Knowing something is waiting matters most while the screen for it
-    // is still being built. Asserted on the renderer, since no supplier
-    // destination is unbuilt any more.
-    render(
-      <PortalNav
-        navLabel="nav"
-        items={[{ key: "future", label: "قادم", href: null, comingSoonLabel: "قريبًا", badge: 5 }]}
-      />
-    );
-
-    const item = screen.getByText("قادم").closest("span")!;
-    expect(item).toHaveAttribute("aria-disabled", "true");
-    expect(within(item).getByText("5")).toBeInTheDocument();
-  });
-
-  it("wraps instead of scrolling sideways at a narrow viewport", () => {
-    const { container } = renderNav();
-    const list = container.querySelector("ul")!;
-
-    // `flex-wrap` is what keeps 360px free of horizontal overflow.
-    expect(list.className).toContain("flex-wrap");
-    expect(list.className).not.toContain("overflow-x");
-  });
-
-  it("gives every item a 44px touch target", () => {
-    const { container } = renderNav();
-
-    const targets = container.querySelectorAll("li > a, li > span[aria-disabled]");
-    expect(targets.length).toBe(SUPPLIER_NAV_DESTINATIONS.length);
-    for (const target of targets) {
-      expect(target.className).toContain("min-h-11");
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href")).toMatch(/^\/ar-SA\/supplier(\/|$)/);
     }
+  });
+
+  it("marks the current page for assistive technology AND for the eye", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/supplier/products");
+    await openGroupOf(user, "products");
+
+    const current = screen.getByTestId("nav-page-products");
+    expect(current).toHaveAttribute("aria-current", "page");
+    // Colour alone would leave the state invisible to a reader who
+    // cannot separate two dark blues, so there is an accent marker too.
+    // The accent underline is the BAR's affordance and is drawn on the
+    // group holding the page; inside the panel the page carries
+    // `aria-current` and full weight. Both are checked.
+    expect(screen.getByTestId("nav-page-products").className).toContain(
+      "font-semibold",
+    );
+  });
+
+  it("keeps a DETAIL screen marked as its section", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/supplier/orders/abc-123");
+    await openGroupOf(user, "orders");
+
+    expect(screen.getByTestId("nav-page-orders")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("gives every destination a 44px touch target", async () => {
+    const user = userEvent.setup();
+    renderNav();
+    await openEveryGroup(user);
+
+    for (const page of portalPages(SUPPLIER_PORTAL_MAP)) {
+      expect(
+        screen.getByTestId(`nav-page-${page.key}`).className,
+        // A destination in a rail is not a control: it keeps the
+        // 44px target, from `--nav-item-height` rather than from a
+        // class added by hand.
+      ).toContain("min-h-nav");
+    }
+  });
+
+  it("makes every destination a real link, not a click handler", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/supplier");
+
+    for (const group of MAP.groups) {
+      await user.click(screen.getByTestId(`nav-group-${group.key}`));
+      for (const page of group.pages) {
+        expect(screen.getByTestId(`nav-page-${page.key}`).tagName).toBe("A");
+      }
+    }
+  });
+
+  it("offers a panel on a phone, opened and closed by one named button", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/supplier");
+
+    const button = screen.getByTestId("portal-menu-button");
+    expect(button).toHaveAttribute("aria-label", "فتح القائمة");
+
+    await user.click(button);
+    expect(screen.getByTestId("portal-nav-drawer")).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-label", "إغلاق القائمة");
+
+    await user.click(button);
+    expect(screen.queryByTestId("portal-nav-drawer")).toBeNull();
+  });
+
+  it("draws nothing while the panel is shut", () => {
+    renderNav("/ar-SA/supplier");
+
+    expect(screen.queryByTestId("portal-nav-drawer")).toBeNull();
+  });
+
+  it("closes the panel on Escape", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/supplier");
+
+    await user.click(screen.getByTestId("portal-menu-button"));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByTestId("portal-nav-drawer")).toBeNull();
+  });
+
+  /**
+   * IT USED TO SAY "once collapsed". The rail could be narrowed to
+   * icons, and the rule was that an icon with neither a name nor a
+   * tooltip is a guess. There is no collapsed state on a top bar — but
+   * the rule behind it is unchanged and still worth holding: no
+   * destination is ever named by its icon alone.
+   */
+  it("names every destination in words, never by its icon alone", async () => {
+    const user = userEvent.setup();
+    renderNav();
+    await openEveryGroup(user);
+
+    for (const page of portalPages(SUPPLIER_PORTAL_MAP)) {
+      const link = screen.getByTestId(`nav-page-${page.key}`);
+      expect([page.key, link.textContent?.trim()]).toEqual([
+        page.key,
+        PAGE_LABELS[page.key],
+      ]);
+    }
+  });
+
+  it("shares the rail with the console rather than copying it", () => {
+    // Two copies of a rail that must agree on the active marker, the
+    // collapse and the drawer would be free to drift.
+    expect(read("components/supplier/supplier-chrome.tsx")).toContain(
+      "@/components/portal/portal-chrome",
+    );
+    expect(read("app/[locale]/admin/layout.tsx")).toContain(
+      "ControlPanelShell",
+    );
+    expect(read("components/admin/control-panel-chrome.tsx")).toContain(
+      "@/components/portal/portal-chrome",
+    );
   });
 
   it("uses no direction-specific spacing anywhere in the segment", () => {
@@ -453,8 +656,8 @@ describe("navigation", () => {
     const sources = [
       LAYOUT,
       DASHBOARD,
-      read("components/shell/portal-nav.tsx"),
-      read("components/shell/supplier-nav.tsx"),
+      read("components/portal/portal-top-nav.tsx"),
+      read("components/portal/portal-chrome.tsx"),
       ...SUPPLIER_PAGES.map((page) => read(`app/[locale]/${page}`)),
     ];
 
@@ -464,231 +667,363 @@ describe("navigation", () => {
     }
   });
 
-  it("marks up the items as a list", () => {
-    renderNav();
-
-    expect(within(screen.getByRole("list")).getAllByRole("listitem")).toHaveLength(
-      SUPPLIER_NAV_DESTINATIONS.length
-    );
-  });
-
   it("builds hrefs from the rendered locale, never a baked-in one", () => {
+    nav.pathname = "/en-SA/supplier";
     render(
-      <SupplierNav
-        locale="en-SA"
-        navLabel="nav"
+      <PortalTopNav
+        basePath="/en-SA/supplier"
+        map={SUPPLIER_PORTAL_MAP}
         labels={LABELS}
-        comingSoonLabel="Coming soon"
-      />
+        pathname="/en-SA/supplier"
+      />,
     );
 
-    expect(screen.getByRole("link", { name: "الرئيسية" })).toHaveAttribute("href", "/en-SA/supplier");
+    expect(screen.getByTestId("nav-page-dashboard")).toHaveAttribute(
+      "href",
+      "/en-SA/supplier",
+    );
   });
 });
 
-// ------------------------------------------------------------ dashboard
-
 describe("the dashboard shows only real data", () => {
   const code = strip(DASHBOARD);
+  const cards = strip(read("components/supplier/dashboard-cards.tsx"));
+  const chart = strip(read("components/supplier/sales-chart.tsx"));
+  const panels = strip(read("components/supplier/dashboard-panels.tsx"));
+  const service = strip(
+    readFileSync(
+      join(ROOT, "..", "api", "src", "dashboard", "supplier-dashboard.service.ts"),
+      "utf8",
+    ),
+  );
 
-  it("renders no invented metric or chart", () => {
-    for (const fake of ["Math.random", "chart", "sparkline", "revenue", "growth", "trend", "mock"]) {
-      expect(code.toLowerCase()).not.toContain(fake.toLowerCase());
+  /**
+   * WHAT CHANGED, AND WHAT DID NOT.
+   *
+   * The page was rebuilt to the owner's approved reference: four cards,
+   * a sales line, the running listings, the settlement movement, the
+   * five fulfilment stages, and what needs attention. What did NOT
+   * change is the rule these cases exist for — every figure is this
+   * supplier's own, computed by the database, and a figure that cannot
+   * be computed is said to be missing rather than drawn.
+   *
+   * IT IS ONE READ NOW, not six. The page used to count the LENGTHS of
+   * six list responses, which answers "how many are on the first page"
+   * rather than "how many are there" — which is why the old cases
+   * about capped pages are gone WITH the capping, not instead of it.
+   */
+  it("gives the head NO row — it hands it up to the open tab's strip", () => {
+    // «احذف الصف اللي أنا مصوّره وانقله للشريط حق اللسان في الرئيسية».
+    // The last-updated time, the refresh and the period chooser stood
+    // in a row above the cards; they are rendered into the strip now,
+    // so the dashboard begins at its first figure.
+    const header = strip(read("components/supplier/dashboard-header.tsx"));
+
+    // A PORTAL, NOT A PROP THROUGH THE LAYOUT. Both controls need what
+    // only this page has — the instant its figures were read, and the
+    // period the reader chose — so the RENDERED row moves and the data
+    // stays exactly where it is read.
+    expect(header).toContain("createPortal");
+    expect(header).toContain("PORTAL_STRIP_SLOT");
+
+    // THE SLOT IS NAMED ONCE, in the strip, and imported by the page.
+    const bar = read("components/portal/portal-page-bar.tsx");
+    expect(bar).toContain('export const PORTAL_STRIP_SLOT = "portal-strip-slot"');
+    expect(bar).toContain("id={PORTAL_STRIP_SLOT}");
+    // Empty on every page that hands it nothing.
+    expect(bar).toContain("empty:hidden");
+
+    // AND THE HEADING STAYS IN THE PAGE'S OWN TREE, where a reader
+    // walking the document expects the page's name.
+    expect(header).toContain('<h1 className="sr-only">{labels.title}</h1>');
+  });
+
+  it("gives the head ONE row, and spends none of it on decoration", () => {
+    const header = strip(read("components/supplier/dashboard-header.tsx"));
+
+    // A SENTENCE UNDER THE TITLE. «نبض تجارتك في مكان واحد» said the
+    // same words to every supplier forever — the decoration the owner
+    // struck off the platform — and it pushed every figure down.
+    expect(header).not.toContain("labels.subtitle");
+    expect(header).not.toContain("subtitle: string");
+    for (const catalogue of ["messages/ar-SA.json", "messages/en-SA.json"]) {
+      const dashboard = JSON.parse(read(catalogue)).supplier.dashboard;
+      expect([catalogue, dashboard.subtitle]).toEqual([catalogue, undefined]);
+      // The CHART's own subtitle is a different key and stays: it names
+      // what the line plots, which the card's title alone does not.
+      expect([catalogue, typeof dashboard.sales.subtitle]).toEqual([
+        catalogue,
+        "string",
+      ]);
+    }
+    expect(strip(DASHBOARD)).not.toContain('subtitle: t("subtitle")');
+
+    // THE PERIOD CHOOSER WRAPPED ONTO A LINE OF ITS OWN. `Select`
+    // carries `w-full`, which is right in a form column and, in this
+    // wrapping toolbar, meant 100% OF THE ROW. `cn` joins classes
+    // rather than merging them, so a `w-auto` on the element would
+    // have lost to the skin in the stylesheet's own order — the box
+    // around it is what sizes it, the same way the console's own
+    // period picker does.
+    expect(header).toMatch(
+      /<span className="flex items-center">\s*<Select/,
+    );
+    expect(header).not.toMatch(/<Select[^>]*className="[^"]*w-(auto|fit)/s);
+  });
+
+  it("spends the page's vertical space by the card token, not by hand", () => {
+    // MEASURED: 977px tall at 1600×900 — 77 of them past the fold —
+    // and the four figures did not start until y=323. Every gap on the
+    // page was 16px written as `gap-4`, where the system's own measure
+    // between surfaces is 8. It is 900 and y=263 now.
+    const page = strip(DASHBOARD);
+    expect(page).not.toContain("gap-4");
+    expect(page).toContain("gap-card-gap");
+    expect(cards).not.toContain("gap-4");
+  });
+
+  it("invents no number and no trend", () => {
+    for (const fake of ["Math.random", "mock", "sample", "placeholder", "dummy"]) {
+      expect(code.toLowerCase(), fake).not.toContain(fake.toLowerCase());
+      expect(chart.toLowerCase(), fake).not.toContain(fake.toLowerCase());
+      expect(panels.toLowerCase(), fake).not.toContain(fake.toLowerCase());
     }
   });
 
-  it("reads only endpoints that exist", () => {
-    for (const reader of [
-      "loadFinancialReadiness",
+  it("reads ONE endpoint, and it exists", () => {
+    expect(code).toContain("loadSupplierDashboard");
+    // The six list reads it replaced are gone from this page.
+    for (const old of [
       "loadSupplierOrders",
       "loadSupplierDisputes",
       "loadSupplierReplacements",
       "loadSupplierSettlements",
-      "loadSupplierUnreadCount",
     ]) {
-      expect(code, reader).toContain(reader);
+      expect(code, old).not.toContain(old);
     }
   });
 
-  it("isolates each panel behind its own Suspense boundary", () => {
-    expect((code.match(/<Suspense/g) ?? []).length).toBeGreaterThanOrEqual(4);
+  it("draws the chart from the series and from nothing else", () => {
+    // No smoothing that invents a value between two points, no
+    // projection past the last one, no baseline shifted to flatter it.
+    expect(chart).toContain("series.paidOrders");
+    expect(chart).not.toMatch(/interpolat|smooth|extrapolat|forecast/i);
   });
 
-  it("gives every panel a loading, error and empty state", () => {
-    expect((code.match(/<LoadingState/g) ?? []).length).toBeGreaterThanOrEqual(4);
-    expect((code.match(/<ErrorState/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect((code.match(/<EmptyState/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  it("says it has no sales rather than drawing a flat line at zero", () => {
+    // A flat line across an empty month is a chart claiming a trend.
+    expect(chart).toContain("sales-chart-empty");
+    expect(chart).toContain("everySold");
   });
 
-  it("puts what needs attention before the rest", () => {
-    expect(code.indexOf("NeedsAttentionPanel")).toBeLessThan(code.indexOf("FulfilmentPanel"));
-    expect(code.indexOf("NeedsAttentionPanel")).toBeLessThan(code.indexOf("SettlementsPanel"));
+  it("never nets refunds off the line", () => {
+    // Netting makes a good week look like a bad one and gives no way
+    // to tell the two apart.
+    expect(chart).toContain("refundsSeparate");
+    // The refund total is READ and rendered; it never enters the
+    // arithmetic that produces the points.
+    expect(chart).toContain("series.refunded");
+    // THE POINTS COME FROM `paidOrders` ALONE. The refund total is read
+    // and rendered beside the line; it never enters the arithmetic that
+    // produces a point.
+    expect(chart).toContain("series.paidOrders.map((p) => Number(p.value))");
+    // Nothing subtracts it from anything.
+    expect(chart).not.toMatch(/[-+*/]\s*Number\(series\.refunded/);
+    expect(chart).not.toMatch(/refunded\s*[-+]/);
   });
 
   it("shows nothing at all when nothing needs attention", () => {
-    // An empty "needs attention" card would train people to ignore it.
-    expect(code).toContain("if (rows.length === 0 && unchecked.length === 0) return null");
+    // An always-full panel of zeroes trains people to ignore it.
+    expect(panels).toContain("attention-clear");
+    // Each row is built only when its own count is above zero.
+    expect(panels).toContain("attention.ordersAwaitingPreparation > 0 &&");
+    expect(panels).toContain("attention.disputesAwaitingResponse > 0 &&");
+    expect(panels).toContain("attention.replacementsAwaitingAction > 0 &&");
+    expect(panels).toContain("rows.length === 0");
   });
 
-  it("never reports all-clear on a category it could not read", () => {
-    // A false all-clear on a fulfilment deadline is worse than an error
-    // message, so an unread category is listed as unchecked.
-    expect(code).toContain("unchecked.push");
-    expect(code).toContain('role="alert"');
+  it("draws five fulfilment stages whatever the data", () => {
+    // A stage with no rows is a zero; a stage that vanished would read
+    // as a stage the platform does not have.
+    expect(panels).toContain("ORDER_ALLOCATION_STATUSES.map");
+    expect(service).toContain("byStatus.get(status) ?? 0");
   });
 
-  it("uses server-computed flags rather than deriving them in the UI", () => {
-    expect(code).toContain("hasOverduePreparation");
-    expect(code).toContain("awaitingSupplierResponse");
-    expect(code).toContain("awaitingSupplierAction");
-  });
-
-  it("says when a count came from a capped page instead of the whole list", () => {
-    expect(code).toContain("countedFromRecent");
-    expect(code).toMatch(/total > \w+\.data\.items\.length/);
-  });
-
-  it("does no money arithmetic", () => {
+  it("does no money arithmetic in the browser", () => {
     // Every amount is a server-authoritative decimal string, formatted
     // at the edge of rendering. A client that recomputes a total will
     // eventually disagree with the transfer that actually happened.
-    expect(code).toContain("formatMoney");
-    expect(code).not.toMatch(/netAmount\s*[+\-*/]/);
-    expect(code).not.toMatch(/parseFloat|Number\(\s*\w*[Aa]mount/);
-    expect(code).not.toMatch(/reduce\([^)]*[Aa]mount/);
+    for (const source of [cards, chart, panels]) {
+      // `Money` IS that formatting — it splits the same decimal
+      // string through the same module and draws the riyal symbol,
+      // which no formatted string can carry.
+      expect(source).toContain("<Money");
+      expect(source).not.toContain("parseFloat");
+      expect(source).not.toMatch(/reduce\([^)]*[Aa]mount/);
+    }
   });
 
-  it("renders a raw enum through a translation, never bare", () => {
-    expect(code).toContain("status(`payoutOutcome.${latest.outcome}`)");
-    // `${latest.outcome}` inside the message key is the correct use; a
-    // bare `{latest.outcome}` in JSX would put the enum on the screen.
-    expect(code).not.toMatch(/[^$]\{\s*latest\.outcome\s*\}/);
+  it("says «no comparison» rather than «0%» when there is no previous window", () => {
+    // A supplier's first month has no predecessor, and «+0%» would be
+    // a claim that nothing moved.
+    expect(cards).toContain("noComparison");
+    expect(cards).toContain("change === null");
+  });
+
+  it("says «not paid yet» rather than a transfer of zero", () => {
+    // `lastTransfer` is null until there has been one: a zero with a
+    // date of "never" reads as a transfer that happened for nothing.
+    expect(panels).toContain("settlements-none");
+    expect(service).toContain("lastTransfer");
+    expect(service).toContain(": null;");
+  });
+
+  it("scopes every figure to the company in the SESSION, never a parameter", () => {
+    const controller = strip(
+      readFileSync(
+        join(ROOT, "..", "api", "src", "dashboard", "supplier-dashboard.controller.ts"),
+        "utf8",
+      ),
+    );
+    expect(controller).toContain("session.companyId");
+    expect(controller).toContain("RequireSupplierGuard");
+    // No route parameter could name another company.
+    expect(controller).not.toContain("@Param");
+  });
+
+  it("reuses the console's own arithmetic rather than defining it twice", () => {
+    // Two definitions of "paid orders" is how a supplier's screen comes
+    // to disagree with an administrator's about the same week.
+    expect(service).toContain("admin/dashboard/dashboard-period");
+    expect(service).toContain("SUM(total_amount)");
   });
 
   it("renders no raw HTML", () => {
-    expect(code).not.toContain("dangerouslySetInnerHTML");
+    for (const source of [code, cards, chart, panels]) {
+      expect(source).not.toContain("dangerouslySetInnerHTML");
+    }
   });
 });
 
 // -------------------------------------------------------------- account
 
-describe("account pages are honestly read-only", () => {
-  // The section pages, without the overview that links to them.
-  const accountPages = SUPPLIER_PAGES.filter(
-    (page) => page.startsWith("supplier/account/") && page !== "supplier/account/page.tsx"
-  );
+/**
+ * «بيانات المنشأة» — no longer four read-only screens.
+ *
+ * WHAT CHANGED AND WHY. This section was an overview linking to four
+ * pages — company, locations, bank account, billing — and only the last
+ * of them still exists. None of the other three could change anything,
+ * which is why a supplier could not add its own branch and why one
+ * looking for «إضافة حساب بنكي» found a status panel with no button.
+ * They are cards inside one editable section now.
+ *
+ * BILLING KEEPS ITS PAGE: it is a different concern and is still
+ * entered only after the supplier is approved.
+ */
+describe("the company section is editable, and honest about what it is not", () => {
+  const section = strip(read("components/company/company-profile-section.tsx"));
+  // ONE CARD NOW. The five it replaced are gone, so the rules they
+  // carried are read off the one that carries them.
+  const card = strip(read("components/company/company-record-card.tsx"));
 
-  it("builds a page for each of the four sections", () => {
-    expect(accountPages).toHaveLength(4);
+  it("leaves exactly one account sub-page, and it is billing", () => {
+    const accountPages = SUPPLIER_PAGES.filter(
+      (page) =>
+        page.startsWith("supplier/account/") &&
+        page !== "supplier/account/page.tsx",
+    );
+
+    expect(accountPages).toEqual(["supplier/account/billing/page.tsx"]);
   });
 
-  it("offers no edit affordance while no write screen exists", () => {
-    for (const page of ["supplier/account/page.tsx", ...accountPages]) {
-      const source = strip(read(`app/[locale]/${page}`));
-      expect(source, page).not.toMatch(/<Button\b/);
-      expect(source, page).not.toContain("onSubmit");
+  it("renders the shared section rather than a supplier-specific copy", () => {
+    expect(strip(ACCOUNT)).toContain("<CompanyProfileSection");
+    expect(strip(ACCOUNT)).toContain('accountType="SUPPLIER"');
+  });
+
+  it("KEEPS the legal name and registration number out of the company's hands", () => {
+    // Neither is bound to an input, and no path from this card can
+    // change them: an administrator does it, in the console, on the
+    // record — which is what the lock beside the number says.
+    expect(card).not.toMatch(/<Input[^>]*record-legal-name/s);
+    expect(card).not.toMatch(/record-cr-number[^>]*onChange/s);
+    expect(card).toContain("lockedNotice");
+  });
+
+  it("gives the supplier a real way to add a payout account", () => {
+    // The screen this replaces rendered the account's state and nothing
+    // else, while `POST companies/me/bank-account` existed all along.
+    expect(card).toContain('data-testid="record-iban"');
+    expect(card).toContain('apiClient.post("/companies/me/bank-account"');
+  });
+
+  it("raises no separate verification for that account", () => {
+    // It is reviewed as part of the company's one request; a second,
+    // independent approval would be another thing to wait on.
+    // The ONE send on this card is the company's own request, at its
+    // foot — not a second approval for the account alone.
+    expect(
+      (card.match(/verification-request/g) ?? []).length,
+    ).toBe(1);
+  });
+
+  /**
+   * NO COORDINATE IS EVER A FIELD.
+   *
+   * WHAT THIS RULE USED TO SAY, and why it changed. It used to forbid
+   * the words `latitude` and `longitude` anywhere in this section at
+   * all, because the position was a pasted Google Maps link and a pair
+   * of numbers contradicted the one thing that screen was built
+   * around. The position is now a PIN somebody drags on a map, so the
+   * numbers ARE the answer and the code has to name them.
+   *
+   * WHAT SURVIVES IS THE PART THAT WAS ALWAYS THE POINT: nobody types
+   * a coordinate. No input is bound to one, no label asks for one, and
+   * neither catalogue has a word for one — a person points at their
+   * own branch and the numbers are read off the map for them.
+   */
+  it("asks no one to type a coordinate, anywhere in the section", () => {
+    const dir = join(ROOT, "components", "company");
+    for (const file of readdirSync(dir)) {
+      const source = strip(readFileSync(join(dir, file), "utf8"));
+      expect([file, /<Input[^>]*(latitude|longitude)/is.test(source)]).toEqual([
+        file,
+        false,
+      ]);
+      expect([file, /labels\.(latitude|longitude)/.test(source)]).toEqual([
+        file,
+        false,
+      ]);
+    }
+
+    // And the section itself binds no control to either number.
+    expect(/<Input[^>]*(latitude|longitude)/is.test(section)).toBe(false);
+
+    for (const catalogue of ["messages/ar-SA.json", "messages/en-SA.json"]) {
+      const company = JSON.stringify(JSON.parse(read(catalogue)).company);
+      expect([catalogue, /latitude|longitude/i.test(company)]).toEqual([
+        catalogue,
+        false,
+      ]);
+      expect([catalogue, company.includes("خط العرض")]).toEqual([
+        catalogue,
+        false,
+      ]);
+      expect([catalogue, company.includes("خط الطول")]).toEqual([
+        catalogue,
+        false,
+      ]);
     }
   });
 
-  it("says plainly that the pages are view-only", () => {
-    expect(strip(ACCOUNT)).toContain("readOnlyNotice");
-  });
-
-  it("gives every deep page a breadcrumb back", () => {
-    for (const page of accountPages) {
-      const source = strip(read(`app/[locale]/${page}`));
-      expect(source, page).toContain("breadcrumbLabel");
-      expect(source, page).toContain("backToAccount");
-    }
-  });
-
-  it("has a real page behind every section the overview links to", () => {
-    const hrefs = [...strip(ACCOUNT).matchAll(/supplier\/account\/([a-z-]+)`/g)].map((m) => m[1]);
-
-    expect(hrefs.length).toBeGreaterThan(0);
-    for (const segment of hrefs) {
-      expect(SUPPLIER_PAGES, segment).toContain(`supplier/account/${segment}/page.tsx`);
-    }
-  });
-
-  it("points every readiness item at a page that exists", () => {
-    // Telling someone to fix something and leaving them nowhere to fix
-    // it is worse than not mentioning it.
-    const hrefs = [...strip(ACCOUNT).matchAll(/href:\s*"([a-z-]+)"/g)].map((m) => m[1]);
-
-    expect(hrefs.length).toBeGreaterThanOrEqual(2);
-    for (const segment of hrefs) {
-      expect(SUPPLIER_PAGES, segment).toContain(`supplier/account/${segment}/page.tsx`);
-    }
-  });
-
-  it("renders facts, never a JSON dump", () => {
-    for (const page of accountPages) {
-      const source = strip(read(`app/[locale]/${page}`));
-      expect(source, page).not.toContain("JSON.stringify");
-      expect(source, page).not.toContain("<pre");
-    }
-  });
-
-  it("can only ever mask an identifier, never trim a full one", () => {
-    const bank = strip(read("app/[locale]/supplier/account/bank-account/page.tsx"));
-
-    expect(bank).toContain("ibanLast4");
-    expect(bank).not.toContain("slice(-4)");
-    // `bankAccount.iban` is a message KEY — a label. What must not exist
-    // is a full value read off the account object.
-    expect(bank).not.toMatch(/account\.iban(?!Last4)/);
-    expect(bank).not.toContain("ibanCiphertext");
-  });
-
-  it("makes no coordinate a primary display", () => {
-    for (const page of accountPages) {
-      const source = strip(read(`app/[locale]/${page}`));
-      expect(source, page).not.toContain("latitude");
-      expect(source, page).not.toContain("longitude");
-    }
-  });
-
-  it("gives every account read its own error and empty state", () => {
-    // Three of the four read an endpoint; the company page reads /me
-    // through the session and has nothing of its own to fail.
-    const reading = accountPages.filter((page) => strip(read(`app/[locale]/${page}`)).includes("load"));
-
-    expect(reading).toHaveLength(3);
-    for (const page of reading) {
-      const source = strip(read(`app/[locale]/${page}`));
-      expect(source, page).toContain("<ErrorState");
-      expect(source, page).toContain("<EmptyState");
-    }
-  });
-
-  it("treats a missing profile as an answer, not an error", () => {
-    const billing = strip(read("app/[locale]/supplier/account/billing/page.tsx"));
-
-    // `!data` renders an empty state; only `!ok` renders an error.
-    expect(billing).toMatch(/!invoicing\.ok \?[\s\S]*?<ErrorState/);
-    expect(billing).toMatch(/!invoicing\.data \?[\s\S]*?<EmptyState/);
-  });
-
-  it("never shows a bare status without its next step", () => {
-    const bank = strip(read("app/[locale]/supplier/account/bank-account/page.tsx"));
-
-    expect(bank).toContain("<StatusWithAction");
-    expect(bank).toContain("bankAccount.action.");
-  });
-
-  it("makes no tax-invoice claim on the billing page", () => {
-    // Comments stripped: the file's own documentation says these things
-    // are absent, and a raw-text search would find the denial.
-    const billing = strip(read("app/[locale]/supplier/account/billing/page.tsx"));
-
-    for (const forbidden of ["ZATCA", "zatca", "qrCode", "QR", "clearance", "taxInvoice"]) {
-      expect(billing, forbidden).not.toContain(forbidden);
-    }
+  it("re-guards on the page itself, and adds no shell", () => {
+    expect(strip(ACCOUNT)).toContain(
+      'requireRoleOrRedirect(appLocale, "SUPPLIER")',
+    );
+    expect(strip(ACCOUNT)).not.toContain("<AppShell");
+    expect(strip(ACCOUNT)).not.toContain("<SupplierChrome");
   });
 });
-
-// --------------------------------------------------------------- locale
 
 describe("message parity for the supplier namespace", () => {
   const ar = JSON.parse(read("messages/ar-SA.json"));
@@ -698,7 +1033,7 @@ describe("message parity for the supplier namespace", () => {
     typeof value !== "object" || value === null
       ? [prefix]
       : Object.entries(value as Record<string, unknown>).flatMap(([k, v]) =>
-          flatten(v, prefix ? `${prefix}.${k}` : k)
+          flatten(v, prefix ? `${prefix}.${k}` : k),
         );
 
   it("ships the supplier namespace in both locales", () => {
@@ -711,10 +1046,26 @@ describe("message parity for the supplier namespace", () => {
   });
 
   it("covers every nav destination in both locales", () => {
-    for (const destination of SUPPLIER_NAV_DESTINATIONS) {
-      expect(ar.supplier.nav[destination.key], destination.key).toBeTruthy();
-      expect(en.supplier.nav[destination.key], destination.key).toBeTruthy();
+    for (const page of portalPages(SUPPLIER_PORTAL_MAP)) {
+      expect(ar.supplier.nav[page.key], page.key).toBeTruthy();
+      expect(en.supplier.nav[page.key], page.key).toBeTruthy();
     }
+  });
+
+  it("names every GROUP in both locales too", () => {
+    // A sidebar section with no name is a blank heading over a list.
+    for (const group of SUPPLIER_PORTAL_MAP.groups) {
+      expect(ar.supplier.nav.group[group.key], group.key).toBeTruthy();
+      expect(en.supplier.nav.group[group.key], group.key).toBeTruthy();
+    }
+  });
+
+  it("calls the portal «لوحة التحكم» in Arabic and Control Panel in English", () => {
+    expect(ar.supplier.nav.portalName).toBe("لوحة التحكم");
+    expect(en.supplier.nav.portalName).toBe("Control Panel");
+    // The kind of account is a secondary label, not the portal's name.
+    expect(ar.supplier.nav.accountTypeLabel).toBe("مورد");
+    expect(en.supplier.nav.accountTypeLabel).toBe("Supplier");
   });
 
   it("translates every enum the portal renders", () => {
@@ -734,7 +1085,7 @@ describe("message parity for the supplier namespace", () => {
     // `StatusWithAction` requires an action by construction; this
     // proves one exists for each status the API can send.
     expect(Object.keys(ar.supplier.account.bankAccount.action).sort()).toEqual(
-      Object.keys(ar.supplier.status.bankAccount).sort()
+      Object.keys(ar.supplier.status.bankAccount).sort(),
     );
   });
 
@@ -759,7 +1110,11 @@ describe("message parity for the supplier namespace", () => {
     // `supplierPayableShareAmount` is one — and a reader never sees a
     // key. What must not contain the word is the text on the screen.
     const values = flatten(ar.supplier).map((key) =>
-      String(key.split(".").reduce<unknown>((node, part) => (node as never)[part], ar.supplier))
+      String(
+        key
+          .split(".")
+          .reduce<unknown>((node, part) => (node as never)[part], ar.supplier),
+      ),
     );
 
     for (const value of values) {
@@ -771,23 +1126,41 @@ describe("message parity for the supplier namespace", () => {
     // ICU structure is Latin by necessity — `{count, plural, one {…}}`
     // — so the argument names and keywords are stripped before the
     // check, and what remains must be the message text alone.
+    //
+    // THE ARGUMENT NAMES ARE LISTED ONE BY ONE, never matched by a
+    // loose pattern: `{term}` was added when the catalogue gained a
+    // search, and a rule like "any lowercase word inside braces" would
+    // let the next English sentence through as an argument name.
     const ICU =
-      /[{}#]|=\d+|\b(count|company|items|name|index|price|unit|funded|target|max|min|scale|reason|quantity|delivered|total|megabytes|types|minHours|maxDays|minQuantity|maxQuantity|plural|select|selectordinal|one|two|few|many|other)\b/g;
+      /[{}#]|=\d+|\b(count|number|company|items|name|index|price|unit|funded|target|max|min|scale|reason|quantity|delivered|total|megabytes|types|minHours|maxDays|minQuantity|maxQuantity|hours|days|mb|term|plural|select|selectordinal|one|two|few|many|other)\b/g;
 
     // Image format names. They are written in Latin in Arabic prose
     // too — "الصيغ المقبولة: JPEG" is correct, and transliterating them
     // would be worse than leaving them.
     const PROPER_NOUNS = /\b(JPEG|PNG|WebP)\b/g;
 
+    // THE EXAMPLE INSIDE A FIELD THAT HOLDS ENGLISH IS WRITTEN IN
+    // ENGLISH. «اسم المنتج بالإنجليزية» is answered in English, so its
+    // greyed example — the one the approved reference draws — has to
+    // be too: «مثال: Carton» is the example, and «مثال: كرتون» in that
+    // box would be an example of the wrong thing. The exemption is
+    // narrow on purpose: only a placeholder, and only one belonging to
+    // an `…En` field.
+    const ENGLISH_BY_DESIGN = /^listings\.form\.placeholders\.\w*En$/;
+
     const offenders = flatten(ar.supplier)
+      .filter((key) => !ENGLISH_BY_DESIGN.test(key))
       .map((key) => {
         const value = key
           .split(".")
           .reduce<Record<string, unknown> | string>(
             (node, part) => (node as Record<string, unknown>)[part] as never,
-            ar.supplier
+            ar.supplier,
           );
-        return { key, text: String(value).replace(PROPER_NOUNS, " ").replace(ICU, " ") };
+        return {
+          key,
+          text: String(value).replace(PROPER_NOUNS, " ").replace(ICU, " "),
+        };
       })
       .filter((entry) => /[A-Za-z]/.test(entry.text));
 
@@ -799,8 +1172,13 @@ describe("message parity for the supplier namespace", () => {
     // value would mean a status reaching the reader undecoded.
     const values = flatten(ar.supplier).map((key) =>
       String(
-        key.split(".").reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], ar.supplier)
-      )
+        key
+          .split(".")
+          .reduce<unknown>(
+            (node, part) => (node as Record<string, unknown>)[part],
+            ar.supplier,
+          ),
+      ),
     );
 
     // Underscore-separated, which is the shape every enum in this
@@ -832,8 +1210,8 @@ describe("routing: a real segment, not a route group", () => {
     expect(existsSync(join(appDir, "supplier", "layout.tsx"))).toBe(true);
     expect(
       readdirSync(join(appDir, "supplier"), { withFileTypes: true }).filter(
-        (entry) => entry.isFile() && entry.name === "layout.tsx"
-      )
+        (entry) => entry.isFile() && entry.name === "layout.tsx",
+      ),
     ).toHaveLength(1);
   });
 

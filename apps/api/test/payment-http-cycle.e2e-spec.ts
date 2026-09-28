@@ -11,6 +11,7 @@ import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.
 import { ensureCommissionTaxPolicy } from "./fixtures/payment.fixture";
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { hashPassword } from "../src/common/security/argon2.util";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = checkoutFixturePrisma;
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -62,8 +63,8 @@ async function seedSupplierBilling(supplierCompanyId: string): Promise<void> {
         companyId: supplierCompanyId,
         email: `supplier-http-${supplierCompanyId}-${Date.now()}@example.com`,
         passwordHash: "x",
-        primaryMobile1: "+966500000001",
-        primaryMobile2: "+966500000002",
+        primaryMobile1: uniqueMobile(),
+        primaryMobile2: uniqueMobile(),
         emailVerificationStatus: "VERIFIED",
       },
     });
@@ -131,7 +132,16 @@ describe("Phase 7C — Payment/Order full HTTP cycle (e2e)", () => {
       });
     expect(checkoutRes.status).toBe(201);
 
-    return { fixture, traderAgent, checkoutSessionId: checkoutRes.body.id as string, grandTotal: checkoutRes.body.grandTotalAmount as number };
+    // MONEY CROSSES HTTP AS A DECIMAL STRING. Cast to `number` it stayed
+    // the string «460.00», and the provider keeps
+    // `providerCapturedAmount` only when it is a JSON number — so every
+    // webhook below carried no captured amount at all.
+    return {
+      fixture,
+      traderAgent,
+      checkoutSessionId: checkoutRes.body.id as string,
+      grandTotal: Number(checkoutRes.body.grandTotalAmount),
+    };
   }
 
   async function startPaymentAttempt(traderAgent: request.Agent, checkoutSessionId: string, idempotencyKey: string) {
@@ -181,8 +191,16 @@ describe("Phase 7C — Payment/Order full HTTP cycle (e2e)", () => {
 
     const allocations = await prisma.orderAllocation.findMany({ where: { masterOrderId } });
     expect(allocations).toHaveLength(1);
-    expect(allocations[0].status).toBe("AWAITING_PREPARATION");
-    expect(allocations[0].preparationDueAt.getTime()).toBeGreaterThan(capturedAt.getTime());
+    // BORN WAITING — «لا يتم شحن البضاعة إلا بعد ما يتم العرض شروطه
+    // ووصوله لهدفه». This fixture pays for part of the target, so the
+    // offer has not closed and no work is owed yet.
+    //
+    // IT USED TO ASSERT `AWAITING_PREPARATION` WITH A DUE DATE, which
+    // was the defect: the clock started at PAYMENT, so a supplier whose
+    // offer stood at 20% was reported late on three screens for work he
+    // was not permitted to begin.
+    expect(allocations[0].status).toBe("AWAITING_FUNDING");
+    expect(allocations[0].preparationDueAt).toBeNull();
 
     const traderList = await traderAgent.get("/api/v1/trader/orders").set("Origin", ORIGIN);
     expect(traderList.status).toBe(200);

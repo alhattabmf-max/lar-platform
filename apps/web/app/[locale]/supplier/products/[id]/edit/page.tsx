@@ -14,6 +14,10 @@ import { StatusWithAction } from "@/components/trader/account-panels";
 import { ErrorState } from "@/components/ui/states";
 import { ProductForm } from "@/components/supplier/product-form";
 import { productFormLabels } from "@/components/supplier/product-form-labels";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.products");
+
 
 /**
  * Editing a product.
@@ -33,7 +37,7 @@ import { productFormLabels } from "@/components/supplier/product-form-labels";
  * come back as `PRODUCT_TECHNICAL_CHECK_FAILED` rather than a field error,
  * and the form maps those codes onto the fields they belong to.
  */
-export default async function EditSupplierProductPage({
+export default async function EditProductDetailsPage({
   params,
 }: {
   params: Promise<{ locale: string; id: string }>;
@@ -119,7 +123,7 @@ export default async function EditSupplierProductPage({
         // The one consequence a supplier cannot guess: saving re-runs the
         // checks, and a change that would leave the product incomplete is
         // refused as a whole rather than half-applied.
-        <p className="rounded-lg border border-line bg-surface p-4 text-sm text-content-muted">
+        <p className="rounded-card bg-surface px-card-x py-card-y text-sm text-content-muted shadow-card">
           {t("edit.approvedNotice")}
         </p>
       ) : null}
@@ -150,7 +154,7 @@ export default async function EditSupplierProductPage({
 function Breadcrumb({ href, label, back }: { href: string; label: string; back: string }) {
   return (
     <nav aria-label={label} className="text-sm">
-      <Link href={href} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+      <Link href={href} className="inline-flex min-h-nav items-center text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {back}
       </Link>
     </nav>

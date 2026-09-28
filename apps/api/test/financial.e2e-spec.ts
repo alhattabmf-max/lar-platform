@@ -10,12 +10,20 @@ import { createE2eApplication } from "./support/create-e2e-application";
 import { hashPassword } from "../src/common/security/argon2.util";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
 import { ensureTestCity } from "./fixtures/city.fixture";
+import { uniqueMobile } from "./fixtures/unique";
+import { uniqueVatNumber } from "./fixtures/unique";
+
+// ONE NUMBER PER RUN, shared by every write and every assertion in
+// this file. `*_tax_profiles.vat_number` is UNIQUE, so a literal
+// here collided with the same literal in a sibling spec — and with
+// the rows every previous run left behind.
+const SUPPLIER_VAT = uniqueVatNumber();
+
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
 const ORIGIN = "http://localhost:3001";
 const VALID_IBAN = "SA0380000000608010167519";
-let testCityId: string;
 
 async function resetThrottleCounters(): Promise<void> {
   const keys = await redis.keys("throttle:*");
@@ -40,12 +48,7 @@ async function registerVerifiedSupplier(app: INestApplication) {
     legalName: "Financial Test Supplier",
     email: `supplier-fin-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
     password,
-    primaryMobile1: "+966500000001",
-    primaryMobile2: "+966500000002",
-    cityId: testCityId,
-    shortAddress: "Riyadh",
-    latitude: 24.7136,
-    longitude: 46.6753,
+    primaryMobile1: uniqueMobile(),
     acceptedPolicyVersionIds,
   };
   await request(app.getHttpServer())
@@ -96,7 +99,9 @@ describe("Financial Readiness (e2e)", () => {
     app = await createE2eApplication(moduleRef);
 
     await publishTestPolicy(prisma);
-    testCityId = await ensureTestCity(prisma);
+    // The city is no longer part of registration, but the suite still
+    // needs one to exist for the branches it creates later.
+    await ensureTestCity(prisma);
     await prisma.systemSetting.deleteMany({
       where: { key: { in: ["company_verification_mode", "email_verification_enabled"] } },
     });
@@ -125,12 +130,7 @@ describe("Financial Readiness (e2e)", () => {
           legalName: "Unverified Supplier",
           email: `unverified-${Date.now()}@example.com`,
           password,
-          primaryMobile1: "+966500000001",
-          primaryMobile2: "+966500000002",
-          cityId: testCityId,
-          shortAddress: "Riyadh",
-          latitude: 24.7136,
-          longitude: 46.6753,
+          primaryMobile1: uniqueMobile(),
           acceptedPolicyVersionIds,
         });
       const agent = await loginAgent(app, crNumber, password);
@@ -138,9 +138,52 @@ describe("Financial Readiness (e2e)", () => {
       const res = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "X", bankName: "Y", iban: VALID_IBAN });
+        .send({ accountHolderName: "X", iban: VALID_IBAN });
       expect(res.status).toBe(403);
       expect(res.body.error.code).toBe("SUPPLIER_NOT_VERIFIED");
+    });
+  });
+
+  describe("The bank is the IBAN's to name", () => {
+    /**
+     * ONE SOURCE FOR ONE FACT. `bankName` used to be free text beside
+     * the IBAN, so a supplier could type an Al Rajhi number under
+     * "Riyad Bank" and the platform would store the contradiction.
+     * The field is gone from the contract, and the global
+     * `forbidNonWhitelisted` pipe is what says so.
+     */
+    it("refuses a request that still tries to name the bank", async () => {
+      const supplier = await registerVerifiedSupplier(app);
+      const agent = await loginAgent(app, supplier.crNumber, supplier.password);
+
+      const res = await agent
+        .post("/api/v1/companies/me/bank-account")
+        .set("Origin", ORIGIN)
+        .send({
+          accountHolderName: "Holder",
+          bankName: "بنك الرياض",
+          iban: VALID_IBAN,
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("refuses an IBAN whose checksum does not agree, before writing anything", async () => {
+      const supplier = await registerVerifiedSupplier(app);
+      const agent = await loginAgent(app, supplier.crNumber, supplier.password);
+
+      const res = await agent
+        .post("/api/v1/companies/me/bank-account")
+        .set("Origin", ORIGIN)
+        // The last digit of VALID_IBAN changed.
+        .send({ accountHolderName: "Holder", iban: "SA0380000000608010167518" });
+
+      expect(res.status).toBe(400);
+
+      const list = await agent
+        .get("/api/v1/companies/me/bank-account")
+        .set("Origin", ORIGIN);
+      expect(list.body).toHaveLength(0);
     });
   });
 
@@ -153,9 +196,12 @@ describe("Financial Readiness (e2e)", () => {
       const submitRes = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
+        .send({ accountHolderName: "Holder", iban: VALID_IBAN });
       expect(submitRes.status).toBe(201);
       expect(submitRes.body.ibanLast4).toBe("7519");
+      // The bank was never sent — it was read out of the IBAN. Code 80
+      // is Al Rajhi.
+      expect(submitRes.body.bankName).toBe("مصرف الراجحي");
       expect(JSON.stringify(submitRes.body)).not.toContain(VALID_IBAN);
 
       const pending = await adminAgent
@@ -186,7 +232,7 @@ describe("Financial Readiness (e2e)", () => {
       const submitRes = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
+        .send({ accountHolderName: "Holder", iban: VALID_IBAN });
       await adminAgent
         .post(`/api/v1/admin/bank-accounts/${submitRes.body.id}/approve`)
         .set("Origin", ORIGIN);
@@ -212,7 +258,7 @@ describe("Financial Readiness (e2e)", () => {
       const submitRes = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
+        .send({ accountHolderName: "Holder", iban: VALID_IBAN });
 
       const reject = await adminAgent
         .post(`/api/v1/admin/bank-accounts/${submitRes.body.id}/reject`)
@@ -235,12 +281,12 @@ describe("Financial Readiness (e2e)", () => {
       await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
+        .send({ accountHolderName: "Holder", iban: VALID_IBAN });
 
       const second = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder2", bankName: "Bank2", iban: "SA7380000000608010167520" });
+        .send({ accountHolderName: "Holder2", iban: "SA7380000000608010167520" });
       expect(second.status).toBe(409);
     });
 
@@ -252,13 +298,13 @@ describe("Financial Readiness (e2e)", () => {
       const first = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder1", bankName: "Bank1", iban: VALID_IBAN });
+        .send({ accountHolderName: "Holder1", iban: VALID_IBAN });
       await adminAgent.post(`/api/v1/admin/bank-accounts/${first.body.id}/approve`).set("Origin", ORIGIN);
 
       const second = await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder2", bankName: "Bank2", iban: "SA7380000000608010167520" });
+        .send({ accountHolderName: "Holder2", iban: "SA7380000000608010167520" });
       const approveSecond = await adminAgent
         .post(`/api/v1/admin/bank-accounts/${second.body.id}/approve`)
         .set("Origin", ORIGIN);
@@ -287,7 +333,7 @@ describe("Financial Readiness (e2e)", () => {
       await agentA
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "A Holder", bankName: "A Bank", iban: VALID_IBAN });
+        .send({ accountHolderName: "A Holder", iban: VALID_IBAN });
 
       const supplierB = await registerVerifiedSupplier(app);
       const agentB = await loginAgent(app, supplierB.crNumber, supplierB.password);
@@ -321,7 +367,7 @@ describe("Financial Readiness (e2e)", () => {
       const res = await agent
         .put("/api/v1/companies/me/tax-profile")
         .set("Origin", ORIGIN)
-        .send({ isVatRegistered: false, vatNumber: "300000000000003" });
+        .send({ isVatRegistered: false, vatNumber: SUPPLIER_VAT });
       expect(res.status).toBe(400);
     });
 
@@ -332,7 +378,7 @@ describe("Financial Readiness (e2e)", () => {
       const res = await agent
         .put("/api/v1/companies/me/tax-profile")
         .set("Origin", ORIGIN)
-        .send({ isVatRegistered: true, vatNumber: "300000000000003" });
+        .send({ isVatRegistered: true, vatNumber: SUPPLIER_VAT });
       expect(res.status).toBe(200);
     });
   });

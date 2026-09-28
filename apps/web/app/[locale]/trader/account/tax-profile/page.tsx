@@ -6,6 +6,10 @@ import { loadTraderTaxProfile } from "@/lib/trader-data";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/states";
 import { Fact, FactList, StatusWithAction } from "@/components/trader/account-panels";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.account");
+
 
 /**
  * The billing identity that appears on documents issued to this trader.
@@ -34,14 +38,13 @@ export default async function TraderTaxProfilePage({
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label={t("breadcrumbLabel")} className="text-sm">
-        <Link href={`/${appLocale}/trader/account`} className="text-secondary hover:opacity-90">
+        <Link href={`/${appLocale}/trader/account`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("backToAccount")}
         </Link>
       </nav>
 
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("taxProfile.title")}</h1>
-        <p className="text-sm text-content-muted">{t("taxProfile.description")}</p>
       </header>
 
       {!profile.ok ? (

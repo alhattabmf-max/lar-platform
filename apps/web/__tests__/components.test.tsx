@@ -68,12 +68,28 @@ describe("Field / Input", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("مطلوب");
   });
 
-  it("uses the stronger border token by default, and the danger token when invalid", () => {
+  it("is a filled well with no outline, and shows an error on it", () => {
+    // OPTION (ج), TAKEN KNOWINGLY. The reference draws a field as a
+    // shape, not a shape inside a line, and the outline came off the
+    // whole platform to match. No light fill reaches the 3:1 that WCAG
+    // 1.4.11 asks of a resting boundary — #EEF2F7 on white is 1.12:1 —
+    // so what carries the identification instead is recorded and held
+    // in design-system.test.ts: the focus ring, the error border and
+    // the text in the field.
+    //
+    // THE BORDER PIXEL IS RESERVED, not removed. Transparent at rest,
+    // coloured on error — so a field never changes size to report one.
     const { rerender, container } = render(<Input id="a" />);
-    expect(container.querySelector("input")!.className).toContain("border-line-strong");
+    const input = () => container.querySelector("input")!;
+
+    expect(input().className).toContain("bg-field-fill");
+    expect(input().className).toContain("shadow-inset");
+    expect(input().className).toContain("border-transparent");
+    expect(input().className).not.toContain("border-line-control");
 
     rerender(<Input id="a" invalid />);
-    expect(container.querySelector("input")!.className).toContain("border-danger");
+    expect(input()).toHaveAttribute("aria-invalid", "true");
+    expect(input().className).toContain("aria-[invalid=true]:border-danger");
   });
 
   it("renders nothing for an empty FieldError", () => {

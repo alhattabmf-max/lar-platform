@@ -72,7 +72,7 @@ export function RefundAttemptForm({
   // options and a button that cannot work.
   if (providers.length === 0) {
     return (
-      <p className="rounded-lg border border-line bg-surface p-4 text-sm text-content-muted">
+      <p className="rounded-card bg-surface shadow-card px-card-x py-card-y text-sm text-content-muted">
         {labels.noProviders}
       </p>
     );
@@ -101,7 +101,7 @@ export function RefundAttemptForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      <fieldset className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+      <fieldset className="flex flex-col gap-3 rounded-card bg-surface shadow-card px-card-x py-card-y">
         <legend className="px-1 text-base font-medium text-content">{labels.legend}</legend>
 
         <div className="flex flex-col gap-1">
@@ -120,7 +120,6 @@ export function RefundAttemptForm({
               setKey(newIdempotencyKey());
               setFailure(null);
             }}
-            aria-describedby={`${ids}-hint`}
           >
             {providers.map((code) => (
               <option key={code} value={code}>
@@ -128,9 +127,6 @@ export function RefundAttemptForm({
               </option>
             ))}
           </Select>
-          <p id={`${ids}-hint`} className="text-xs text-content-muted">
-            {labels.hint}
-          </p>
         </div>
 
         {failure ? (
@@ -145,7 +141,7 @@ export function RefundAttemptForm({
           </div>
         ) : null}
 
-        <Button type="submit" className="min-h-11" isLoading={busy} disabled={busy}>
+        <Button type="submit" isLoading={busy} disabled={busy}>
           {busy ? labels.working : labels.submit}
         </Button>
       </fieldset>

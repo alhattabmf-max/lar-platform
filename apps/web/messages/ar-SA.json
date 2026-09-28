@@ -1,29 +1,93 @@
 {
   "shell": {
     "brandFallback": "المنصة",
+    "platformNameFallback": "أزير بلس",
     "skipToContent": "تخطَّ إلى المحتوى الرئيسي",
     "primaryNavLabel": "التنقل الرئيسي",
     "switchLanguage": "English",
     "footerNote": "منصة أعمال بين الشركات.",
-    "navOpportunities": "الفرص",
+    "navOpportunities": "المنتجات",
     "navPolicies": "السياسات",
-    "footerNavLabel": "روابط الموقع"
+    "footerNavLabel": "روابط الموقع",
+    "header": {
+      "signIn": "دخول",
+      "register": "تسجيل",
+      "language": "اللغة",
+      "switchLocale": "التبديل إلى الإنجليزية",
+      "signOut": "تسجيل الخروج",
+      "signingOut": "جارٍ تسجيل الخروج…",
+      "notifications": "الإشعارات",
+      "notificationsUnread": "{count, plural, one {غير مقروء واحد} two {اثنان غير مقروءين} few {# غير مقروءة} other {# غير مقروء}}",
+      "account": "حسابي",
+      "myRecord": "بياناتي",
+      "signOutShort": "خروج"
+    },
+    "nav": {
+      "label": "التصنيفات",
+      "home": "الرئيسية",
+      "openCategory": "عرض تصنيفات {name}",
+      "toggle": "القائمة",
+      "viewAll": "تصفّح المنتجات",
+      "allInCategory": "جميع المنتجات",
+      "search": "البحث والتصفية",
+      "searchClose": "إغلاق التصفية",
+      "searchShort": "بحث"
+    },
+    "footer": {
+      "about": "من نحن",
+      "faq": "الأسئلة الشائعة",
+      "contact": "تواصل معنا",
+      "terms": "الشروط والأحكام",
+      "privacy": "سياسة الخصوصية",
+      "products": "المنتجات",
+      "policies": "السياسات"
+    },
+    "search": {
+      "label": "ابحث في المنتجات",
+      "placeholder": "ابحث باسم المنتج أو وصفه",
+      "submit": "ابحث",
+      "resultsFor": "نتائج البحث عن «{term}»",
+      "noResults": "لا توجد نتائج لـ «{term}»",
+      "noResultsHint": "جرّب كلمة أقصر، أو امسح البحث لتصفّح كل العروض.",
+      "clear": "مسح البحث"
+    },
+    "logoAlt": "شعار المنصة",
+    "goHome": "الانتقال إلى الرئيسية",
+    "localeName": {
+      "ar-SA": "العربية",
+      "en-SA": "English"
+    },
+    "footerSocialLabel": "حسابات المنصة على الشبكات الاجتماعية",
+    "footerSocial": {
+      "x": "إكس",
+      "linkedin": "لينكدإن",
+      "instagram": "إنستغرام",
+      "youtube": "يوتيوب",
+      "tiktok": "تيك توك",
+      "snapchat": "سناب شات",
+      "facebook": "فيسبوك",
+      "whatsapp": "واتساب"
+    },
+    "bottomNav": {
+      "label": "التنقّل السريع",
+      "account": "حسابي",
+      "market": "المنتجات",
+      "close": "إغلاق"
+    }
   },
   "home": {
-    "title": "فرص شراء بالجملة",
-    "description": "تصفّح الفرص المعروضة، واطّلع على المنتج ومدينة الشحن وموعد الإغلاق. تظهر الشروط التجارية بعد تسجيل الدخول بحساب تاجر.",
-    "browseOpportunities": "تصفّح الفرص",
+    "title": "عروض شراء بالجملة",
+    "description": "تصفّح العروض المتاحة، واطّلع على المنتج ومنطقة الشحن وموعد الإغلاق. السعر والكميات معروضة للجميع، والتسجيل مطلوب لإتمام الشراء.",
+    "browseOpportunities": "تصفّح المنتجات",
     "bannersLabel": "إعلانات",
     "featuredTitle": "الأقرب إلى الإغلاق",
-    "viewAll": "عرض كل الفرص",
+    "viewAll": "عرض كل العروض",
     "policiesTitle": "السياسات والشروط",
-    "policiesDescription": "اقرأ السياسات المنشورة قبل إنشاء حساب.",
     "readPolicies": "اقرأ السياسات"
   },
   "auth": {
     "login": {
       "title": "تسجيل الدخول",
-      "description": "استخدم رقم السجل التجاري وكلمة المرور.",
       "crNumber": "رقم السجل التجاري",
       "password": "كلمة المرور",
       "submit": "تسجيل الدخول",
@@ -32,7 +96,6 @@
     },
     "forgotPassword": {
       "title": "استعادة الوصول",
-      "description": "أدخل بريدك الإلكتروني وسنرسل تعليمات الاستعادة.",
       "email": "البريد الإلكتروني",
       "submit": "إرسال تعليمات الاستعادة",
       "sent": "إذا كان هذا البريد مرتبطًا بحساب، فتعليمات الاستعادة في طريقها إليه.",
@@ -41,7 +104,6 @@
     },
     "resetPassword": {
       "title": "تعيين كلمة مرور جديدة",
-      "description": "اختر كلمة مرور جديدة لحسابك.",
       "newPassword": "كلمة المرور الجديدة",
       "confirmPassword": "تأكيد كلمة المرور الجديدة",
       "submit": "حفظ كلمة المرور",
@@ -65,73 +127,67 @@
     }
   },
   "register": {
-    "titleTrader": "التسجيل كتاجر",
-    "titleSupplier": "التسجيل كمورد",
-    "description": "أنشئ حساب شركتك. ستسجّل الدخول بعدها برقم السجل التجاري.",
     "crNumber": "رقم السجل التجاري",
     "legalName": "الاسم النظامي للشركة",
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
-    "mobile1": "الجوال الأساسي",
-    "mobile2": "الجوال الثانوي",
-    "city": "المدينة",
-    "cityPlaceholder": "اختر مدينة",
-    "shortAddress": "العنوان المختصر",
+    "mobile1": "رقم التواصل",
     "submit": "إنشاء الحساب",
-    "haveAccount": "لديك حساب بالفعل؟ سجّل الدخول",
+    "haveAccount": "لديك حساب بالفعل؟",
     "conflict": {
       "signIn": "سجّل الدخول بدلًا من ذلك",
       "recoverAccess": "استعادة الوصول"
     },
     "policies": {
-      "legend": "السياسات",
+      "legend": "السياسات والشروط",
       "unavailable": "تعذّر تحميل السياسات. لا يمكن إكمال التسجيل حاليًا.",
-      "readFull": "اقرأ نص السياسات كاملًا"
+      "openButton": "السياسات والشروط",
+      "consent": "قرأت وأوافق على الشروط والأحكام وسياسة الخصوصية",
+      "dialogTitle": "السياسات والشروط",
+      "close": "إغلاق",
+      "version": "النسخة"
     },
-    "location": {
-      "legend": "موقع الشركة",
-      "description": "نحتاج إحداثيات موقع شركتك لتخطيط التنفيذ والتسليم.",
-      "useMyLocation": "استخدام موقعي الحالي",
-      "captured": "تم تحديد الموقع.",
-      "accuracy": "بدقة تقارب {metres} متر",
-      "requiredNotice": "يلزم تحديد الموقع قبل إنشاء الحساب.",
-      "errors": {
-        "unsupported": "هذا المتصفح لا يستطيع تحديد موقعك. أدخل الإحداثيات يدويًا بالأسفل.",
-        "insecureContext": "تحديد الموقع متاح عبر اتصال آمن فقط. أدخل الإحداثيات يدويًا بالأسفل.",
-        "permissionDenied": "حُظر الوصول إلى الموقع. يمكنك السماح به من إعدادات المتصفح، أو إدخال الإحداثيات يدويًا بالأسفل.",
-        "positionUnavailable": "تعذّر تحديد موقعك. أعد المحاولة، أو أدخل الإحداثيات يدويًا بالأسفل.",
-        "timeout": "استغرق تحديد الموقع وقتًا طويلًا. أعد المحاولة، أو أدخل الإحداثيات يدويًا بالأسفل.",
-        "unknown": "تعذّر الحصول على موقعك. أدخل الإحداثيات يدويًا بالأسفل."
-      },
-      "manual": {
-        "show": "إدخال الإحداثيات يدويًا",
-        "hide": "إخفاء الإدخال اليدوي",
-        "description": "أدخل خط العرض وخط الطول لموقع شركتك.",
-        "latitude": "خط العرض",
-        "longitude": "خط الطول",
-        "invalid": "أدخل خط عرض بين ‎-90‎ و‎90‎، وخط طول بين ‎-180‎ و‎180‎."
-      }
+    "title": "إنشاء حساب",
+    "accountType": {
+      "legend": "نوع الحساب",
+      "trader": "مشتري",
+      "traderHint": "أشتري من المنتجات المعروضة.",
+      "supplier": "مورد",
+      "supplierHint": "أعرض منتجاتي للبيع.",
+      "required": "اختر نوع الحساب قبل المتابعة."
+    },
+    "signIn": "تسجيل الدخول",
+    "validation": {
+      "email": "أدخل بريدًا إلكترونيًا صحيحًا.",
+      "passwordTooShort": "كلمة المرور {min} أحرف على الأقل."
     }
   },
   "marketplace": {
-    "title": "الفرص",
-    "description": "الفرص المعروضة حاليًا. تُطبَّق الفلاتر والترتيب على القائمة كاملة، وليس على الصفحة المعروضة وحدها.",
+    "title": "العروض",
+    "description": "العروض المتاحة حاليًا. تُطبَّق الفلاتر والترتيب على القائمة كاملة، وليس على الصفحة المعروضة وحدها.",
     "bannersLabel": "إعلانات",
-    "resultCount": "{count, plural, =0 {لا توجد فرص مطابقة} one {فرصة واحدة} two {فرصتان} few {# فرص} many {# فرصة} other {# فرصة}}",
+    "resultCount": "{count, plural, =0 {لا توجد عروض مطابقة} one {عرض واحد} two {عرضان} few {# عروض} many {# عرضًا} other {# عرض}}",
     "filters": {
-      "regionLabel": "تصفية الفرص",
+      "regionLabel": "تصفية العروض",
       "city": "مدينة الشحن",
-      "anyCity": "كل المدن",
+      "anyCity": "جميع مدن المنطقة",
       "category": "التصنيف",
       "anyCategory": "كل التصنيفات",
       "categoryExactMatchHint": "يُطبَّق التصنيف بمطابقة تامة: اختيار تصنيف رئيسي لا يشمل تصنيفاته الفرعية.",
       "sort": "الترتيب",
       "apply": "تطبيق",
-      "clear": "إزالة الفلاتر"
+      "clear": "إزالة الفلاتر",
+      "region": "منطقة الشحن",
+      "anyRegion": "كل المناطق",
+      "anyBranch": "كل الفروع",
+      "open": "تصفية",
+      "applied": "الفلاتر المطبَّقة",
+      "close": "إغلاق",
+      "show": "عرض النتائج"
     },
     "sort": {
       "newest": "الأحدث",
-      "endingSoon": "الأقرب إلى الإغلاق"
+      "endingSoon": "الأقرب إغلاقًا"
     },
     "card": {
       "city": "يُشحن من",
@@ -141,29 +197,85 @@
       "closingSoon": "يُغلق قريبًا",
       "scheduled": "مجدولة",
       "noImage": "لا تتوفر صورة",
-      "viewDetails": "عرض التفاصيل"
+      "viewDetails": "عرض التفاصيل",
+      "viewDetailsFor": "عرض تفاصيل {name}",
+      "region": "المنطقة",
+      "targetQuantity": "الكمية المستهدفة",
+      "remainingQuantity": "الكمية المتبقية",
+      "minimumOrder": "الحد الأدنى للطلب",
+      "priceInclTax": "شامل الضريبة",
+      "priceUnavailable": "السعر غير متاح حاليًا",
+      "sold": "المُباع من الكمية المتاحة",
+      "stockLeft": "المخزون المتاح: {count}",
+      "soldOut": "نفد المخزون",
+      "directBadge": "بيع مباشر",
+      "groupBadge": "عرض جماعي"
     },
     "empty": {
-      "title": "لا توجد فرص معروضة حاليًا",
-      "description": "لم تُنشر أي فرصة بعد. عاود الزيارة لاحقًا."
+      "title": "لا توجد عروض متاحة حاليًا",
+      "description": "لم تُنشر أي عرض بعد. عاود الزيارة لاحقًا."
     },
     "emptyFiltered": {
-      "title": "لا توجد فرص مطابقة",
-      "description": "لا توجد فرصة تطابق الفلاتر المحددة. جرّب توسيعها أو إزالتها."
+      "title": "لا توجد عروض مطابقة",
+      "description": "لا يوجد عرض يطابق الفلاتر المحددة. جرّب توسيعها أو إزالتها."
     },
     "detail": {
       "breadcrumbLabel": "مسار التنقل",
-      "backToList": "العودة إلى الفرص",
+      "backToList": "العودة إلى العروض",
       "region": "المنطقة",
       "opens": "يبدأ في",
       "noDescription": "لا يوجد وصف لهذا المنتج.",
-      "closed": "انتهت مدة هذه الفرصة."
+      "closed": "انتهت مدة هذا العرض.",
+      "statsTitle": "الكميات",
+      "purchaseTitle": "الشراء",
+      "quantityLabel": "الكمية",
+      "increase": "زيادة الكمية",
+      "decrease": "إنقاص الكمية",
+      "registerToBuy": "سجل لإتمام الشراء",
+      "signIn": "دخول",
+      "visitorNotice": "الأسعار والكميات معروضة للجميع ويمكن الاطلاع عليها. التسجيل مطلوب فقط لإتمام عملية الشراء.",
+      "productDetailsTitle": "تفاصيل المنتج",
+      "shippingTitle": "الشحن والتجهيز",
+      "openInPortal": "فتح العرض في لوحتي",
+      "productLabel": "المنتج والشروط التجارية",
+      "deliveryLabel": "الشحن والمواعيد",
+      "packageLabel": "مواصفات العبوة",
+      "buyNow": "اشترِ الآن",
+      "gallery": "صور إضافية",
+      "galleryItem": "صورة {index} من {name}",
+      "taxonomy": "التصنيف",
+      "priceIncludesTax": "السعر شامل ضريبة القيمة المضافة.",
+      "shareQuantity": "الحد الأدنى للشراء ومضاعفاته",
+      "preparationTime": "مدة التجهيز المتوقعة",
+      "preparationDays": "{days} يوم",
+      "unsoldCaveat": "الكمية غير المباعة رقم حسابي وليست حجزًا؛ يتم تأكيد الكمية فعليًا عند بدء عملية الشراء.",
+      "progressCaveat": "النسبة تمثل ما بيع من الكمية المتاحة للبيع، ولا يترتب على بلوغها أي أثر؛ كل طلب مدفوع يُنفَّذ بشكل مستقل.",
+      "remainingTime": "الوقت المتبقي",
+      "packageContent": "محتوى العبوة",
+      "weightPerUnit": "وزن وحدة البيع",
+      "dimensions": "الأبعاد",
+      "cm": "سم",
+      "length": "الطول",
+      "width": "العرض",
+      "height": "الارتفاع"
     },
     "traderTerms": {
       "title": "الشروط التجارية",
       "description": "السعر والكميات وحجم الحصة متاحة لحسابات التجار بعد تسجيل الدخول، ولا تُعرض للزوّار.",
       "signIn": "تسجيل الدخول",
       "register": "إنشاء حساب"
+    },
+    "progress": {
+      "soldLabel": "نسبة البيع",
+      "remaining": "المتبقي {percent}٪",
+      "endsAt": "ينتهي العرض: {date}",
+      "ariaLabel": "بيع {percent}٪ من الكمية المتاحة"
+    },
+    "banner": {
+      "previous": "الصورة السابقة",
+      "next": "الصورة التالية",
+      "goTo": "الانتقال إلى الصورة {index}",
+      "alt": "بنر إعلاني"
     }
   },
   "policies": {
@@ -174,7 +286,7 @@
     "published": "تاريخ النشر",
     "mandatory": "إلزامية",
     "documents": {
-      "terms_of_service": "شروط الاستخدام",
+      "terms_of_service": "الشروط والأحكام",
       "privacy_policy": "سياسة الخصوصية"
     },
     "empty": {
@@ -184,31 +296,40 @@
   },
   "trader": {
     "nav": {
-      "label": "تنقل حساب التاجر",
+      "label": "تنقل لوحة التحكم",
       "dashboard": "الرئيسية",
-      "opportunities": "الفرص",
-      "orders": "الطلبات",
+      "opportunities": "السوق",
+      "orders": "طلباتي",
       "notifications": "الإشعارات",
-      "disputes": "النزاعات",
-      "account": "الحساب",
+      "account": "بيانات المنشأة",
       "comingSoon": "قريبًا",
-      "replacements": "الاستبدالات"
+      "portalName": "لوحة التحكم",
+      "accountTypeLabel": "مشتري",
+      "accountMenu": "قائمة الحساب",
+      "openMenu": "فتح القائمة",
+      "closeMenu": "إغلاق القائمة",
+      "collapseMenu": "طي القائمة",
+      "expandMenu": "توسيع القائمة",
+      "switchLocale": "التبديل إلى الإنجليزية",
+      "notificationsLabel": "الإشعارات",
+      "group": {
+        "market": "السوق",
+        "orders": "الطلبات والمتابعة",
+        "account": "الحساب والإعدادات"
+      },
+      "followUp": "المتابعة"
     },
     "dashboard": {
-      "title": "لوحة التاجر",
-      "signedInAs": "أنت مسجَّل باسم {company}",
-      "browseOpportunities": "تصفّح الفرص",
+      "title": "نظرة عامة",
+      "browseOpportunities": "تصفّح المنتجات",
       "viewOrders": "عرض الطلبات",
-      "account": "بيانات الحساب",
       "needsAttention": {
         "title": "يحتاج متابعة",
-        "description": "طلبات تجاوزت مدة التجهيز المتوقعة ولم تُشحن بعد.",
         "progress": "{delivered} من {total} تم تسليمها"
       },
       "orders": {
         "title": "أحدث الطلبات",
         "total": "{count, plural, =0 {لا توجد طلبات} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}}",
-        "delivered": "{delivered} من {total} تم تسليمها",
         "emptyTitle": "لا توجد طلبات بعد",
         "emptyDescription": "عند إتمام أول عملية شراء سيظهر الطلب هنا."
       },
@@ -282,6 +403,7 @@
         "FULFILLED": "مكتمل"
       },
       "allocation": {
+        "AWAITING_FUNDING": "بانتظار اكتمال الهدف",
         "AWAITING_PREPARATION": "بانتظار التجهيز",
         "PREPARING": "قيد التجهيز",
         "READY_TO_SHIP": "جاهز للشحن",
@@ -291,7 +413,7 @@
       "dispute": {
         "OPEN": "مفتوح",
         "SUPPLIER_RESPONDED": "ردّ المورّد",
-        "AWAITING_REPLACEMENT": "بانتظار الاستبدال",
+        "AWAITING_REPLACEMENT": "بانتظار الاسترجاع",
         "RESOLVED_ACCEPTED": "قُبل النزاع واسترد المبلغ كاملًا",
         "RESOLVED_PARTIAL": "قُبل النزاع جزئيًا واسترد جزء من المبلغ",
         "RESOLVED_REJECTED": "رُفض النزاع ولم يُسترد أي مبلغ",
@@ -303,16 +425,16 @@
         "READY_TO_SHIP": "جاهز للشحن",
         "SHIPPED": "تم الشحن",
         "DELIVERED": "تم التسليم",
-        "FAILED": "تعذّر الاستبدال"
+        "FAILED": "تعذّر الاسترجاع"
       }
     },
     "opportunities": {
-      "title": "الفرص",
-      "description": "الفرص المتاحة للشراء مع السعر والشروط التجارية.",
-      "resultCount": "{count} فرصة",
-      "emptyTitle": "لا توجد فرص",
-      "emptyDescription": "لا توجد فرص متاحة في الوقت الحالي.",
-      "emptyFilteredDescription": "لا توجد فرص تطابق التصفية الحالية. جرّب توسيع الخيارات.",
+      "title": "المنتجات",
+      "description": "المنتجات المتاحة للشراء مع السعر والشروط التجارية.",
+      "resultCount": "{count} منتج",
+      "emptyTitle": "لا توجد منتجات",
+      "emptyDescription": "لا توجد منتجات متاحة في الوقت الحالي.",
+      "emptyFilteredDescription": "لا توجد منتجات تطابق التصفية الحالية. جرّب توسيع الخيارات.",
       "unitPrice": "سعر الوحدة",
       "priceUnavailable": "السعر غير متاح حاليًا",
       "sold": "المُباع من الكمية المتاحة",
@@ -320,7 +442,7 @@
       "sharePurchaseStep": "الشراء بمضاعفات {quantity} {unit}",
       "detail": {
         "breadcrumbLabel": "مسار التنقل",
-        "backToList": "العودة إلى الفرص",
+        "backToList": "العودة إلى المنتجات",
         "termsLabel": "الشروط التجارية",
         "priceIncludesTax": "السعر شامل ضريبة القيمة المضافة.",
         "shareQuantity": "الحد الأدنى للشراء ومضاعفاته",
@@ -328,7 +450,22 @@
         "preparationDays": "{days} يوم",
         "deliveryLabel": "الشحن والمواعيد",
         "unsoldCaveat": "الكمية غير المباعة رقم حسابي وليست حجزًا؛ يتم تأكيد الكمية فعليًا عند بدء عملية الشراء.",
-        "progressCaveat": "النسبة تمثل ما بيع من الكمية المتاحة للبيع، ولا يترتب على بلوغها أي أثر؛ كل طلب مدفوع يُنفَّذ بشكل مستقل."
+        "progressCaveat": "النسبة تمثل ما بيع من الكمية المتاحة للبيع، ولا يترتب على بلوغها أي أثر؛ كل طلب مدفوع يُنفَّذ بشكل مستقل.",
+        "productLabel": "المنتج والشروط التجارية",
+        "packageLabel": "مواصفات العبوة",
+        "taxonomy": "التصنيف",
+        "weightPerUnit": "وزن وحدة البيع",
+        "dimensions": "الأبعاد",
+        "length": "الطول",
+        "width": "العرض",
+        "height": "الارتفاع",
+        "packageContent": "محتوى العبوة",
+        "remainingTime": "الوقت المتبقي",
+        "buyNow": "اشترِ الآن",
+        "cm": "سم",
+        "gallery": "صور إضافية",
+        "galleryItem": "صورة {index} من {name}",
+        "unavailable": "—"
       }
     },
     "checkout": {
@@ -346,7 +483,7 @@
       "destinationsLabel": "مواقع التسليم",
       "destinationQuantity": "الكمية",
       "destinationShipping": "رسوم الشحن",
-      "browseOpportunities": "تصفّح الفرص",
+      "browseOpportunities": "تصفّح المنتجات",
       "locked": {
         "expiresAt": "ينتهي حجز الكمية في {at}.",
         "notReserved": "لا تُعَدّ الكمية مضمونة إلا بعد إتمام الدفع بنجاح.",
@@ -366,18 +503,18 @@
       },
       "expired": {
         "title": "انتهت مدة الحجز",
-        "description": "انتهت مدة حجز الكمية لهذا الطلب ولم يعد بالإمكان إتمامه. ابدأ من جديد من الفرصة."
+        "description": "انتهت مدة حجز الكمية لهذا الطلب ولم يعد بالإمكان إتمامه. ابدأ من جديد من صفحة المنتج."
       },
       "abandoned": {
         "title": "أُلغي الطلب",
-        "description": "تم إلغاء هذا الطلب وتحرير الكمية. ابدأ من جديد من الفرصة."
+        "description": "تم إلغاء هذا الطلب وتحرير الكمية. ابدأ من جديد من صفحة المنتج."
       }
     },
     "payment": {
       "title": "الدفع",
       "description": "ننتظر تأكيد عملية الدفع.",
       "amountUnavailable": "غير متاح",
-      "browseOpportunities": "تصفّح الفرص",
+      "browseOpportunities": "تصفّح المنتجات",
       "pending": {
         "title": "بانتظار تأكيد الدفع",
         "deadline": "يجب إتمام الدفع قبل {at}.",
@@ -433,7 +570,8 @@
         "ALLOCATION_UNKNOWN_LOCATION": "هذا الفرع غير متاح للاختيار.",
         "ALLOCATION_SUM_MISMATCH": "مجموع كميات الفروع ({allocated}) لا يساوي الكمية المطلوبة ({quantity})."
       },
-      "stepNoUnit": "الشراء بمضاعفات {quantity}."
+      "stepNoUnit": "الشراء بمضاعفات {quantity}.",
+      "regionLabel": "منطقة التسليم"
     },
     "orders": {
       "title": "الطلبات",
@@ -441,9 +579,8 @@
       "resultCount": "{count} طلب",
       "emptyTitle": "لا توجد طلبات",
       "emptyDescription": "لم تُنشئ أي طلب بعد.",
-      "browseOpportunities": "تصفّح الفرص",
+      "browseOpportunities": "تصفّح المنتجات",
       "needsAttention": "يحتاج إلى متابعة",
-      "needsAttentionDescription": "تجاوزت مدة التجهيز موعدها ولم تُشحن بعد.",
       "allOrders": "بقية الطلبات",
       "currentPage": "الصفحة {page}",
       "total": "المبلغ",
@@ -467,6 +604,7 @@
       "openDispute": "فتح نزاع على هذه الشحنة",
       "disputeWindowCloses": "يمكن فتح نزاع حتى {at}.",
       "next": {
+        "AWAITING_FUNDING": "لم يكتمل هدف العرض بعد. لا يبدأ التجهيز قبل اكتماله.",
         "AWAITING_PREPARATION": "المورّد لم يبدأ التجهيز بعد. لا يلزمك أي إجراء الآن.",
         "PREPARING": "المورّد يجهّز الشحنة الآن. لا يلزمك أي إجراء.",
         "READY_TO_SHIP": "الشحنة جاهزة وبانتظار التسليم لشركة الشحن.",
@@ -480,7 +618,8 @@
         "confirm": "نعم، تم الاستلام",
         "cancel": "إلغاء",
         "submitting": "جارٍ التأكيد…"
-      }
+      },
+      "deliveryRegion": "منطقة التسليم"
     },
     "documents": {
       "title": "مستندات الطلب",
@@ -549,11 +688,11 @@
       "next": {
         "OPEN": "بانتظار رد المورّد خلال المهلة المحددة.",
         "SUPPLIER_RESPONDED": "ردّ المورّد، وتراجع المنصة النزاع لإصدار القرار.",
-        "AWAITING_REPLACEMENT": "تقرر إرسال بديل؛ تابع حالته في صفحة الاستبدالات.",
+        "AWAITING_REPLACEMENT": "تقرر إرسال بديل؛ تابع حالته في صفحة المتابعة.",
         "RESOLVED_ACCEPTED": "أُغلق النزاع لصالحك واسترد المبلغ كاملًا إلى وسيلة الدفع نفسها.",
         "RESOLVED_PARTIAL": "أُغلق النزاع باسترداد جزئي إلى وسيلة الدفع نفسها.",
         "RESOLVED_REJECTED": "أُغلق النزاع دون استرداد. تواصل مع الدعم إن كان لديك ما يستجد.",
-        "RESOLVED_REPLACED": "أُغلق النزاع بإرسال بديل؛ تابع حالته في صفحة الاستبدالات."
+        "RESOLVED_REPLACED": "أُغلق النزاع بإرسال بديل؛ تابع حالته في صفحة المتابعة."
       },
       "open": {
         "title": "فتح نزاع",
@@ -634,21 +773,20 @@
       }
     },
     "replacements": {
-      "title": "الاستبدالات",
+      "title": "الاسترجاع",
       "description": "البدائل المستحقة لك بعد قرارات النزاعات.",
       "breadcrumbLabel": "مسار التنقل",
-      "backToList": "العودة إلى الاستبدالات",
-      "resultCount": "{count} استبدال",
-      "emptyTitle": "لا توجد استبدالات",
+      "backToList": "العودة إلى الاسترجاع",
+      "resultCount": "{count} عملية استرجاع",
+      "emptyTitle": "لا توجد عمليات استرجاع",
       "emptyDescription": "لا توجد بدائل مستحقة لك حاليًا.",
       "itemTitle": "بديل بكمية {quantity}",
-      "createdAt": "تاريخ الإنشاء",
       "preparationStartedAt": "بدء التجهيز",
       "readyToShipAt": "جاهز للشحن",
       "shippedAt": "تاريخ الشحن",
       "deliveredAt": "تاريخ التسليم",
       "failedAt": "تاريخ التعذّر",
-      "timeline": "مسار الاستبدال",
+      "timeline": "مسار الاسترجاع",
       "shipping": "بيانات الشحن",
       "carrier": "شركة الشحن",
       "tracking": "رقم التتبع",
@@ -659,7 +797,7 @@
         "PREPARING": "المورّد يجهّز البديل الآن.",
         "READY_TO_SHIP": "البديل جاهز وبانتظار التسليم لشركة الشحن.",
         "SHIPPED": "البديل في الطريق. أكّد الاستلام عند وصوله.",
-        "DELIVERED": "تم استلام البديل واكتمل الاستبدال.",
+        "DELIVERED": "تم استلام البديل واكتمل الاسترجاع.",
         "FAILED": "تعذّر إرسال البديل. تواصل مع الدعم لبحث البدائل المتاحة."
       },
       "confirmDelivery": {
@@ -668,7 +806,8 @@
         "confirm": "نعم، تم الاستلام",
         "cancel": "إلغاء",
         "submitting": "جارٍ التأكيد…"
-      }
+      },
+      "createdAt": "تاريخ الإنشاء"
     },
     "notifications": {
       "title": "الإشعارات",
@@ -712,30 +851,55 @@
         "DISPUTE_DECIDED": "عرض النزاع",
         "REFUND_INITIATED": "عرض الطلب",
         "REFUND_FAILED": "عرض الطلب",
-        "REPLACEMENT_REQUIRED": "عرض الاستبدال",
-        "REPLACEMENT_SHIPPED": "عرض الاستبدال",
-        "REPLACEMENT_DELIVERED": "عرض الاستبدال",
-        "REPLACEMENT_FAILED": "عرض الاستبدال",
+        "REPLACEMENT_REQUIRED": "عرض الاسترجاع",
+        "REPLACEMENT_SHIPPED": "عرض الاسترجاع",
+        "REPLACEMENT_DELIVERED": "عرض الاسترجاع",
+        "REPLACEMENT_FAILED": "عرض الاسترجاع",
         "SETTLEMENT_EXECUTED": "عرض التسوية"
       }
+    },
+    "followUp": {
+      "title": "المتابعة",
+      "disputes": "المنازعات",
+      "returns": "الاسترجاع",
+      "productReports": "بلاغات المنتجات"
+    },
+    "actionRequired": {
+      "title": "إجراء مطلوب",
+      "clear": "لا شيء يتطلب إجراءً الآن.",
+      "countLabel": "حالات تحتاج إجراءً"
     }
   },
   "supplier": {
     "nav": {
-      "label": "تنقل حساب المورّد",
+      "label": "تنقل لوحة التحكم",
       "dashboard": "الرئيسية",
       "orders": "الطلبات",
-      "opportunities": "الفرص",
-      "products": "المنتجات",
-      "settlements": "المستحقات",
-      "disputes": "النزاعات",
-      "replacements": "الاستبدالات",
+      "products": "منتجاتي",
+      "opportunities": "عروضي",
       "notifications": "الإشعارات",
-      "account": "الحساب",
-      "comingSoon": "قريبًا"
+      "account": "بيانات المنشأة",
+      "comingSoon": "قريبًا",
+      "portalName": "لوحة التحكم",
+      "accountTypeLabel": "مورد",
+      "accountMenu": "قائمة الحساب",
+      "openMenu": "فتح القائمة",
+      "closeMenu": "إغلاق القائمة",
+      "collapseMenu": "طي القائمة",
+      "expandMenu": "توسيع القائمة",
+      "switchLocale": "التبديل إلى الإنجليزية",
+      "notificationsLabel": "الإشعارات",
+      "bankAccount": "الحساب البنكي",
+      "locations": "الفروع",
+      "group": {
+        "catalogue": "المنتجات",
+        "orders": "الطلبات والمتابعة",
+        "account": "الحساب والإعدادات"
+      },
+      "followUp": "المتابعة"
     },
     "dashboard": {
-      "title": "لوحة المورّد",
+      "title": "لوحة التحكم",
       "signedInAs": "أنت مسجَّل باسم {company}",
       "goToAccount": "بيانات الحساب",
       "listSeparator": "، ",
@@ -747,7 +911,7 @@
           "payout": "جاهزية استلام المستحقات",
           "preparation": "مواعيد التجهيز",
           "disputes": "النزاعات",
-          "replacements": "الاستبدالات"
+          "replacements": "المرتجعات"
         },
         "payout": {
           "label": "لا يمكن تحويل مستحقاتك حاليًا",
@@ -767,28 +931,91 @@
         "replacements": {
           "label": "{count, plural, one {استبدال واحد بانتظار الإرسال} two {استبدالان بانتظار الإرسال} few {# استبدالات بانتظار الإرسال} many {# استبدالًا بانتظار الإرسال} other {# استبدال بانتظار الإرسال}}",
           "action": "جهّز البديل وأرسله إلى العنوان نفسه، ثم سجّل الشحن.",
-          "link": "فتح الاستبدالات"
+          "link": "فتح المرتجعات"
         }
       },
       "fulfilment": {
-        "title": "التنفيذ",
-        "totalOrders": "إجمالي الطلبات",
-        "awaitingPreparation": "شحنات بانتظار التجهيز",
-        "emptyTitle": "لا توجد طلبات بعد",
-        "emptyDescription": "عند صدور أول طلب على منتجاتك سيظهر هنا."
+        "title": "متابعة التنفيذ",
+        "viewOrders": "عرض الطلبات",
+        "status": {
+          "AWAITING_FUNDING": "بانتظار اكتمال الهدف",
+          "AWAITING_PREPARATION": "بانتظار التجهيز",
+          "PREPARING": "قيد التجهيز",
+          "READY_TO_SHIP": "جاهزة للشحن",
+          "SHIPPED": "مشحونة",
+          "DELIVERED": "مسلمة"
+        }
       },
       "settlements": {
-        "title": "آخر تحويل",
-        "latestAmount": "المبلغ الصافي",
-        "outcome": "النتيجة",
-        "executedAt": "تاريخ التحويل",
-        "total": "عدد التحويلات",
-        "emptyTitle": "لا توجد تحويلات بعد",
-        "emptyDescription": "تظهر التحويلات هنا بعد اكتمال أول تسوية."
+        "title": "حركة المستحقات",
+        "transferred": "تم تحويله خلال الفترة",
+        "lastTransfer": "آخر تحويل",
+        "none": "لم يجرِ أي تحويل بعد",
+        "viewAll": "عرض التسويات"
       },
       "notifications": {
         "title": "الإشعارات",
         "unread": "{count, plural, =0 {لا توجد إشعارات غير مقروءة} one {إشعار واحد غير مقروء} two {إشعاران غير مقروءين} few {# إشعارات غير مقروءة} many {# إشعارًا غير مقروء} other {# إشعار غير مقروء}}"
+      },
+      "lastUpdated": "آخر تحديث",
+      "refresh": "تحديث",
+      "periodLabel": "الفترة",
+      "periods": {
+        "7d": "آخر 7 أيام",
+        "30d": "آخر 30 يومًا",
+        "90d": "آخر 90 يومًا",
+        "ytd": "منذ بداية العام"
+      },
+      "cards": {
+        "paidOrders": "قيمة الطلبات المدفوعة",
+        "paidOrdersCompare": "مقارنة بالفترة السابقة",
+        "unsettled": "مستحقات غير مسواة",
+        "unsettledNote": "ليست جميعها متاحة للتحويل",
+        "buyers": "المنشآت المشترية",
+        "newBuyers": "مشترٍ جديد",
+        "noNewBuyers": "لا مشترين جدد في هذه الفترة",
+        "opportunities": "العروض النشطة",
+        "endingSoon": "ينتهي قريبًا",
+        "noneEndingSoon": "لا عروض تنتهي قريبًا",
+        "noComparison": "لا مقارنة"
+      },
+      "sales": {
+        "title": "حركة المبيعات",
+        "subtitle": "قيمة الطلبات المدفوعة",
+        "refunded": "المبالغ المستردة",
+        "refundsSeparate": "المستردات معروضة بشكل منفصل",
+        "empty": "لا مبيعات في هذه الفترة.",
+        "thousands": "ألف",
+        "bucket": {
+          "daily": "اليوم",
+          "weekly": "الأسبوع"
+        }
+      },
+      "listings": {
+        "title": "عروضي الجارية",
+        "viewAll": "تصفّح المنتجات",
+        "allInCategory": "جميع المنتجات",
+        "manage": "إدارة العرض",
+        "empty": "لا توجد عروض جارية.",
+        "of": "من",
+        "fundedNote": "احتساب الكميات المدفوعة",
+        "endsIn": "ينتهي بعد",
+        "endsToday": "ينتهي اليوم",
+        "day": "يوم",
+        "days": "أيام",
+        "noRegion": "بلا منطقة"
+      },
+      "attention": {
+        "title": "يتطلب انتباهك",
+        "orders": "طلبات بانتظار التجهيز",
+        "ordersAction": "تجهيز الطلبات",
+        "disputes": "منازعات تحتاج ردك",
+        "disputesAction": "الرد الآن",
+        "replacements": "مرتجع بانتظار التنفيذ",
+        "replacementsAction": "تجهيز البديل",
+        "clear": "لا شيء يتطلب انتباهك الآن.",
+        "actionRequired": "إجراء مطلوب",
+        "countLabel": "حالات تحتاج إجراءً"
       }
     },
     "status": {
@@ -842,13 +1069,15 @@
         "TAX_RATE_NOT_CONFIGURED": "إعدادات الضريبة اللازمة للنشر غير متاحة حاليًا",
         "PURCHASE_QUANTITY_NOT_COMPATIBLE": "الكمية المستهدفة لا تنقسم إلى حصص كاملة",
         "PRODUCT_SUSPENDED": "المنتج المرتبط موقوف مؤقتًا",
-        "PRODUCT_CLOSED": "المنتج المرتبط مغلق نهائيًا"
+        "PRODUCT_CLOSED": "المنتج المرتبط مغلق نهائيًا",
+        "LOCATION_REGION_INACTIVE": "منطقة موقع الشحن لم تعد مفعّلة"
       },
       "order": {
         "IN_FULFILLMENT": "قيد التنفيذ",
         "FULFILLED": "مكتمل"
       },
       "allocation": {
+        "AWAITING_FUNDING": "بانتظار اكتمال الهدف",
         "AWAITING_PREPARATION": "بانتظار التجهيز",
         "PREPARING": "قيد التجهيز",
         "READY_TO_SHIP": "جاهز للشحن",
@@ -897,29 +1126,16 @@
       "title": "الحساب",
       "breadcrumbLabel": "مسار التنقل",
       "backToAccount": "العودة إلى الحساب",
-      "readOnlyNotice": "هذه الصفحات للعرض فقط في الوقت الحالي.",
       "readiness": {
         "title": "جاهزية استلام المستحقات",
-        "label": "الحالة",
-        "readyStatus": "بياناتك مكتملة",
-        "readyAction": "يمكن للمنصة تحويل مستحقاتك بعد كل تسوية.",
-        "notReadyStatus": "البيانات غير مكتملة",
-        "notReadyAction": "أكمل العناصر التالية حتى تتمكن المنصة من تحويل مستحقاتك.",
-        "missing": {
-          "bankAccount": "حساب بنكي موثّق",
-          "taxProfile": "الملف الضريبي",
-          "invoicingProfile": "الاسم النظامي للفوترة"
-        }
+        "label": "الحالة"
       },
       "company": {
         "title": "بيانات الشركة",
         "description": "الاسم النظامي ورقم السجل وحالة التوثيق.",
-        "identity": "الهوية النظامية",
         "legalName": "الاسم النظامي",
         "crNumber": "رقم السجل التجاري",
-        "verification": "حالة التوثيق",
-        "email": "البريد الإلكتروني",
-        "emailVerification": "حالة البريد"
+        "email": "البريد الإلكتروني"
       },
       "bankAccount": {
         "title": "الحساب البنكي",
@@ -927,10 +1143,6 @@
         "emptyTitle": "لا يوجد حساب بنكي",
         "emptyDescription": "لم يُسجَّل حساب بنكي لشركتك بعد، ولا يمكن تحويل المستحقات قبل تسجيله وتوثيقه.",
         "statusLabel": "حالة التوثيق",
-        "holder": "اسم صاحب الحساب",
-        "iban": "رقم الآيبان",
-        "ibanSrLabel": "رقم الآيبان ينتهي بـ",
-        "verifiedAt": "تاريخ التوثيق",
         "rejectionReason": "سبب الرفض",
         "action": {
           "PENDING_VERIFICATION": "الحساب قيد المراجعة من فريق المنصة، ولا يلزمك أي إجراء الآن.",
@@ -942,13 +1154,7 @@
       "billing": {
         "title": "الفوترة والضريبة",
         "description": "الاسم النظامي الذي تُصدَر عليه مستندات العمولة الداخلية، وحالة تسجيلك في ضريبة القيمة المضافة.",
-        "invoicingTitle": "بيانات الفوترة",
-        "invoicingLegalName": "الاسم النظامي للفوترة",
-        "invoicingEmptyTitle": "لم تُسجَّل بيانات الفوترة",
-        "invoicingEmptyDescription": "لا يمكن تحويل مستحقاتك قبل تسجيل الاسم النظامي للفوترة. تواصل مع الدعم لاستكماله.",
         "taxTitle": "التسجيل الضريبي",
-        "taxEmptyTitle": "لم يُسجَّل الملف الضريبي",
-        "taxEmptyDescription": "لا يمكن تحويل مستحقاتك قبل تسجيل الملف الضريبي. تواصل مع الدعم لاستكماله.",
         "vatRegistered": "التسجيل في ضريبة القيمة المضافة",
         "vatYes": "مسجّل",
         "vatNo": "غير مسجّل",
@@ -977,7 +1183,8 @@
       "thumbnailAlt": "صورة المنتج {name}",
       "needsAttention": {
         "title": "يحتاج متابعة",
-        "description": "منتجات لم تكتمل بعد، أو تحتاج تصحيحًا قبل أن تُستخدم في أي فرصة."
+        "description": "منتجات لم تكتمل بعد، أو تحتاج تصحيحًا قبل عرضها.",
+        "more": "و{count, plural, one {منتج واحد آخر يحتاج انتباهك} two {منتجان آخران يحتاجان انتباهك} few {# منتجات أخرى تحتاج انتباهك} many {# منتجًا آخر يحتاج انتباهك} other {# منتج آخر يحتاج انتباهك}}. عالج هذه أولًا."
       },
       "statusTitle": "حالة الاعتماد",
       "statusLabel": "الحالة",
@@ -986,12 +1193,11 @@
       "weightPerUnit": "الوزن لكل وحدة",
       "dimensions": "الأبعاد (طول × عرض × ارتفاع)",
       "packageContent": "محتوى العبوة",
-      "createdAt": "تاريخ الإنشاء",
       "nextStep": {
         "status": {
           "DRAFT": "أكمل بيانات المنتج وأضف صورة رئيسية، ثم أرسله للاعتماد. يُفحص المنتج تلقائيًا ويُعتمد فورًا إذا اجتاز الفحص.",
           "PENDING_REVIEW": "المنتج قيد مراجعة إدارية. لا يمكن تعديله أو أرشفته حتى تنتهي المراجعة.",
-          "APPROVED": "المنتج معتمد ويمكن بناء الفرص عليه. أي تعديل لاحق يعيد تشغيل الفحص التلقائي قبل الحفظ.",
+          "APPROVED": "المنتج اجتاز الفحص التلقائي ومعروض. أي تعديل لاحق يعيد تشغيل الفحص قبل الحفظ.",
           "REJECTED": "راجع سبب الرفض، صحّح البيانات أو الصور، ثم أرسل المنتج للاعتماد مرة أخرى.",
           "SUSPENDED": "أوقفت المنصة هذا المنتج مؤقتًا. يمكنك تصحيح بياناته، لكن إعادة تفعيله قرار إداري منفصل ولا يتم تلقائيًا.",
           "CLOSED": "أُغلق هذا المنتج نهائيًا ولا يمكن تعديله. يمكنك أرشفته فقط."
@@ -1004,12 +1210,14 @@
         "archive": "أرشفة المنتج",
         "archivePrompt": "الأرشفة لا يمكن التراجع عنها من حسابك، ولن يعود بالإمكان تعديل المنتج أو إرساله. هل تريد المتابعة؟",
         "working": "جارٍ التنفيذ…",
-        "edit": "تعديل بيانات المنتج"
+        "edit": "تعديل بيانات المنتج",
+        "delete": "حذف المنتج",
+        "deletePrompt": "سيُحذف المنتج وكل عروضه وصوره نهائيًّا. لا رجعة في هذا.",
+        "deleting": "جارٍ الحذف…"
       },
       "media": {
         "heading": "صور المنتج",
         "empty": "لا توجد صور. يحتاج المنتج صورة رئيسية قبل أن يُعتمد.",
-        "imageAlt": "صورة {index} للمنتج {name}",
         "mainImageAlt": "الصورة الرئيسية للمنتج {name}",
         "mainBadge": "الصورة الرئيسية",
         "setMain": "اجعلها الرئيسية",
@@ -1024,7 +1232,9 @@
         "addImageLimits": "حتى {count} صور، وحجم كل صورة لا يتجاوز {megabytes} ميغابايت. الصيغ المقبولة: {types}.",
         "addImageFull": "بلغ المنتج الحد الأقصى لعدد الصور. احذف صورة قبل إضافة أخرى.",
         "fileTooLarge": "حجم الملف يتجاوز الحد المسموح ({megabytes} ميغابايت).",
-        "fileTypeNotAllowed": "صيغة الملف غير مقبولة. الصيغ المقبولة: {types}."
+        "fileTypeNotAllowed": "صيغة الملف غير مقبولة. الصيغ المقبولة: {types}.",
+        "imageAlt": "صورة {index} للمنتج {name}",
+        "closeFull": "إغلاق"
       },
       "newProduct": "إضافة منتج",
       "backToProduct": "العودة إلى المنتج",
@@ -1070,12 +1280,6 @@
           "packaging": "محتوى العبوة",
           "dimensions": "الوزن والأبعاد"
         },
-        "sectionHints": {
-          "identity": "الاسم والوصف بالعربية والإنجليزية.",
-          "classification": "تصنيف المنتج والوحدة التي يُباع بها.",
-          "packaging": "اختياري: ما تحتويه الوحدة الواحدة، مثل ٦ علب.",
-          "dimensions": "بيانات الشحن. الوزن بالكيلوغرام والأبعاد بالسنتيمتر."
-        },
         "fields": {
           "taxonomyNodeId": "التصنيف",
           "salesUnitId": "وحدة البيع من القائمة",
@@ -1093,11 +1297,6 @@
           "packageContentUnitNameAr": "وحدة المحتوى بالعربية",
           "packageContentUnitNameEn": "وحدة المحتوى بالإنجليزية"
         },
-        "hints": {
-          "salesUnitId": "اختياري. اختيارها يملأ الاسمين تلقائيًا، ويمكنك إلغاء الاختيار مع بقاء الاسمين.",
-          "packageGroup": "اختياري، لكن الحقول الثلاثة مجموعة واحدة: أدخلها كلها أو اتركها كلها فارغة.",
-          "snapshotNames": "يُنسخ هذان الاسمان على كل فرصة وطلب، ولا يُقرأان من القائمة لاحقًا، لذا يمكنك تعديلهما."
-        },
         "placeholderTaxonomy": "اختر تصنيفًا",
         "placeholderSalesUnit": "بدون اختيار",
         "optional": "(اختياري)",
@@ -1108,35 +1307,54 @@
         "errorSummaryTitle": "راجع الحقول التالية",
         "checkSummaryTitle": "المنتج لا يجتاز الفحص التلقائي بعد",
         "noChanges": "لم تُجرِ أي تعديل بعد."
-      }
+      },
+      "newOffer": "إنشاء عرض على هذا المنتج",
+      "newOfferShort": "إنشاء عرض",
+      "viewDetails": "عرض التفاصيل",
+      "hasLiveOffer": "عليه عرض حيّ",
+      "mediaCount": "عدد الصور",
+      "offersTitle": "عروض هذا المنتج",
+      "offersEmpty": "لا يوجد عرض على هذا المنتج بعد.",
+      "offerLiveAlready": "على هذا المنتج عرض حيّ الآن. أنشئ عرضًا جديدًا بعد انتهائه.",
+      "offerNotSellable": "لا يمكن إنشاء عرض على هذا المنتج في حالته الحالية.",
+      "createdAt": "تاريخ الإنشاء",
+      "openOffer": "العرض",
+      "openOfferNumbered": "العرض {number}",
+      "newDirectShort": "بيع مباشر",
+      "search": {
+        "label": "ابحث في منتجاتك",
+        "placeholder": "اسم المنتج",
+        "apply": "ابحث",
+        "clear": "امسح البحث",
+        "emptyTitle": "لا يوجد منتج بهذا الاسم",
+        "emptyDescription": "لم يطابق «{term}» أي منتج في كتالوجك. جرّب كلمة أقصر."
+      },
+      "resultCount": "{count, plural, =0 {لا منتجات} one {منتج واحد} two {منتجان} few {# منتجات} many {# منتجًا} other {# منتج}}"
     },
     "opportunities": {
-      "title": "الفرص",
-      "description": "فرصك المعروضة على التجّار، وحالة كل واحدة منها.",
+      "title": "عروضي",
+      "description": "عروضك المعروضة على التجّار، وحالة كل عرض منها.",
       "breadcrumbLabel": "مسار التنقل",
-      "backToList": "العودة إلى الفرص",
-      "emptyTitle": "لا توجد فرص",
-      "emptyDescription": "لم تُنشأ أي فرصة على منتجاتك بعد.",
-      "allTitle": "كل الفرص",
-      "allHandled": "كل فرصك مدرجة في القسم أعلاه.",
+      "backToList": "العودة إلى العروض",
+      "emptyTitle": "لا توجد عروض",
+      "emptyDescription": "لم تُنشئ أي عرض بعد. افتح أحد منتجاتك وأنشئ عليه عرضًا.",
+      "allTitle": "كل العروض",
+      "allHandled": "كل عروضك مدرجة في القسم أعلاه.",
       "needsAttention": {
-        "title": "يحتاج متابعة",
-        "description": "فرص لم تُنشر بعد، أو توقّف نشرها لسبب يحتاج تصحيحًا."
+        "title": "يحتاج متابعة"
       },
       "statusTitle": "الحالة",
       "statusLabel": "الحالة",
       "termsTitle": "الشروط التجارية",
       "taxTitle": "تفصيل السعر والضريبة",
-      "taxFrozenNotice": "هذه القيم مُثبَّتة عند أول نشر ولا يُعاد حسابها لاحقًا.",
       "scheduleTitle": "المواعيد",
       "originTitle": "مصدر الشحن",
       "descriptionTitle": "الوصف",
       "unitPrice": "سعر الوحدة",
-      "pricePerUnit": "{price} لكل {unit}",
       "unitPriceExclTax": "سعر الوحدة قبل الضريبة",
       "unitTax": "الضريبة على الوحدة",
       "taxRate": "نسبة الضريبة",
-      "totalValue": "القيمة الإجمالية شاملة الضريبة",
+      "totalValue": "قيمة الكمية المستهدفة شاملة الضريبة",
       "targetQuantity": "الكمية المستهدفة",
       "funded": "المُباع",
       "fundedOfTarget": "{funded} من {target}",
@@ -1152,55 +1370,57 @@
       "blockedAt": "تاريخ توقّف النشر",
       "shipsFromCity": "مدينة الشحن",
       "shipsFromRegion": "المنطقة",
-      "originNotFrozenYet": "يُثبَّت مصدر الشحن عند أول نشر، ولم تُنشر هذه الفرصة بعد.",
+      "originNotFrozenYet": "يُثبَّت مصدر الشحن عند أول نشر، ولم يُنشر هذا المنتج بعد.",
       "nextStep": {
         "status": {
-          "DRAFT": "راجع الشروط ثم انشر الفرصة لتصبح متاحة للتجّار.",
-          "SCHEDULED": "الفرصة منشورة وستبدأ في موعد البدء المحدد. لا يلزمك أي إجراء الآن.",
-          "ACTION_REQUIRED": "توقّف نشر هذه الفرصة. صحّح السبب الموضّح ثم أعد النشر.",
-          "ACTIVE": "الفرصة معروضة على التجّار. تابع الكمية المُباعة، ويمكنك تمديدها ثلاثة أيام مرة واحدة قبل انتهائها.",
-          "PAUSED": "أوقفت المنصة عرض هذه الفرصة. تواصل مع الدعم لمعرفة التفاصيل.",
-          "FUNDED": "اكتملت الكمية المستهدفة. تابع طلبات هذه الفرصة من صفحة الطلبات.",
-          "EXPIRED": "انتهت مدة هذه الفرصة. يمكنك إنشاء فرصة جديدة على المنتج نفسه.",
-          "CANCELLED": "أُلغيت هذه الفرصة ولم تعد معروضة."
+          "DRAFT": "راجع البيانات ثم انشر العرض ليصبح متاحًا للتجّار.",
+          "SCHEDULED": "العرض منشور وسيُعرض في موعد البدء المحدد. لا يلزمك أي إجراء الآن.",
+          "ACTION_REQUIRED": "توقّف نشر هذا العرض. صحّح السبب الموضّح ثم أعد النشر.",
+          "ACTIVE": "العرض معروض على التجّار. تابع الكمية المُباعة، ويمكنك تمديد العرض ثلاثة أيام مرة واحدة قبل انتهائه.",
+          "PAUSED": "أوقفت المنصة هذا العرض. تواصل مع الدعم لمعرفة التفاصيل.",
+          "FUNDED": "اكتملت الكمية المستهدفة. تابع طلبات هذا العرض من صفحة الطلبات.",
+          "EXPIRED": "انتهت مدة هذا العرض. يمكنك إنشاء عرض جديد على المنتج نفسه.",
+          "CANCELLED": "أُلغي هذا العرض ولم يعد معروضًا."
         }
       },
       "reasonFix": {
-        "SUPPLIER_NOT_VERIFIED": "لا يمكن نشر الفرص قبل توثيق شركتك. تواصل مع الدعم لاستكمال التوثيق.",
-        "PRODUCT_NOT_APPROVED": "افتح المنتج المرتبط وأعد إرساله للاعتماد، ثم أعد نشر الفرصة.",
-        "PRODUCT_ARCHIVED": "المنتج المرتبط مؤرشف ولا يمكن البيع عليه. أنشئ فرصة على منتج آخر.",
-        "LOCATION_INACTIVE": "موقع الشحن المرتبط لم يعد مفعّلًا. عدّل الفرصة لتشحن من موقع مفعّل.",
-        "LOCATION_CITY_INACTIVE": "مدينة موقع الشحن لم تعد مفعّلة على المنصة. عدّل الفرصة لتشحن من مدينة أخرى.",
-        "SUPPLIER_NOT_FINANCIALLY_READY": "أكمل بيانات الحساب البنكي والفوترة من صفحة الحساب، ثم أعد نشر الفرصة.",
+        "SUPPLIER_NOT_VERIFIED": "لا يمكن نشر العروض قبل توثيق شركتك. تواصل مع الدعم لاستكمال التوثيق.",
+        "PRODUCT_NOT_APPROVED": "لم يجتز المنتج الفحص التلقائي. صحّح بيانات المنتج ثم أعد النشر.",
+        "PRODUCT_ARCHIVED": "هذا المنتج مؤرشف ولا يمكن البيع عليه.",
+        "LOCATION_INACTIVE": "فرع الشحن المرتبط لم يعد مفعّلًا. عدّل العرض ليُشحن من فرع مفعّل.",
+        "LOCATION_CITY_INACTIVE": "مدينة فرع الشحن لم تعد مفعّلة على المنصة. عدّل العرض ليُشحن من مدينة أخرى.",
+        "SUPPLIER_NOT_FINANCIALLY_READY": "أكمل بيانات الحساب البنكي والفوترة من صفحة الحساب، ثم أعد نشر العرض.",
         "TAX_RATE_NOT_CONFIGURED": "هذا سبب من طرف المنصة ولا يلزمك تصحيح شيء. أعد المحاولة لاحقًا أو تواصل مع الدعم.",
         "PURCHASE_QUANTITY_NOT_COMPATIBLE": "عدّل الكمية المستهدفة إلى رقم ينقسم إلى حصص كاملة، ثم أعد النشر.",
         "PRODUCT_SUSPENDED": "المنتج المرتبط موقوف من المنصة. إعادة تفعيله قرار إداري منفصل.",
-        "PRODUCT_CLOSED": "المنتج المرتبط مغلق نهائيًا. أنشئ فرصة على منتج آخر."
+        "PRODUCT_CLOSED": "هذا المنتج مغلق نهائيًا.",
+        "LOCATION_REGION_INACTIVE": "منطقة فرع الشحن لم تعد مفعّلة على المنصة. عدّل العرض ليُشحن من فرع في منطقة أخرى."
       },
       "actions": {
-        "publish": "نشر الفرصة",
-        "publishPrompt": "سيتم فحص شروط النشر، وإذا اجتازتها تصبح الفرصة معروضة على التجّار (أو مجدولة حتى موعد البدء). هل تريد المتابعة؟",
-        "extend": "تمديد ثلاثة أيام",
-        "extendPrompt": "يمكن تمديد الفرصة مرة واحدة فقط بثلاثة أيام، ولا يمكن التراجع عن التمديد. هل تريد المتابعة؟",
+        "publish": "نشر العرض",
+        "publishPrompt": "سيتم فحص شروط النشر، وإذا اجتازها يصبح العرض معروضًا على التجّار (أو مجدولًا حتى موعد البدء). هل تريد المتابعة؟",
+        "closeAtReached": "إقفال العرض على ما تحقق",
+        "closeAtReachedPrompt": "سيُقفل العرض على الكمية المُباعة، وتبدأ مدة التجهيز من هذه اللحظة، ولن يُقبل شراء جديد. لا يمكن التراجع. هل تريد المتابعة؟",
+        "extend": "تمديد مدة العرض",
+        "extendPrompt": "يُمدَّد العرض مرة واحدة فقط، بالمدة التي تحددها الإدارة، ولا يمكن التراجع عن التمديد. هل تريد المتابعة؟",
         "delete": "حذف المسودة",
         "deletePrompt": "سيُحذف هذا السجل نهائيًا ولا يمكن استرجاعه. هل تريد المتابعة؟",
         "working": "جارٍ التنفيذ…",
-        "edit": "تعديل الفرصة"
+        "edit": "تعديل العرض",
+        "editDetails": "تعديل بيانات المنتج",
+        "stop": "إيقاف البيع المباشر",
+        "stopPrompt": "سيتوقف البيع الجديد على هذه النشرة. الطلبات المدفوعة لا تتأثر ولا يُسترد أحد. هل تريد المتابعة؟"
       },
-      "newOpportunity": "إضافة فرصة",
-      "backToOpportunity": "العودة إلى الفرصة",
+      "newOpportunity": "إنشاء عرض",
+      "backToOpportunity": "العودة إلى العرض",
       "new": {
-        "title": "إضافة فرصة",
-        "description": "حدّد المنتج وشروط البيع ومدة العرض، ثم انشر الفرصة.",
-        "nextStepsTitle": "الخطوات",
-        "step1": "احفظ الفرصة. تُحفظ كمسودة ولا يراها التجّار.",
-        "step2": "راجع الشروط والمواعيد قبل النشر.",
-        "step3": "انشر الفرصة. يُجرى فحص الشروط، وقد يُرفض النشر لسبب يظهر لك مع خطوة تصحيحه."
+        "title": "إنشاء عرض",
+        "nextStepsTitle": "الخطوات"
       },
       "edit": {
-        "title": "تعديل الفرصة",
+        "title": "تعديل العرض",
         "lockedTitle": "لا يمكن التعديل الآن",
-        "blockedTitle": "توقّف نشر هذه الفرصة",
+        "blockedTitle": "توقّف نشر هذا العرض",
         "fixedElsewhere": "هذا السبب لا يُصحَّح من هذا النموذج. اتبع الخطوة الموضّحة أعلاه ثم أعد النشر."
       },
       "validation": {
@@ -1221,12 +1441,6 @@
           "window": "المواعيد",
           "description": "الوصف"
         },
-        "sectionHints": {
-          "what": "المنتج المعروض والموقع الذي يُشحن منه.",
-          "terms": "سعر الوحدة شامل الضريبة، والكمية المعروضة.",
-          "window": "مدة عرض الفرصة على التجّار، ومدة التجهيز المتوقعة بعد البيع.",
-          "description": "وصف اختياري يظهر مع الفرصة."
-        },
         "fields": {
           "productId": "المنتج",
           "fulfillmentLocationId": "موقع الشحن",
@@ -1238,15 +1452,10 @@
           "descriptionAr": "الوصف بالعربية",
           "descriptionEn": "الوصف بالإنجليزية"
         },
-        "hints": {
-          "boundsUnknown": "حدود المدة والكمية تضبطها المنصة، وتظهر رسالة توضّح الحد إن لم تتحقق الشروط عند الحفظ.",
-          "frozenAtPublish": "تفصيل الضريبة وقيمة الحصة يحتسبان في المنصة ويُثبَّتان عند أول نشر، ولا تُحتسب هنا.",
-          "bounds": "مدة العرض بين {minHours} ساعة و{maxDays} يومًا، والكمية المستهدفة بين {minQuantity} و{maxQuantity}."
-        },
         "placeholderProduct": "اختر منتجًا",
         "placeholderLocation": "اختر موقعًا",
         "noProducts": "لا يوجد منتج معتمد يمكن العرض عليه. اعتمد منتجًا أولًا من صفحة المنتجات.",
-        "submitCreate": "حفظ الفرصة",
+        "submitCreate": "نشر المنتج",
         "submitEdit": "حفظ التغييرات",
         "submitting": "جارٍ الحفظ…",
         "cancelPrompt": "لديك تغييرات غير محفوظة. هل تريد الخروج دون حفظها؟",
@@ -1258,7 +1467,50 @@
           "quantityTooHigh": "الكمية المستهدفة أعلى من الحد الأقصى المسموح ({maxQuantity}).",
           "durationTooShort": "مدة العرض أقصر من الحد الأدنى ({minHours} ساعة).",
           "durationTooLong": "مدة العرض أطول من الحد الأقصى ({maxDays} يومًا)."
-        }
+        },
+        "searchProduct": "اكتب لتبحث عن منتج",
+        "noMatchingProduct": "لا يوجد منتج معتمد بهذا الاسم"
+      },
+      "pricePerUnitSuffix": "لكل {unit}",
+      "soldOfTarget": "المباع من المستهدف",
+      "viewDetails": "عرض التفاصيل",
+      "priceInclTax": "شامل الضريبة",
+      "perUnit": "لكل {unit}",
+      "noImage": "لا تتوفر صورة",
+      "totalValueNote": "ليست إيرادات محققة",
+      "offeredToTraders": "العرض معروض على التجار",
+      "extendOnce": "التمديد متاح مرة واحدة قبل انتهاء العرض",
+      "decisionWindow": {
+        "title": "انتهت مدة العرض قبل بلوغ الهدف",
+        "body": "بِيعت {funded} من {target} {unit}. أمامك مهلة لاختيار أحد الأمرين: إقفال العرض على ما تحقق، أو تمديد مدته مرة واحدة.",
+        "silence": "إذا انقضت المهلة دون اختيار، ينتهي العرض تلقائيًا وتُستردّ أموال المشترين كاملة.",
+        "remaining": "المتبقي من المهلة:",
+        "closesAt": "تنتهي المهلة في"
+      },
+      "startAt": "تاريخ البدء",
+      "endAt": "تاريخ الانتهاء",
+      "descriptionLabel": "الوصف",
+      "pricePerUnit": "{price} لكل {unit}",
+      "productTitle": "المنتج",
+      "openProduct": "فتح صفحة المنتج",
+      "chooseProduct": "اختر منتجًا لإنشاء عرض",
+      "liveOffer": {
+        "title": "على هذا المنتج عرض حيّ",
+        "note": "لا يُنشر عرض ثانٍ على المنتج حتى ينتهي عرضه الحالي. يمكنك حفظ هذا العرض كمسودة ونشره بعد انتهائه.",
+        "open": "افتح العرض الحيّ"
+      },
+      "direct": {
+        "title": "بيع مباشر",
+        "short": "بيع مباشر",
+        "description": "بيع بسعر ثابت من المخزون، بلا مدة انتهاء."
+      },
+      "stock": {
+        "title": "المخزون",
+        "field": "المخزون المعروض",
+        "hint": "لا يمكن إنزاله دون ما بيع فعلًا وما هو محجوز في سلال مفتوحة.",
+        "save": "تحديث المخزون",
+        "saving": "جارٍ الحفظ…",
+        "notANumber": "أدخل عددًا صحيحًا أكبر من صفر."
       }
     },
     "documents": {
@@ -1299,8 +1551,7 @@
       "allHandled": "كل طلباتك مدرجة في الأقسام أعلاه.",
       "showingRecent": "المعروض هو أحدث ٥٠ طلبًا.",
       "overdue": {
-        "title": "تجاوزت موعد التجهيز",
-        "description": "شحنات مضى موعد تجهيزها ولم تُشحن بعد."
+        "title": "تجاوزت موعد التجهيز"
       },
       "awaiting": {
         "title": "بانتظار التجهيز"
@@ -1340,10 +1591,11 @@
       "allocationNextStep": {
         "SHIPPED": "الشحنة في الطريق. يؤكد التاجر الاستلام، ولا يلزمك إجراء الآن.",
         "DELIVERED": "تم تسليم الشحنة. تُحوَّل مستحقاتها بعد انتهاء مهلة النزاع."
-      }
+      },
+      "region": "المنطقة"
     },
     "disputes": {
-      "title": "النزاعات",
+      "title": "المنازعات",
       "description": "النزاعات المفتوحة على شحناتك وحالة كل منها.",
       "breadcrumbLabel": "مسار التنقل",
       "backToList": "العودة إلى النزاعات",
@@ -1353,8 +1605,7 @@
       "allHandled": "كل النزاعات مدرجة في القسم أعلاه.",
       "showingRecent": "المعروض هو أحدث ٥٠ نزاعًا.",
       "awaiting": {
-        "title": "بانتظار ردّك",
-        "description": "نزاعات لم تردّ عليها بعد. الردّ خلال المهلة يحمي موقفك عند اتخاذ القرار."
+        "title": "بانتظار ردّك"
       },
       "statusTitle": "الحالة",
       "statusLabel": "الحالة",
@@ -1366,7 +1617,6 @@
       "decisionType": "القرار",
       "decidedAt": "تاريخ القرار",
       "evidenceTitle": "المرفقات",
-      "evidenceNotice": "تظهر هنا مرفقات شركتك فقط، ببياناتها الوصفية دون إمكانية فتحها.",
       "evidenceEmpty": "لم ترفع شركتك أي مرفق.",
       "evidenceUnknownType": "ملف",
       "openedAt": "تاريخ الفتح",
@@ -1396,26 +1646,24 @@
       }
     },
     "replacements": {
-      "title": "الاستبدالات",
+      "title": "المرتجعات",
       "description": "البدائل المستحقة عليك وحالة كل منها.",
       "breadcrumbLabel": "مسار التنقل",
-      "backToList": "العودة إلى الاستبدالات",
+      "backToList": "العودة إلى المرتجعات",
       "detailTitle": "التزام استبدال",
       "quantityLine": "الكمية المطلوبة: {quantity}",
-      "emptyTitle": "لا توجد استبدالات",
+      "emptyTitle": "لا توجد مرتجعات",
       "emptyDescription": "لا يوجد أي بديل مستحق عليك.",
-      "allTitle": "كل الاستبدالات",
-      "allHandled": "كل الاستبدالات مدرجة في القسم أعلاه.",
+      "allTitle": "كل المرتجعات",
+      "allHandled": "كل المرتجعات مدرجة في القسم أعلاه.",
       "showingRecent": "المعروض هو أحدث ٥٠ سجلًا.",
       "awaiting": {
-        "title": "بانتظار إجراء منك",
-        "description": "بدائل لم تُشحن بعد."
+        "title": "بانتظار إجراء منك"
       },
       "openDetail": "فتح التفاصيل",
       "statusTitle": "الحالة",
       "statusLabel": "الحالة",
       "destinationTitle": "وجهة الإرسال",
-      "destinationNotice": "يُرسل البديل إلى وجهة الشحنة الأصلية نفسها.",
       "timelineTitle": "المواعيد",
       "quantity": "الكمية",
       "locationName": "الموقع",
@@ -1424,7 +1672,6 @@
       "address": "العنوان",
       "contactName": "اسم المسؤول",
       "contactPhone": "رقم التواصل",
-      "createdAt": "تاريخ الإنشاء",
       "preparationStartedAt": "بدء التجهيز",
       "readyToShipAt": "الجاهزية للشحن",
       "shippedAt": "تاريخ الشحن",
@@ -1442,7 +1689,8 @@
         "SHIPPED": "البديل في الطريق. يؤكد التاجر الاستلام، ولا يلزمك إجراء الآن.",
         "DELIVERED": "تم تسليم البديل واكتمل الالتزام.",
         "FAILED": "تعذّر إتمام هذا الاستبدال. تواصل مع الدعم لمعرفة الخطوات."
-      }
+      },
+      "createdAt": "تاريخ الإنشاء"
     },
     "settlements": {
       "title": "المستحقات",
@@ -1457,7 +1705,6 @@
       "outcomeTitle": "نتيجة التسوية",
       "statusLabel": "النتيجة",
       "basisTitle": "أساس الاحتساب",
-      "basisNotice": "هذه القيم مُثبَّتة عند إنشاء الطلب ولا يُعاد حسابها، ولهذا يمكن مطابقتها.",
       "executedAt": "تاريخ التحويل",
       "city": "المدينة",
       "productAmountExclTax": "قيمة البضاعة قبل الضريبة",
@@ -1473,7 +1720,8 @@
       "outcomeNextStep": {
         "EXECUTED": "حُوِّل المبلغ إلى حسابك البنكي المسجَّل.",
         "ZERO_BALANCE": "لم يكن هناك مستحق على هذه الشحنة، ولم يُحوَّل مبلغ. هذه نتيجة صحيحة وليست خطأ."
-      }
+      },
+      "region": "المنطقة"
     },
     "notifications": {
       "title": "الإشعارات",
@@ -1507,11 +1755,113 @@
         "REPLACEMENT_FAILED": "تعذّر إتمام استبدال",
         "SETTLEMENT_EXECUTED": "تم تحويل مستحقات"
       }
+    },
+    "listings": {
+      "form": {
+        "fields": {
+          "nameAr": "اسم المنتج بالعربية",
+          "nameEn": "اسم المنتج بالإنجليزية",
+          "descriptionAr": "الوصف بالعربية",
+          "descriptionEn": "الوصف بالإنجليزية",
+          "image": "صورة المنتج",
+          "category": "التصنيف الرئيسي",
+          "taxonomyNodeId": "التصنيف الفرعي",
+          "salesUnitNameAr": "وحدة البيع بالعربية",
+          "salesUnitNameEn": "وحدة البيع بالإنجليزية",
+          "unitPriceAmount": "سعر وحدة البيع",
+          "targetQuantity": "الكمية المستهدفة",
+          "fulfillmentLocationId": "فرع المورد",
+          "expectedPreparationDays": "مدة التجهيز (يوم)",
+          "weightPerUnit": "الوزن (كجم)",
+          "lengthCm": "الطول (سم)",
+          "widthCm": "العرض (سم)",
+          "heightCm": "الارتفاع (سم)",
+          "packageContentQuantity": "الكمية",
+          "packageContentUnitNameAr": "الوحدة بالعربية",
+          "packageContentUnitNameEn": "الوحدة بالإنجليزية",
+          "offerDurationDays": "مدة العرض (يوم)",
+          "directStock": "المخزون المعروض"
+        },
+        "placeholderCategory": "اختر التصنيف الرئيسي",
+        "placeholderBranch": "اختر التصنيف الفرعي",
+        "placeholderLocation": "اختر الفرع",
+        "errorSummaryTitle": "راجع الحقول التالية",
+        "requestIdLabel": "رقم الطلب",
+        "submit": "إضافة المنتج",
+        "submitting": "جارٍ الإضافة…",
+        "cancel": "إلغاء",
+        "errors": {
+          "required": "هذا الحقل مطلوب",
+          "tooLong": "الحد الأقصى {max} حرفًا",
+          "notANumber": "أدخل رقمًا صحيحًا",
+          "notPositive": "يجب أن يكون أكبر من صفر",
+          "notAnInteger": "أدخل عددًا صحيحًا",
+          "tooLarge": "الحد الأقصى {max}",
+          "tooPrecise": "بحد أقصى {scale} خانات عشرية",
+          "tooShort": "أقل مدة {hours} ساعة",
+          "belowMin": "أقل كمية {min}",
+          "aboveMax": "أكبر كمية {max}",
+          "packageGroupIncomplete": "املأ حقول محتوى العبوة الثلاثة أو اتركها فارغة",
+          "imageTooLarge": "الحد الأقصى لحجم الصورة {mb} ميجابايت"
+        },
+        "sections": {
+          "item": "بيانات المنتج",
+          "selling": "وحدة البيع ومحتوى العبوة",
+          "shipping": "الوزن والأبعاد",
+          "offerTerms": "شروط البيع",
+          "offerTiming": "مدة العرض والتجهيز",
+          "directTiming": "التجهيز",
+          "directTerms": "شروط البيع المباشر"
+        },
+        "placeholders": {
+          "nameAr": "أدخل اسم المنتج بالعربية",
+          "nameEn": "Enter product name in English",
+          "descriptionAr": "أدخل وصف المنتج بالعربية",
+          "descriptionEn": "Enter product description in English",
+          "salesUnitNameAr": "مثال: كرتون",
+          "salesUnitNameEn": "e.g. Carton",
+          "unitPriceAmount": "أدخل السعر",
+          "targetQuantity": "عدد وحدات البيع",
+          "packageContentQuantity": "أدخل الكمية",
+          "packageContentUnitNameAr": "مثال: قطعة",
+          "packageContentUnitNameEn": "e.g. Piece",
+          "weightPerUnit": "أدخل الوزن",
+          "lengthCm": "أدخل الطول",
+          "widthCm": "أدخل العرض",
+          "heightCm": "أدخل الارتفاع"
+        },
+        "image": {
+          "choose": "اختيار صورة",
+          "previewHere": "معاينة الصورة هنا"
+        },
+        "priceCurrency": "ر.س",
+        "priceTaxNote": "شامل الضريبة",
+        "packageExample": "مثال توضيحي: كرتون يحتوي على 24 قطعة",
+        "shippingNote": "وزن وأبعاد وحدة البيع بعد التغليف",
+        "requiredNote": "حقول مطلوبة",
+        "submitOffer": "نشر العرض",
+        "submittingOffer": "جارٍ النشر…",
+        "offerWindowNote": "تبدأ المدة لحظة نشر العرض",
+        "saved": {
+          "productTitle": "حُفظ المنتج ولم تُرفع صورته",
+          "openProduct": "افتح المنتج المحفوظ",
+          "offerTitle": "حُفظ العرض ولم يُنشر بعد",
+          "openOffer": "افتح العرض المحفوظ",
+          "draftTitle": "حُفظ العرض كمسودة"
+        },
+        "submitDraft": "حفظ كمسودة",
+        "submittingDraft": "جارٍ الحفظ…",
+        "directWindowNote": "البيع المباشر يبقى معروضًا حتى توقفه بنفسك — لا مدة انتهاء له.",
+        "submitDirect": "نشر البيع المباشر",
+        "submittingDirect": "جارٍ النشر…"
+      }
+    },
+    "followUp": {
+      "title": "المتابعة"
     }
   },
   "unauthorized": {
     "title": "الوصول غير متاح",
-    "description": "لا يستطيع حسابك فتح هذه الصفحة.",
     "goHome": "الذهاب إلى الصفحة الرئيسية",
     "signInAsAnother": "تسجيل الدخول بحساب آخر"
   },
@@ -1528,7 +1878,11 @@
     "navLabel": "تنقل بين الصفحات",
     "previous": "السابق",
     "next": "التالي",
-    "status": "صفحة {page} من {lastPage}"
+    "status": "صفحة {page} من {lastPage}",
+    "first": "الصفحة الأولى",
+    "last": "الصفحة الأخيرة",
+    "pageNumber": "الصفحة {page}",
+    "range": "عرض {from}–{to} من {total}"
   },
   "states": {
     "emptyTitle": "لا توجد عناصر",
@@ -1564,20 +1918,40 @@
       "INVALID_WEBHOOK_SIGNATURE": "توقيع غير صالح.",
       "INVALID_FULFILLMENT_TRANSITION": "انتقال غير مسموح في حالة التنفيذ.",
       "UNKNOWN_CARRIER": "شركة الشحن غير معروفة.",
-      "PRODUCT_TECHNICAL_CHECK_FAILED": "المنتج لا يجتاز الفحص التلقائي بعد. راجع العناصر الموضّحة ثم أعد المحاولة."
+      "PRODUCT_TECHNICAL_CHECK_FAILED": "المنتج لا يجتاز الفحص التلقائي بعد. راجع العناصر الموضّحة ثم أعد المحاولة.",
+      "BRAND_LOGO_TOO_LARGE": "حجم ملف الشعار يتجاوز {maxMb} ميغابايت. صدّر الملف بحجم أصغر ثم أعد الرفع.",
+      "BRAND_LOGO_TOO_MANY_PIXELS": "أبعاد الشعار أكبر مما تسمح به المنصة. صغّر الصورة ثم أعد الرفع.",
+      "BRAND_LOGO_TYPE_UNSUPPORTED": "نوع الملف غير مدعوم. المسموح PNG أو WebP فقط.",
+      "BRAND_LOGO_TOO_SMALL": "أبعاد الصورة أصغر من {minWidth}×{minHeight} بكسل. استخدم نسخة أكبر من الشعار.",
+      "BRANCH_LOCATION_UNREADABLE": "تعذّر قراءة موقع الفرع من هذا الرابط. تأكد أنه يفتح الموقع في خرائط Google، أو الصق خط العرض وخط الطول مفصولين بفاصلة.",
+      "VERIFICATION_UNDER_REVIEW": "طلب التوثيق قيد المراجعة، ولا يمكن تعديل هذه البيانات حتى صدور القرار.",
+      "VERIFICATION_NOT_SUBMITTABLE": "لا يمكن إرسال طلب التوثيق في الوضع الحالي.",
+      "VERIFICATION_NOT_UNDER_REVIEW": "لا يوجد طلب توثيق قيد المراجعة لهذه المنشأة.",
+      "TAXONOMY_TOO_DEEP": "تحت التصنيف الرئيسي مستويان فقط من الفروع.",
+      "TAXONOMY_HAS_CHILDREN": "لا يمكن حذف تصنيف يحتوي فروعًا. انقل الفروع أو احذفها أولًا.",
+      "TAXONOMY_HAS_PRODUCTS": "لا يمكن حذف تصنيف مرتبط بمنتجات.",
+      "CR_NUMBER_TAKEN": "رقم السجل التجاري مسجّل مسبقًا في المنصة. إذا كان لك، سجّل الدخول أو استعد كلمة المرور.",
+      "EMAIL_TAKEN": "البريد الإلكتروني مسجّل مسبقًا في المنصة. إذا كان لك، سجّل الدخول أو استعد كلمة المرور.",
+      "MOBILE_TAKEN": "رقم الجوال مسجّل مسبقًا لمنشأة أخرى. استخدم رقمًا آخر.",
+      "VAT_NUMBER_TAKEN": "الرقم الضريبي مسجّل مسبقًا لمنشأة أخرى. راجع الرقم أو تواصل مع الدعم.",
+      "PRODUCT_ALREADY_HAS_LIVE_OFFER": "على هذا المنتج عرض حيّ الآن، فلا يُنشر عليه عرض ثانٍ حتى ينتهي.",
+      "PRODUCT_HAS_LIVE_OFFER": "لا يمكن تعديل منتجٍ يستطيع المشتري الوصول إليه. أوقف العرض أولًا — أو اطلب من الإدارة إيقافه — ثم صحّح المنتج وانشر عرضًا جديدًا.",
+      "BUYER_CHECKOUT_IN_PROGRESS": "مشترٍ يُتمّ عملية شراء على هذا العرض الآن. القفل ينتهي من نفسه — أعد المحاولة بعد قليل.",
+      "BUYER_ALREADY_PAID": "دفع مشترٍ على هذا العرض، ولا يُحذف ما بيع. أوقف العرض أو ألغِه مع استرداد الأموال بدلًا من ذلك.",
+      "CHECKOUT_LOCK_EXPIRED": "انتهت مهلة هذه السلة. أنشئ عملية شراء جديدة لترى الكمية المتاحة الآن."
     }
   },
   "admin": {
     "nav": {
-      "portalName": "لوحة الإدارة",
-      "label": "تنقل لوحة الإدارة",
+      "portalName": "لوحة التحكم",
+      "label": "تنقل لوحة التحكم",
       "signOut": "تسجيل الخروج",
       "twoFactorMissing": "التحقق بخطوتين غير مُفعّل",
       "footerNote": "لوحة تشغيل داخلية. كل إجراء هنا مُسجَّل في سجل التدقيق.",
       "dashboard": "الرئيسية",
       "companies": "المنشآت",
       "products": "المنتجات",
-      "opportunities": "الفرص",
+      "opportunities": "المنتجات المعروضة",
       "orders": "الطلبات",
       "disputes": "المنازعات",
       "refunds": "المبالغ المستردة",
@@ -1585,18 +1959,37 @@
       "bankAccounts": "الحسابات البنكية",
       "invoicing": "الفوترة",
       "catalogue": "البيانات المرجعية",
-      "banners": "اللافتات",
-      "branding": "الهوية والألوان",
+      "banners": "البنرات الإعلانية",
+      "branding": "الهوية والألوان والشعار",
       "content": "محتوى الموقع",
       "settings": "الإعدادات",
       "adminUsers": "حسابات الإدارة",
       "audit": "سجل التدقيق",
-      "outbox": "الإشعارات والتكاملات"
+      "outbox": "الإشعارات والتكاملات",
+      "roleLabel": "مدير النظام",
+      "accountMenu": "قائمة الحساب",
+      "openMenu": "فتح القائمة",
+      "closeMenu": "إغلاق القائمة",
+      "collapseMenu": "طي القائمة",
+      "expandMenu": "توسيع القائمة",
+      "group": {
+        "market": "السوق",
+        "orders": "الطلبات وخدمة العملاء",
+        "finance": "المالية",
+        "content": "المحتوى والهوية",
+        "system": "النظام والتكاملات",
+        "security": "الإدارة والأمان"
+      },
+      "switchLocale": "التبديل إلى الإنجليزية",
+      "taxonomy": "إدارة التصنيفات",
+      "policies": "السياسات"
     },
     "actions": {
       "confirm": "تأكيد",
       "cancel": "إلغاء",
-      "working": "جارٍ التنفيذ…"
+      "working": "جارٍ التنفيذ…",
+      "required": "(مطلوب)",
+      "save": "حفظ"
     },
     "filters": {
       "regionLabel": "البحث والتصفية",
@@ -1605,7 +1998,8 @@
       "searchSupplier": "بحث باسم المورّد",
       "any": "الكل",
       "apply": "تطبيق",
-      "clear": "مسح التصفية"
+      "clear": "مسح التصفية",
+      "export": "تصدير إلى Excel"
     },
     "money": {
       "platformCurrency": "SAR"
@@ -1618,7 +2012,6 @@
       "signIn": "تسجيل الدخول",
       "working": "جارٍ التنفيذ…",
       "verifyTitle": "التحقق بخطوتين",
-      "verifyDescription": "أدخل الرمز المعروض في تطبيق المصادقة.",
       "code": "رمز التحقق",
       "codeHint": "ستة أرقام تتغيّر كل ثلاثين ثانية.",
       "verify": "تحقّق",
@@ -1627,7 +2020,6 @@
       "recoveryCode": "رمز الاسترداد",
       "recoveryHint": "كل رمز يُستخدم مرة واحدة فقط ثم يُبطَل.",
       "setupTitle": "تفعيل التحقق بخطوتين",
-      "setupDescription": "أضف المفتاح أدناه إلى تطبيق المصادقة، ثم أدخل الرمز الذي يعرضه.",
       "setupSecret": "المفتاح السري",
       "setupSecretHint": "انسخ المفتاح وأدخله يدويًا في التطبيق.",
       "setupRecoveryTitle": "رموز الاسترداد",
@@ -1637,7 +2029,8 @@
       "back": "رجوع",
       "errorTitle": "تعذّر إتمام العملية",
       "requestIdLabel": "رقم المرجع",
-      "required": "(مطلوب)"
+      "required": "(مطلوب)",
+      "switchLocale": "التبديل إلى الإنجليزية"
     },
     "dashboard": {
       "title": "الرئيسية",
@@ -1645,10 +2038,8 @@
       "needsAttention": "بانتظار إجراء",
       "deliveryTitle": "تسليم الإشعارات",
       "twoFactorTitle": "حسابك بلا تحقق بخطوتين",
-      "twoFactorDescription": "هذا الحساب يدخل بكلمة المرور وحدها. فعّل التحقق بخطوتين من صفحة حسابات الإدارة.",
       "queues": {
         "suppliers": "مورّدون بانتظار التوثيق",
-        "products": "منتجات بانتظار المراجعة",
         "bankAccounts": "حسابات بنكية بانتظار المراجعة",
         "disputes": "منازعات مفتوحة",
         "refunds": "مبالغ مستردة بانتظار التنفيذ"
@@ -1672,9 +2063,8 @@
       "crNumber": "السجل التجاري",
       "accountType": "نوع الحساب",
       "verificationStatus": "حالة التوثيق",
-      "ownerEmail": "بريد المالك",
+      "ownerEmail": "البريد الإلكتروني للمالك",
       "userCount": "المستخدمون",
-      "createdAt": "تاريخ التسجيل",
       "actionsColumn": "الإجراءات",
       "approve": "توثيق",
       "approvePrompt": "سيتم توثيق «{name}» ويصبح بإمكانها العرض والبيع على المنصة.",
@@ -1683,12 +2073,58 @@
       "rejectReason": "سبب الرفض",
       "rejectReasonHint": "يصل هذا النص إلى المنشأة وهو ما ستعتمد عليه لتصحيح طلبها. خمسة أحرف على الأقل.",
       "emptyTitle": "لا توجد منشآت مطابقة",
-      "emptyDescription": "جرّب تعديل البحث أو التصفية."
+      "emptyDescription": "جرّب تعديل البحث أو التصفية.",
+      "rowActions": "إجراءات {name}",
+      "viewDetails": "عرض التفاصيل",
+      "tabsLabel": "نوع المنشأة",
+      "tab": {
+        "traders": "المشترون",
+        "suppliers": "الموردون"
+      },
+      "tableCaptionTraders": "قائمة المنشآت المشترية",
+      "tableCaptionSuppliers": "قائمة المنشآت الموردة",
+      "orderCount": "الطلبات",
+      "productCount": "المنتجات",
+      "opportunityCount": "المنتجات المعروضة",
+      "copyEmail": "نسخ البريد الإلكتروني",
+      "copiedEmail": "نُسخ البريد الإلكتروني",
+      "operationalStatus": "حالة التشغيل",
+      "operational": {
+        "ACTIVE": "نشطة",
+        "NOT_ACTIVE": "غير مفعّلة",
+        "SUSPENDED": "موقوفة"
+      },
+      "registeredFrom": "التسجيل من",
+      "registeredTo": "التسجيل إلى",
+      "copyCrNumber": "نسخ السجل التجاري",
+      "copiedCrNumber": "نُسخ السجل التجاري",
+      "detailTitle": "تفاصيل المنشأة",
+      "users": {
+        "title": "حسابات الدخول",
+        "email": "البريد الإلكتروني",
+        "role": "الدور",
+        "status": "الحالة",
+        "password": "كلمة المرور",
+        "actions": "الإجراءات",
+        "passwordSet": "مُعيّنة",
+        "passwordPending": "لم تُعيَّن بعد",
+        "suspendedByCompany": "بسبب إيقاف المنشأة",
+        "emailVerified": "البريد مُوثّق",
+        "emailUnverified": "البريد غير مُوثّق",
+        "empty": "لا توجد حسابات دخول لهذه المنشأة.",
+        "resetPassword": "إرسال رابط إعادة التعيين",
+        "resetPasswordPrompt": "سيُرسَل إلى بريد صاحب الحساب رابط إعادة تعيين كلمة المرور، وهو نفسه الرابط الذي يطلبه بنفسه. لا يمكنك رؤية كلمة المرور ولا تعيينها.",
+        "revokeSessions": "إنهاء كل الجلسات",
+        "revokeSessionsPrompt": "سيُسجَّل خروج صاحب الحساب من كل الأجهزة فورًا. لا يتغيّر شيء آخر، ويستطيع الدخول مجددًا بكلمة مروره الحالية.",
+        "exportFile": "حسابات-الدخول",
+        "exportAction": "تصدير قائمة المستخدمين",
+        "createdAt": "أُضيف"
+      },
+      "createdAt": "تاريخ التسجيل"
     },
     "products": {
       "title": "المنتجات",
       "description": "طابور المراجعة، ثم كامل الكتالوج.",
-      "queueTitle": "بانتظار المراجعة",
       "directoryTitle": "كل المنتجات",
       "tableCaption": "قائمة المنتجات",
       "name": "المنتج",
@@ -1700,10 +2136,11 @@
       "mainImageNo": "لا",
       "submittedAt": "تاريخ الإرسال",
       "updatedAt": "آخر تحديث",
+      "dates": "التواريخ",
       "archived": "مؤرشف",
       "actionsColumn": "الإجراءات",
       "approve": "اعتماد",
-      "approvePrompt": "سيتم اعتماد «{name}» ويصبح قابلًا للعرض في الفرص.",
+      "approvePrompt": "سيتم اعتماد «{name}» ويصبح قابلًا للعرض.",
       "reject": "رفض",
       "rejectPrompt": "سيتم رفض «{name}»، وسيظهر السبب للمورّد في صفحته.",
       "rejectReason": "سبب الرفض",
@@ -1713,14 +2150,28 @@
       "suspendReason": "سبب الإيقاف",
       "close": "إغلاق",
       "closePrompt": "سيتم إغلاق «{name}» نهائيًا.",
+      "deleteForever": "حذف نهائي",
+      "deleteReason": "سبب الحذف النهائي",
+      "deletePrompt": "سيُحذف «{name}» وكل عروضه وصوره نهائيًّا. لا رجعة في هذا.",
+      "deleteHint": "الحذف يُرفض إذا كان أي مشترٍ قد وصل إلى هذا المنتج — عندها الإغلاق هو الجواب.",
       "closeReason": "سبب الإغلاق",
-      "cascadeHint": "قد ينعكس هذا الإجراء على الفرص المرتبطة بالمنتج. خمسة أحرف على الأقل.",
+      "cascadeHint": "قد ينعكس هذا الإجراء على عرض المنتج للتجّار. خمسة أحرف على الأقل.",
       "reactivate": "إعادة التفعيل",
       "reactivatePrompt": "سيعود «{name}» إلى حالة معتمد.",
-      "queueEmptyTitle": "لا توجد منتجات بانتظار المراجعة",
       "queueEmptyDescription": "الطابور فارغ حاليًا.",
       "emptyTitle": "لا توجد منتجات مطابقة",
-      "emptyDescription": "جرّب تعديل البحث أو التصفية."
+      "emptyDescription": "جرّب تعديل البحث أو التصفية.",
+      "detailTitle": "تفاصيل المنتج",
+      "liveOffers": "عروض حيّة",
+      "liveOfferNotice": "على هذا المنتج {count} عرض منشور يصل إليه المشترون. التعديل هنا مسموح — والعرض المنشور لا يتغيّر، لأنه يُعرض من لقطته المجمّدة وقت النشر. ما تعدّله يظهر في السجلّ وفي كل عرض يُنشر بعد الآن.",
+      "imagesEmpty": "لا توجد صور لهذا المنتج.",
+      "saveEdit": "حفظ التعديل",
+      "editSaved": "حُفظ التعديل وسُجّل في التدقيق.",
+      "editNoChange": "لا يوجد تغيير لحفظه.",
+      "imageSetMain": "اجعلها الرئيسية",
+      "imageRemove": "حذف",
+      "stateColumn": "الحالة",
+      "createdAt": "أُضيف"
     },
     "reports": {
       "title": "بلاغات المنتجات",
@@ -1747,13 +2198,11 @@
       "emptyDescription": "لم يُقدَّم أي بلاغ ضمن هذه التصفية."
     },
     "opportunities": {
-      "title": "الفرص",
-      "description": "متابعة الفرص المعروضة على المنصة.",
-      "monitorOnlyNotice": "الإدارة تتابع الفرص ولا تنشئها ولا تعدّلها. السعر والكميات ونِسَب المشاركة تخصّ المورّد وحده.",
-      "tableCaption": "قائمة الفرص",
+      "title": "المنتجات المعروضة",
+      "description": "متابعة المنتجات المعروضة على المنصة.",
+      "tableCaption": "قائمة المنتجات المعروضة",
       "status": "الحالة",
       "statusColumn": "الحالة",
-      "createdAt": "تاريخ الإنشاء",
       "unitPrice": "سعر الوحدة",
       "unitPriceExclTax": "سعر الوحدة قبل الضريبة",
       "unitTax": "ضريبة الوحدة",
@@ -1761,9 +2210,11 @@
       "funding": "التمويل",
       "fundedOfTarget": "{funded} من {target}",
       "window": "فترة العرض",
+      "windowFrom": "من",
+      "windowTo": "إلى",
       "open": "فتح",
       "openDetail": "عرض التفاصيل",
-      "detailTitle": "تفاصيل الفرصة",
+      "detailTitle": "تفاصيل المنتج المعروض",
       "commercialTitle": "البيانات التجارية",
       "salesUnit": "وحدة البيع",
       "fulfillmentCity": "مدينة التسليم",
@@ -1773,21 +2224,34 @@
       "blockedReasonLabel": "سبب التوقف",
       "actionsTitle": "الإجراءات",
       "pause": "إيقاف مؤقت",
-      "pausePrompt": "سيتم إيقاف الفرصة مؤقتًا وتتوقف عن قبول مشترين جدد.",
+      "pausePrompt": "سيتم إيقاف عرض المنتج مؤقتًا ويتوقف عن قبول مشترين جدد.",
       "pauseReasonField": "سبب الإيقاف",
       "pauseReasonHint": "يظهر هذا النص للمورّد. خمسة أحرف على الأقل.",
       "resume": "استئناف",
-      "resumePrompt": "ستعود الفرصة إلى العرض حتى نهاية فترتها.",
-      "cancelOpportunity": "إلغاء الفرصة",
-      "cancelPrompt": "الإلغاء نهائي: تُغلق الفرصة أمام أي شراء جديد ويُفرَج عن كل حجز قائم في سلال المشترين.",
+      "resumePrompt": "سيعود المنتج إلى العرض حتى نهاية فترته.",
+      "cancelOpportunity": "إلغاء العرض",
+      "cancelPrompt": "الإلغاء نهائي: يُغلق المنتج أمام أي شراء جديد ويُفرَج عن كل حجز قائم في سلال المشترين.",
       "cancelReasonField": "سبب الإلغاء",
-      "cancelReasonHint": "يُحفظ هذا النص على الفرصة. خمسة أحرف على الأقل.",
-      "actionRequiredNotice": "هذه الفرصة تحتاج إجراءً من المورّد نفسه؛ لا يملك الإداري صلاحية إعادة نشرها نيابةً عنه.",
-      "noActionsAvailable": "لا يوجد إجراء متاح على هذه الفرصة في حالتها الحالية.",
-      "cannotResumeExpired": "لا يمكن استئناف الفرصة لأن فترة عرضها انتهت.",
-      "backToList": "العودة إلى قائمة الفرص",
-      "emptyTitle": "لا توجد فرص مطابقة",
-      "emptyDescription": "جرّب تعديل التصفية."
+      "cancelReasonHint": "يُحفظ هذا النص على المنتج. خمسة أحرف على الأقل.",
+      "cancelAndRefund": "إيقاف العرض واسترداد الأموال",
+      "cancelAndRefundPrompt": "سيُلغى العرض نهائيًا، وتُستردّ أموال كل من دفع بالكامل — تمامًا كعرض انتهى دون بلوغ هدفه، لكن الآن ويدويًا. لا يمكن التراجع.",
+      "cancelAndRefundReasonField": "سبب الإيقاف والاسترداد",
+      "cancelAndRefundReasonHint": "يُحفظ على العرض ويُقيَّد في سجل التدقيق. خمسة أحرف على الأقل.",
+      "cancelNeedsRefundNotice": "على هذا العرض عمليات شراء مدفوعة، فلا يمكن إلغاؤه دون إعادة الأموال. استخدم «إيقاف العرض واسترداد الأموال».",
+      "actionRequiredNotice": "هذا المنتج يحتاج إجراءً من المورّد نفسه؛ لا يملك الإداري صلاحية إعادة نشره نيابةً عنه.",
+      "noActionsAvailable": "لا يوجد إجراء متاح على هذا المنتج في حالته الحالية.",
+      "cannotResumeExpired": "لا يمكن استئناف العرض لأن فترته انتهت.",
+      "backToList": "العودة إلى قائمة المنتجات المعروضة",
+      "emptyTitle": "لا توجد منتجات مطابقة",
+      "emptyDescription": "جرّب تعديل التصفية.",
+      "fulfillmentRegion": "منطقة التسليم",
+      "createdAt": "تاريخ الإنشاء",
+      "supplier": "المورّد",
+      "editTitle": "تعديل العرض",
+      "editSaved": "حُفظ التعديل.",
+      "editNoChange": "لم تغيّر شيئًا.",
+      "deleteForever": "حذف نهائي",
+      "deletePrompt": "سيُحذف هذا العرض نهائيًّا. المنتج يبقى كما هو. لا رجعة في هذا."
     },
     "orders": {
       "title": "الطلبات",
@@ -1826,7 +2290,22 @@
       "createCommissionDraft": "إنشاء مسودة فاتورة العمولة",
       "createCommissionDraftPrompt": "سيتم إنشاء مسودة فاتورة العمولة لهذا الطلب.",
       "emptyTitle": "لا توجد طلبات مطابقة",
-      "emptyDescription": "جرّب تعديل التصفية."
+      "emptyDescription": "جرّب تعديل التصفية.",
+      "billingOverride": "إسناد بيانات فوترة المشتري",
+      "billingOverridePrompt": "يُستعمل فقط للطلبات القديمة التي لم تُحفَظ فيها بيانات المشتري الضريبية وقت الشراء، ولا يمكن إصدار مستند فوترة لها بدونها. تُنسخ بيانات المشتري الحالية كما هي عنده — لا تكتب رقمًا ضريبيًا ولا اسمًا نظاميًا. إن كان للطلب بيانات محفوظة فعلًا، يرفض الخادم الطلب ولا يتغيّر شيء.",
+      "billingOverrideReason": "سبب الإسناد",
+      "billingOverrideHint": "لا يقلّ عن ٥ أحرف. يُحفظ في سجل التدقيق وهو التفسير الوحيد لوجود هذا الإسناد.",
+      "adjustmentColumn": "تسوية",
+      "adjustmentOpen": "إضافة تسوية",
+      "adjustmentLegend": "تسوية على هذه المسودة — لا تُعدَّل المسودة الأصلية",
+      "adjustmentAmount": "المبلغ",
+      "adjustmentDescription": "سبب التسوية",
+      "adjustmentReference": "المرجع",
+      "adjustmentReferenceOptional": "اختياري",
+      "adjustmentSubmit": "حفظ التسوية",
+      "adjustmentSaved": "أُضيفت التسوية.",
+      "adjustmentErrorAmount": "المبلغ يجب أن يكون رقمًا أكبر من صفر.",
+      "adjustmentErrorDescription": "سبب التسوية مطلوب."
     },
     "disputes": {
       "title": "المنازعات",
@@ -1866,13 +2345,21 @@
       "waitingForSupplier": "لا يمكن إصدار قرار قبل ردّ المورّد أو انقضاء مهلة الرد.",
       "noFurtherDecision": "لا يقبل هذا الملف قرارًا إضافيًا.",
       "emptyTitle": "لا توجد منازعات مطابقة",
-      "emptyDescription": "جرّب تعديل التصفية."
+      "emptyDescription": "جرّب تعديل التصفية.",
+      "detailTitle": "تفاصيل المنازعة",
+      "replacementConfirm": "تأكيد تسليم البديل",
+      "replacementConfirmPrompt": "سيُسجَّل أن البديل وصل إلى المشتري، ويُغلق التزام الاستبدال. افعل هذا نيابةً عن المشتري فقط حين يكون التسليم مؤكَّدًا لديك.",
+      "replacementConfirmReason": "سبب التأكيد نيابةً عن المشتري",
+      "replacementConfirmHint": "لا يقلّ عن ٥ أحرف. يُحفظ في سجل التدقيق كتفسير لتدخّل المنصّة.",
+      "replacementMarkFailed": "تسجيل فشل البديل",
+      "replacementMarkFailedPrompt": "سيُسجَّل أن البديل لم يصل، ويفتح ذلك أمامك قرارًا ثانيًا في هذا النزاع: استرداد كامل أو جزئي. لا يمكن التراجع.",
+      "replacementMarkFailedReason": "سبب تسجيل الفشل",
+      "replacementMarkFailedHint": "لا يقلّ عن ٥ أحرف. قرار ضد المورّد يُغلق الاستبدال ويفتح مسار استرداد، ويُحفظ في سجل التدقيق."
     },
     "refunds": {
       "title": "المبالغ المستردة",
       "description": "المبالغ المستحقة الإعادة إلى المشترين ومحاولات تنفيذها.",
       "tableCaption": "قائمة المبالغ المستردة",
-      "createdAt": "تاريخ الاستحقاق",
       "amount": "المبلغ",
       "status": "الحالة",
       "source": "المصدر",
@@ -1900,7 +2387,9 @@
       "working": "جارٍ التنفيذ…",
       "required": "(مطلوب)",
       "emptyTitle": "لا توجد مبالغ مستردة مطابقة",
-      "emptyDescription": "جرّب تعديل التصفية."
+      "emptyDescription": "جرّب تعديل التصفية.",
+      "detailTitle": "تفاصيل المبلغ المسترد",
+      "createdAt": "تاريخ الاستحقاق"
     },
     "settlements": {
       "title": "التسويات",
@@ -1930,23 +2419,17 @@
       "status": "حالة التوثيق",
       "submittedAt": "تاريخ التقديم",
       "rejectionReason": "سبب الرفض",
-      "approve": "اعتماد",
-      "approvePrompt": "سيصبح هذا الحساب وجهة الدفعات لـ«{company}»، ويتوقف العمل بالحساب المعتمد السابق إن وُجد.",
-      "reject": "رفض",
-      "rejectPrompt": "سيتم رفض الحساب البنكي لـ«{company}»، وسيصل السبب إلى المورّد.",
-      "rejectReason": "سبب الرفض",
-      "rejectReasonHint": "يقرأ المورّد هذا النص وعليه يقرّر ما إذا كان سيعيد التقديم بمستند مختلف أو بحساب آخر. خمسة أحرف على الأقل.",
       "queueEmptyTitle": "لا توجد حسابات بانتظار المراجعة",
       "queueEmptyDescription": "الطابور فارغ حاليًا.",
       "emptyTitle": "لا توجد حسابات مطابقة",
-      "emptyDescription": "جرّب تعديل البحث أو التصفية."
+      "emptyDescription": "جرّب تعديل البحث أو التصفية.",
+      "reviewOnCompany": "مراجعة الحساب ضمن طلب توثيق المنشأة"
     },
     "adminUsers": {
       "title": "حسابات الإدارة",
       "description": "حسابك، وحسابات بقية فريق الإدارة.",
       "ownAccountTitle": "حسابك",
       "directoryTitle": "حسابات الفريق",
-      "creationNotice": "لا يمكن إنشاء حساب إدارة من هنا. تُنشأ الحسابات عبر أداة سطر الأوامر على الخادم فقط، حتى لا يكون اختراق جلسة واحدة كافيًا لإنشاء حساب دائم آخر.",
       "tableCaption": "قائمة حسابات الإدارة",
       "email": "البريد الإلكتروني",
       "status": "الحالة",
@@ -1954,7 +2437,6 @@
       "twoFactorOn": "مُفعّل",
       "twoFactorOff": "غير مُفعّل",
       "recoveryCodes": "رموز الاسترداد المتبقية",
-      "createdAt": "تاريخ الإنشاء",
       "actionsColumn": "الإجراءات",
       "you": "أنت",
       "disable": "تعطيل",
@@ -1986,14 +2468,13 @@
       "errorTitle": "تعذّر إتمام العملية",
       "requestIdLabel": "رقم المرجع",
       "emptyTitle": "لا توجد حسابات مطابقة",
-      "emptyDescription": "جرّب تعديل البحث أو التصفية."
+      "emptyDescription": "جرّب تعديل البحث أو التصفية.",
+      "createdAt": "تاريخ الإنشاء"
     },
     "audit": {
       "title": "سجل التدقيق",
       "description": "ما تغيّر، ومن غيّره، ولماذا.",
-      "scopeNotice": "يعرض هذا السجل الحدث ومنفّذه وسببه، دون نسخ القيم قبل التغيير وبعده ودون بيانات الطلب مثل عنوان الشبكة. الاطّلاع على السجل لا يُنشئ قيدًا جديدًا فيه.",
       "tableCaption": "قيود سجل التدقيق",
-      "createdAt": "التاريخ",
       "actorType": "المنفّذ",
       "action": "الحدث",
       "entity": "العنصر",
@@ -2001,7 +2482,11 @@
       "reason": "السبب",
       "requestId": "رقم الطلب",
       "emptyTitle": "لا توجد قيود مطابقة",
-      "emptyDescription": "جرّب تعديل التصفية."
+      "emptyDescription": "جرّب تعديل التصفية.",
+      "changed": "ما تغيّر",
+      "valueYes": "نعم",
+      "valueNo": "لا",
+      "createdAt": "التاريخ"
     },
     "outbox": {
       "title": "الإشعارات والتكاملات",
@@ -2019,25 +2504,21 @@
       "backlog": "تراكم",
       "integrationsTitle": "التكاملات",
       "integrationsCaption": "حالة التكاملات الخارجية",
-      "healthNotice": "لا يُعرض أي تكامل بحالة «سليم» لأن فحص الاتصال الفعلي لم يُبنَ بعد. عرض حالة سليمة دون فحص سيكون ادّعاءً غير مُتحقَّق منه.",
       "integration": "التكامل",
       "provider": "المزوّد",
       "mode": "الوضع",
       "configState": "حالة التهيئة",
-      "healthState": "حالة الاتصال"
+      "healthState": "حالة الاتصال",
+      "relayBacklog": "تأخّر مُرحِّل البريد",
+      "noPending": "لا توجد رسائل بانتظار الإرسال"
     },
     "catalogue": {
       "title": "البيانات المرجعية",
       "description": "التصنيفات ووحدات البيع والمناطق والمدن.",
-      "taxonomyTitle": "التصنيفات",
-      "taxonomyHint": "التصنيفات التي تُصنَّف تحتها المنتجات وتظهر في قائمة الموقع العلوية.",
       "salesUnitsTitle": "وحدات البيع",
-      "salesUnitsHint": "وحدات القياس التي يُباع بها المنتج، مثل كرتون أو طن.",
       "regionsTitle": "المناطق",
       "citiesTitle": "المدن",
       "region": "المنطقة",
-      "underParent": "تحت: {parent}",
-      "unknownParent": "تصنيف غير معروف",
       "addLegend": "إضافة عنصر",
       "nameAr": "الاسم بالعربية",
       "nameEn": "الاسم بالإنجليزية",
@@ -2052,33 +2533,34 @@
       "inactive": "غير مُفعّل",
       "notDeleteNotice": "لا يوجد حذف لهذه العناصر. إلغاء التفعيل يخفي العنصر من القوائم دون المساس بالسجلات التي تشير إليه.",
       "working": "جارٍ التنفيذ…",
-      "required": "(مطلوب)"
+      "required": "(مطلوب)",
+      "geographyTitle": "المناطق والمدن",
+      "addRegion": "إضافة منطقة",
+      "addCity": "إضافة مدينة",
+      "deactivateRegionPrompt": "تعطيل المنطقة يمنع إضافة فروع فيها ويضع منتجاتها في «تحتاج إجراءً». هل تريد المتابعة؟",
+      "deactivateCityPrompt": "لن تُعرض هذه المدينة كخيار بعد الآن. الفروع والمنتجات القائمة لا تتأثر. هل تريد المتابعة؟",
+      "regionInactiveNotice": "لن تُعرض لأن منطقتها معطَّلة",
+      "noCities": "لا مدن تحت هذه المنطقة.",
+      "cityCount": "{count, plural, =0 {لا مدن} one {مدينة واحدة} two {مدينتان} few {# مدن} other {# مدينة}}",
+      "activePill": "مفعَّلة",
+      "inactivePill": "معطَّلة"
     },
     "banners": {
       "title": "اللافتات",
-      "description": "اللافتات الترويجية في الصفحة الرئيسية وصفحة الفرص.",
-      "imageNotice": "تُرفع صورة اللافتة من بطاقتها أدناه. يفحص الخادم النوع والحجم ويرفض ما لا يطابق.",
+      "description": "اللافتات الترويجية في الصفحة الرئيسية وصفحة المنتجات.",
       "placements": {
         "PUBLIC_HOME": "الصفحة الرئيسية",
-        "PUBLIC_OPPORTUNITIES": "صفحة الفرص"
+        "PUBLIC_OPPORTUNITIES": "صفحة المنتجات"
       },
       "createLegend": "إضافة لافتة",
-      "titleAr": "العنوان بالعربية",
-      "titleEn": "العنوان بالإنجليزية",
-      "bodyAr": "النص بالعربية",
-      "bodyEn": "النص بالإنجليزية",
       "linkUrl": "الرابط",
       "linkHint": "يتحقق الخادم من الرابط مقابل قائمة النطاقات المسموح بها ويرفض ما عداها.",
       "create": "إضافة",
-      "moveUp": "تحريك «{title}» للأعلى",
-      "moveDown": "تحريك «{title}» للأسفل",
       "saveOrder": "حفظ الترتيب",
       "orderChanged": "تغيّر الترتيب ولم يُحفظ بعد.",
       "orderSaved": "تم حفظ الترتيب.",
       "activate": "تفعيل",
       "deactivate": "إلغاء التفعيل",
-      "hasImage": "بصورة",
-      "noImage": "بدون صورة",
       "scheduleFrom": "يبدأ في",
       "scheduleTo": "ينتهي في",
       "saveSchedule": "حفظ الفترة",
@@ -2088,15 +2570,33 @@
       "required": "(مطلوب)",
       "uploadImage": "رفع صورة",
       "replaceImage": "استبدال الصورة",
-      "removeImage": "إزالة الصورة",
       "imageTypes": "JPEG أو PNG أو WebP",
-      "removeImagePrompt": "إزالة صورة هذه اللافتة؟"
+      "imageShapeHint": "النسبة المفضلة {preferred}، والمقبول من {min} إلى {max}، بحد أدنى {minWidth}×{minHeight} بكسل.",
+      "shapeTooSmall": "الصورة {width}×{height} بكسل، وهي أصغر من الحد الأدنى {minWidth}×{minHeight}. اختر صورة أكبر.",
+      "shapeTooTall": "نسبة الصورة {ratio} ({width}×{height} بكسل) أطول من المسموح. المقبول من {min} إلى {max}، والمفضل {preferred}.",
+      "shapeTooWide": "نسبة الصورة {ratio} ({width}×{height} بكسل) أعرض من المسموح. المقبول من {min} إلى {max}، والمفضل {preferred}.",
+      "cropPreviewTitle": "هكذا ستظهر الصورة في الموقع",
+      "cropPreviewNote": "تُقصّ الأطراف لملء الإطار. تأكد أن ما يهمك يظهر داخل المعاينة قبل الحفظ.",
+      "confirmUpload": "حفظ الصورة",
+      "artworkFor": "صورة البنر — {locale}",
+      "noArtwork": "لا توجد صورة",
+      "missingArtwork": "ينقصه: {locales}",
+      "activateNeedsBoth": "لا يمكن التفعيل قبل رفع صورتَي اللغتين.",
+      "delete": "حذف",
+      "deleteAt": "حذف البنر رقم {position}",
+      "deletePrompt": "سيُحذف البنر وصوره نهائيًا. لا يمكن التراجع.",
+      "deleteConfirm": "حذف نهائي",
+      "moveUpAt": "نقل البنر رقم {position} لأعلى",
+      "moveDownAt": "نقل البنر رقم {position} لأسفل",
+      "locale": {
+        "ar-SA": "العربية",
+        "en-SA": "الإنجليزية"
+      }
     },
     "branding": {
-      "title": "الهوية والألوان",
-      "description": "اسم الموقع ووصفه، وألوان الهوية.",
+      "title": "الهوية والألوان والشعار",
+      "description": "اسم الموقع ووصفه، وألوان الهوية، وشعار الرأس لكل لغة.",
       "identityTitle": "هوية الموقع",
-      "identityReadOnlyNotice": "الاسم والوصف والشعارات تُعرض هنا للاطّلاع فقط. حقول الشعارات عناوين روابط يحمّلها متصفح كل زائر وتُدرَج في الفواتير والرسائل الصادرة، فتغييرها يبقى عملية تشغيلية لها مراجعتها الخاصة.",
       "identityNotConfigured": "لم تُضبط هوية الموقع بعد.",
       "nameAr": "الاسم بالعربية",
       "nameEn": "الاسم بالإنجليزية",
@@ -2104,7 +2604,6 @@
       "shortDescriptionEn": "الوصف المختصر بالإنجليزية",
       "updatedAt": "آخر تحديث",
       "themeTitle": "ألوان الهوية",
-      "themeHint": "الحفظ كمسودة لا يغيّر شيئًا لدى الزوار. النشر هو ما يُطبّق الألوان على الموقع.",
       "colors": {
         "primary": "اللون الأساسي",
         "secondary": "اللون الثانوي",
@@ -2127,12 +2626,40 @@
       "confirm": "تأكيد",
       "cancel": "إلغاء",
       "saved": "تم الحفظ.",
-      "working": "جارٍ التنفيذ…"
+      "working": "جارٍ التنفيذ…",
+      "logosTitle": "شعارات الرأس",
+      "logoUploadFor": "رفع الشعار {locale}",
+      "logoReplace": "استبدال الشعار {locale}",
+      "logoPresent": "موجود",
+      "logoMissing": "لا يوجد شعار",
+      "logoPublish": "نشر الشعارين",
+      "logoPublished": "منشور",
+      "logoUnpublished": "غير منشور",
+      "logoPublishNeedsBoth": "لا يمكن النشر قبل رفع شعارَي اللغتين.",
+      "logoDelete": "حذف الشعارين",
+      "logoDeletePrompt": "سيُحذف شعارا اللغتين وملفاتهما نهائيًا. لا يمكن التراجع.",
+      "logoDeleteConfirm": "حذف نهائي",
+      "logoConstraints": "PNG أو WebP، بحد أدنى {minWidth}×{minHeight} بكسل وحد أقصى {maxMb} ميغابايت. الشفافية مدعومة.",
+      "logoLocale": {
+        "ar-SA": "العربي",
+        "en-SA": "الإنجليزي"
+      },
+      "logoStageUpload": "تعذّر رفع ملف الشعار.",
+      "logoStageSave": "وصل الملف لكن تعذّر حفظ بيانات الشعار. أعد المحاولة.",
+      "logoStagePreview": "تعذّر عرض معاينة الشعار {locale}.",
+      "logoStagePublish": "تعذّر نشر الشعارين.",
+      "logoStageDelete": "تعذّر حذف الشعارين.",
+      "logoPreviewFailedHint": "الصورة محفوظة على الخادم لكن المتصفح لم يتمكّن من عرضها. أعد رفع الملف، وإن تكرّر الأمر فالمشكلة في مسار تسليم الصورة لا في الملف.",
+      "logoPublishNeedsPreview": "لا يمكن النشر قبل ظهور معاينتَي الشعارين.",
+      "logoDraftNotice": "توجد تغييرات غير منشورة. اضغط «نشر الشعارين» حتى تظهر للزوار.",
+      "identitySave": "حفظ الهوية",
+      "identitySaved": "حُفظت هوية المنصّة.",
+      "identityErrorName": "الاسم مطلوب بالعربية والإنجليزية — الصفحات العامة تعرض لغة القارئ بلا بديل.",
+      "identityHint": "الاسم يظهر في الشريط العلوي وترويسة التذييل، والوصف في السطر تحته."
     },
     "content": {
       "title": "محتوى الموقع",
       "description": "نصوص الصفحة الرئيسية وتصنيفات القائمة العلوية.",
-      "textOnlyNotice": "كل نص هنا يُعرض كنص فقط، دون HTML أو Markdown. وقائمة الموقع تُبنى من التصنيفات المتاحة، فلا يمكن كتابة عنوان وجهة يدويًا.",
       "taxonomyUnavailable": "تعذّر تحميل التصنيفات، لذا لا يمكن تعديل القائمة العلوية الآن. نصوص الصفحة الرئيسية ما زالت قابلة للتعديل.",
       "contentLegend": "نصوص الصفحة الرئيسية",
       "navLegend": "تصنيفات القائمة العلوية",
@@ -2144,7 +2671,10 @@
         "heroDescription": "وصف الواجهة",
         "featuredTitle": "عنوان قسم المميّز",
         "policiesTitle": "عنوان قسم السياسات",
-        "policiesDescription": "وصف قسم السياسات"
+        "policiesDescription": "وصف صفحة السياسات",
+        "aboutBody": "نص صفحة «عن المنصة»",
+        "faqBody": "نص صفحة الأسئلة الشائعة",
+        "contactBody": "نص صفحة التواصل"
       },
       "navHint": "أضف حتى ثمانية تصنيفات ورتّبها. تُقرأ أسماء التصنيفات من الكتالوج عند العرض، فتعديل اسم تصنيف يعدّل اسمه في القائمة تلقائيًا.",
       "navAdd": "إضافة",
@@ -2157,12 +2687,12 @@
       "navMissing": "تصنيف غير متاح (محذوف أو غير مُفعّل)",
       "save": "حفظ",
       "saved": "تم الحفظ.",
-      "working": "جارٍ التنفيذ…"
+      "working": "جارٍ التنفيذ…",
+      "required": "(مطلوب)"
     },
     "settings": {
       "title": "الإعدادات",
       "description": "الإعدادات العامة القابلة للتعديل من هذه الشاشة.",
-      "scopeNotice": "هذه قائمة محدودة ومحدّدة مسبقًا، وليست نافذة على جدول الإعدادات. حدود المحاولات ومدة الجلسة والضريبة والعمولة وأجور الشحن والدفع والتنفيذ لكل منها واجهته الخاصة بحدودها ومراجعاتها، ولا تُعدَّل من هنا.",
       "value": "القيمة",
       "notSet": "غير مضبوط",
       "yes": "نعم",
@@ -2174,7 +2704,122 @@
       "saved": "تم الحفظ.",
       "working": "جارٍ التنفيذ…",
       "emptyTitle": "لا توجد إعدادات",
-      "emptyDescription": "لم يُسجَّل أي إعداد في القائمة."
+      "emptyDescription": "لم يُسجَّل أي إعداد في القائمة.",
+      "version": "الإصدار {version}",
+      "unit": {
+        "basisPoints": "نقطة أساس",
+        "percent": "بالمئة",
+        "sar": "ر.س",
+        "minutes": "دقيقة",
+        "hours": "ساعة",
+        "days": "يوم",
+        "seconds": "ثانية",
+        "units": "وحدة",
+        "attempts": "محاولة",
+        "bytes": "بايت",
+        "pixels": "بكسل"
+      },
+      "financial": {
+        "title": "الإعدادات المالية"
+      },
+      "commission": {
+        "title": "عمولة المنصة",
+        "rateBasisPoints": "نسبة العمولة"
+      },
+      "commissionTax": {
+        "title": "الضريبة على العمولة",
+        "ratePercent": "نسبة الضريبة",
+        "ruleCode": "رمز القاعدة",
+        "ruleVersion": "إصدار القاعدة"
+      },
+      "tax": {
+        "title": "ضريبة القيمة المضافة الافتراضية",
+        "ratePercent": "النسبة"
+      },
+      "shareTiers": {
+        "title": "شرائح الحصص",
+        "ceiling": "سقف القيمة شاملة الضريبة",
+        "share": "حجم الحصة",
+        "openEnded": "بلا سقف",
+        "addTier": "إضافة شريحة",
+        "removeTier": "حذف",
+        "emptyTitle": "لا توجد شرائح"
+      },
+      "shippingTariff": {
+        "title": "تعرفة الشحن",
+        "sameCity": "داخل المدينة نفسها",
+        "sameRegion": "داخل المنطقة، مدينة مختلفة",
+        "differentRegion": "منطقة مختلفة"
+      },
+      "groupsLabel": "مجموعات الإعدادات",
+      "operations": {
+        "title": "إعدادات التشغيل"
+      },
+      "securityGroup": {
+        "title": "الأمان والمستحقات"
+      },
+      "mediaGroup": {
+        "title": "سياسة الوسائط"
+      },
+      "checkout": {
+        "title": "إتمام الشراء",
+        "lockDurationMinutes": "مدة حجز الكمية",
+        "abuseThresholdCount": "عدد المحاولات قبل التقييد",
+        "abuseWindowMinutes": "نافذة احتساب المحاولات",
+        "cooldownMinutes": "مدة التقييد"
+      },
+      "payment": {
+        "title": "الدفع",
+        "attemptTimeout": "مهلة محاولة الدفع"
+      },
+      "fulfillment": {
+        "title": "التجهيز والتسليم",
+        "lateThreshold": "عتبة التأخّر",
+        "criticalThreshold": "عتبة التأخّر الحرج"
+      },
+      "opportunity": {
+        "title": "قواعد عرض المنتج",
+        "minDurationHours": "أدنى مدة عرض",
+        "maxDurationDays": "أقصى مدة عرض",
+        "minTargetQuantity": "أدنى كمية مستهدفة",
+        "maxTargetQuantity": "أقصى كمية مستهدفة",
+        "showScheduledPublicly": "إظهار المنتجات المجدولة للعامة",
+        "extensionDays": "مدة التمديد الواحد"
+      },
+      "loginRateLimit": {
+        "title": "حدّ محاولات تسجيل الدخول",
+        "limit": "عدد المحاولات",
+        "ttlSeconds": "خلال"
+      },
+      "twoFaRateLimit": {
+        "title": "حدّ محاولات التحقق بخطوتين",
+        "limit": "عدد المحاولات",
+        "ttlSeconds": "خلال"
+      },
+      "sessionDuration": {
+        "title": "مدة جلسة الإدارة",
+        "seconds": "المدة"
+      },
+      "payoutHold": {
+        "title": "مدة حجز المستحقات",
+        "days": "المدة"
+      },
+      "mediaPolicy": {
+        "title": "صور المنتجات",
+        "maxSizeBytes": "أقصى حجم للصورة",
+        "maxImagesPerProduct": "أقصى عدد صور للمنتج",
+        "maxPixels": "أقصى عدد بكسلات",
+        "allowedTypes": "الصيغ المسموحة"
+      },
+      "unnamed": "إعداد",
+      "names": {
+        "emailVerification": "توثيق البريد الإلكتروني عند التسجيل",
+        "companyVerification": "طريقة توثيق المنشآت",
+        "homepageContent": "محتوى الصفحة الرئيسية",
+        "bannerPolicy": "سياسة اللافتات الإعلانية",
+        "faqItems": "الأسئلة الشائعة",
+        "headerNav": "روابط الشريط العلوي"
+      }
     },
     "invoicing": {
       "title": "الفوترة",
@@ -2187,13 +2832,29 @@
       "vatYes": "نعم",
       "vatNo": "لا",
       "vatNumber": "الرقم الضريبي",
-      "createdAt": "تاريخ الإصدار",
       "notConfiguredTitle": "لم يُضبط الملف النظامي بعد",
       "notConfiguredDescription": "لا يمكن إصدار أي مستند فوترة قبل تسجيل بيانات المنصة النظامية.",
       "versioningNotice": "الملف النظامي يُصدَر بإصدارات ولا يُعدَّل. أي تغيير يُنشئ إصدارًا جديدًا وتبقى الإصدارات السابقة كما هي، لأن المستندات الصادرة حُسبت عليها ويجب أن تظل قابلة لإعادة الاشتقاق.",
       "draftsTitle": "مسودات الفواتير",
-      "draftsDescription": "تُنشأ مسودات الفواتير لكل طلب على حدة من صفحة الطلب نفسه.",
-      "openOrders": "الانتقال إلى الطلبات"
+      "openOrders": "الانتقال إلى الطلبات",
+      "city": "المدينة",
+      "shortAddress": "العنوان الوطني المختصر",
+      "address": "العنوان",
+      "formTitleCreate": "إعداد الملف النظامي",
+      "formTitleNew": "إصدار نسخة جديدة",
+      "formIntroCreate": "بيانات المنصة كبائع على مستندات العمولة.",
+      "formIntroNew": "الإصدار الحالي يبقى كما هو، وتُضاف نسخة جديدة تصبح المعتمدة.",
+      "create": "حفظ الملف النظامي",
+      "newVersion": "إصدار النسخة رقم {version}",
+      "working": "جارٍ الحفظ…",
+      "saved": "حُفظ الملف النظامي.",
+      "required": "(مطلوب)",
+      "errorLegalName": "الاسم النظامي مطلوب، وبحد أقصى 300 حرف.",
+      "errorCrNumber": "رقم السجل التجاري مطلوب.",
+      "errorVatNumber": "الرقم الضريبي يجب أن يكون 15 رقمًا.",
+      "errorAddress": "المدينة والعنوان الوطني المختصر مطلوبان — يظهران على مستندات العمولة.",
+      "cityPlaceholder": "اختر المدينة",
+      "createdAt": "تاريخ الإصدار"
     },
     "vocab": {
       "accountType": {
@@ -2216,14 +2877,6 @@
         "USER": "مستخدم",
         "ADMIN": "إداري"
       },
-      "productApproval": {
-        "DRAFT": "مسودة",
-        "PENDING_REVIEW": "بانتظار المراجعة",
-        "APPROVED": "معتمد",
-        "REJECTED": "مرفوض",
-        "SUSPENDED": "موقوف",
-        "CLOSED": "مغلق"
-      },
       "opportunityStatus": {
         "DRAFT": "مسودة",
         "SCHEDULED": "مجدولة",
@@ -2244,13 +2897,15 @@
         "TAX_RATE_NOT_CONFIGURED": "نسبة الضريبة غير مضبوطة",
         "PURCHASE_QUANTITY_NOT_COMPATIBLE": "كمية الشراء غير متوافقة",
         "PRODUCT_SUSPENDED": "المنتج موقوف",
-        "PRODUCT_CLOSED": "المنتج مغلق"
+        "PRODUCT_CLOSED": "المنتج مغلق",
+        "LOCATION_REGION_INACTIVE": "منطقة موقع التسليم غير مُفعّلة"
       },
       "orderStatus": {
         "IN_FULFILLMENT": "قيد التنفيذ",
         "FULFILLED": "مكتمل"
       },
       "allocationStatus": {
+        "AWAITING_FUNDING": "بانتظار اكتمال الهدف",
         "AWAITING_PREPARATION": "بانتظار التجهيز",
         "PREPARING": "قيد التجهيز",
         "READY_TO_SHIP": "جاهزة للشحن",
@@ -2370,7 +3025,900 @@
         "NOT_CHECKED": "لم تُفحص",
         "HEALTHY": "سليم",
         "UNHEALTHY": "متعطّل"
+      },
+      "productState": {
+        "DRAFT": "مسودة",
+        "PENDING_REVIEW": "غير منشور",
+        "APPROVED": "نشط",
+        "REJECTED": "غير منشور",
+        "SUSPENDED": "متوقف مؤقتًا",
+        "CLOSED": "مغلق"
+      },
+      "companyUserRole": {
+        "OWNER": "المالك"
+      },
+      "companyUserStatus": {
+        "ACTIVE": "نشط",
+        "SUSPENDED": "موقوف",
+        "DISABLED": "معطّل"
       }
+    },
+    "faq": {
+      "addLegend": "إضافة سؤال",
+      "questionAr": "السؤال بالعربية",
+      "questionEn": "السؤال بالإنجليزية",
+      "answerAr": "الإجابة بالعربية",
+      "answerEn": "الإجابة بالإنجليزية",
+      "add": "إضافة",
+      "save": "حفظ الترتيب",
+      "saved": "حُفظت الأسئلة",
+      "moveUp": "تحريك السؤال للأعلى",
+      "moveDown": "تحريك السؤال للأسفل",
+      "activate": "تفعيل",
+      "deactivate": "إيقاف",
+      "remove": "حذف",
+      "removePrompt": "حذف هذا السؤال نهائيًا؟ يمكنك إيقافه بدل حذفه للاحتفاظ بنصه.",
+      "empty": "لا توجد أسئلة بعد.",
+      "active": "معروض",
+      "inactive": "غير معروض",
+      "full": "بلغت الحد الأقصى لعدد الأسئلة.",
+      "title": "الأسئلة الشائعة",
+      "description": "أسئلة وإجابات تظهر في صفحة الأسئلة الشائعة، بالترتيب الذي تحدده."
+    },
+    "help": {
+      "open": "المساعدة",
+      "title": "المساعدة",
+      "close": "إغلاق المساعدة",
+      "empty": "لا يتوفر دليل لهذه الصفحة حاليًا."
+    },
+    "breadcrumbs": {
+      "label": "مسار التنقل"
+    },
+    "toolbar": {
+      "searchPlaceholder": "ابحث…",
+      "reset": "إعادة تعيين",
+      "export": "تصدير",
+      "regionLabel": "البحث والتصفية",
+      "filtersPanelLabel": "خيارات التصفية",
+      "rowsPerPage": "عرض",
+      "rowsPerPageUnit": "صف لكل صفحة",
+      "searching": "جارٍ البحث…",
+      "noMatch": "لا توجد نتيجة مطابقة"
+    },
+    "error": {
+      "title": "تعذّر عرض هذه الصفحة",
+      "description": "حدث خطأ أثناء تحميل هذه الصفحة. بقية أقسام لوحة التحكم تعمل. أعد المحاولة، وإن تكرّر الأمر أرسل الرقم أدناه.",
+      "retry": "إعادة المحاولة"
+    },
+    "companyDetail": {
+      "basics": "البيانات الأساسية",
+      "updatedAt": "آخر تحديث",
+      "users": "المستخدمون",
+      "noUsers": "لا يوجد مستخدمون",
+      "userEmail": "البريد الإلكتروني",
+      "userRole": "الدور",
+      "userStatus": "الحالة",
+      "userPassword": "كلمة المرور",
+      "userActions": "الإجراءات",
+      "userStatusValue": {
+        "ACTIVE": "نشط",
+        "SUSPENDED": "موقوف",
+        "DISABLED": "معطّل"
+      },
+      "suspendedByCompany": "موقوف بسبب إيقاف المنشأة",
+      "passwordSet": "تم إنشاء كلمة المرور",
+      "passwordPending": "بانتظار إنشاء كلمة المرور",
+      "sendReset": "إرسال رابط إعادة تعيين كلمة المرور",
+      "resetPrompt": "سيُرسل رابط لمرة واحدة ومحدود الصلاحية إلى {email}. لن تظهر كلمة المرور لك ولا في السجلات.",
+      "resetSent": "أُرسل الرابط.",
+      "revokeSessions": "إنهاء جلسات المستخدم",
+      "revokePrompt": "ستُنهى جميع جلسات {email} فورًا وسيحتاج إلى تسجيل الدخول من جديد.",
+      "revoked": "أُنهيت الجلسات.",
+      "locations": "الفروع والمواقع",
+      "noLocations": "لا توجد فروع",
+      "locationName": "الاسم",
+      "locationAddress": "العنوان المختصر",
+      "locationContact": "المسؤول",
+      "locationDefault": "الافتراضي",
+      "contacts": "جهات الاتصال",
+      "noContacts": "لا توجد جهات اتصال",
+      "yes": "نعم",
+      "no": "لا",
+      "footprint": "المنتجات والطلبات والسجلات المالية",
+      "footprintNote": "الأعداد فقط؛ السجلات نفسها تُقرأ في أقسامها بفلاترها وصلاحياتها.",
+      "countProducts": "المنتجات",
+      "countOpportunities": "المنتجات المعروضة",
+      "countOrdersTrader": "الطلبات كمشترٍ",
+      "countOrdersSupplier": "الطلبات كمورّد",
+      "countBankAccounts": "الحسابات البنكية",
+      "countProductReports": "بلاغات المنتجات",
+      "countCheckoutSessions": "جلسات الشراء",
+      "countPolicyAcceptances": "قبول السياسات",
+      "activity": "سجل إجراءات الإدارة",
+      "noActivity": "لا توجد إجراءات",
+      "activityAction": "الإجراء",
+      "activityActor": "المنفّذ",
+      "activityReason": "السبب",
+      "activityAt": "الوقت",
+      "reasonLabel": "السبب",
+      "reasonHint": "خمسة أحرف على الأقل. يُحفظ في سجل التدقيق.",
+      "save": "حفظ",
+      "saved": "حُفظ.",
+      "dangerTitle": "عمليات حسّاسة",
+      "crTitle": "السجل التجاري",
+      "crLockedNotice": "لا يمكن تعديل السجل التجاري لمنشأة موثقة من نموذج التعديل العادي — هو ما جرى توثيقه، وتغييره إجراء مستقل أدناه.",
+      "crChange": "تغيير السجل التجاري",
+      "suspend": "إيقاف المنشأة",
+      "suspendPrompt": "سيُوقف حساب «{name}»، وتُعلَّق حسابات مستخدميه النشطين وتُنهى جلساتهم. الطلبات والفواتير والسجلات السابقة لا تتأثر.",
+      "reactivate": "إعادة تفعيل المنشأة",
+      "reactivatePrompt": "سيعود «{name}» إلى حالته قبل الإيقاف، ويعود فقط المستخدمون الذين أوقفهم إيقاف المنشأة — ولن يتغيّر مستخدم كان موقوفًا لسبب مستقل.",
+      "deleteTitle": "شطب المنشأة نهائيًا من المنصة",
+      "deleteWarning": "هذا الإجراء لا يمكن التراجع عنه.",
+      "deleteBlocked": "لا يمكن الشطب لوجود سجلات يجب الاحتفاظ بها:",
+      "deleteConfirmationLabel": "تأكيد",
+      "deleteAction": "شطب نهائي",
+      "totpHint": "من تطبيق المصادقة الخاص بحسابك الإداري.",
+      "blocker": {
+        "ACTIVE_OR_FUNDED_PRODUCTS": "منتجات نشطة أو ممولة",
+        "LIVE_ORDERS": "طلبات جارية",
+        "OPEN_DISPUTES": "منازعات مفتوحة",
+        "AMOUNTS_DUE_OR_HELD": "مبالغ مستحقة أو محجوزة",
+        "INCOMPLETE_REFUNDS": "استردادات غير مكتملة",
+        "INCOMPLETE_SETTLEMENTS": "تسويات غير مكتملة",
+        "FINANCIAL_RECORDS": "سجلات مالية لا يجوز حذفها",
+        "PRODUCT_REPORTS": "بلاغات على منتجات"
+      },
+      "registeredAt": "تاريخ التسجيل",
+      "owner": "المالك",
+      "rejectReasonHint": "خمسة أحرف على الأقل. يصل إلى المورد بوصفه سبب الرفض، ويُحفظ في سجل التدقيق.",
+      "noBranches": "لا توجد فروع مسجلة",
+      "totalPurchases": "المشتريات",
+      "supplierPayable": "مستحقات المورد",
+      "disputes": "المنازعات",
+      "resetPromptGeneric": "سيُرسل رابط لمرة واحدة ومحدود الصلاحية إلى {email}. لن تظهر كلمة المرور لك ولا في السجلات، ولا يمكن للإدارة تعيينها.",
+      "revokePromptGeneric": "ستُنهى جميع جلسات {email} فورًا.",
+      "revokeWarning": "سيُخرج المستخدم من المنصة أثناء عمله وسيحتاج إلى تسجيل الدخول من جديد.",
+      "currentValue": "القيمة الحالية",
+      "newValue": "القيمة الجديدة",
+      "statusTitle": "حالة المنشأة",
+      "statusCurrent": "الحالة الحالية",
+      "suspendEffects": "الإيقاف يمنع دخول مستخدمي المنشأة والعمليات الجديدة ويُنهي جلساتهم، ولا يؤثر في الطلبات والفواتير والسجلات السابقة.",
+      "deleteIrreversible": "الشطب نهائي ولا يمكن التراجع عنه.",
+      "deleteBlockedShort": "الشطب غير متاح — توجد سجلات مرتبطة يجب الاحتفاظ بها",
+      "showBlockers": "عرض موانع الشطب",
+      "hideBlockers": "إخفاء موانع الشطب",
+      "auditTitle": "سجل التدقيق",
+      "auditBefore": "قبل",
+      "auditAfter": "بعد",
+      "auditViewAll": "عرض السجل كاملًا",
+      "exportAudit": "سجل-التدقيق",
+      "exportAction": "تصدير إلى Excel",
+      "exportEmpty": "لا توجد سجلات لتصديرها",
+      "role": {
+        "OWNER": "المالك",
+        "MANAGER": "مدير",
+        "STAFF": "موظف"
+      },
+      "ownerEmail": "البريد الإلكتروني للمالك",
+      "breadcrumbCurrent": "المنشأة الحالية",
+      "breadcrumbMarketplace": "السوق",
+      "breadcrumbLabel": "مسار التنقل",
+      "detailsTitle": "بيانات المنشأة",
+      "editData": "تعديل البيانات",
+      "phones": "أرقام التواصل",
+      "noPhones": "لا توجد أرقام مسجلة",
+      "mobile1": "رقم التواصل الأول",
+      "mobile2": "رقم التواصل الثاني",
+      "branchesTitle": "الفروع",
+      "branchName": "اسم الفرع",
+      "branchCity": "المدينة",
+      "branchAddress": "العنوان الوطني المختصر",
+      "branchPhone": "رقم التواصل",
+      "branchLocation": "الموقع",
+      "branchContact": "اسم المسؤول",
+      "openLocation": "فتح الموقع",
+      "addBranch": "إضافة فرع",
+      "editBranch": "تعديل الفرع",
+      "mapUrl": "رابط الموقع على خرائط Google",
+      "mapUrlHint": "الصق رابط الموقع من خرائط Google — رابط المشاركة يعمل أيضًا.",
+      "activityTitle": "ملخص النشاط",
+      "auditDetails": "التفاصيل",
+      "noAudit": "لا توجد إجراءات مسجلة",
+      "suspendTitle": "إيقاف المنشأة",
+      "suspendReason": "سبب الإيقاف",
+      "reactivateTitle": "إعادة تفعيل المنشأة",
+      "deleteReason": "سبب الشطب",
+      "crNumberHint": "لا يمكن تغييره لمنشأة موثقة، ولا تكراره في منشأة أخرى.",
+      "mapUrlRejected": "هذا ليس رابط موقع من خرائط Google.",
+      "operational": {
+        "ACTIVE": "نشطة",
+        "NOT_ACTIVE": "غير مفعّلة",
+        "SUSPENDED": "موقوفة"
+      },
+      "cityNoMatch": "لا توجد مدينة بهذا الاسم",
+      "cityPlaceholder": "ابحث عن مدينة",
+      "branchRegion": "المنطقة",
+      "regionPlaceholder": "ابحث عن منطقة",
+      "regionNoMatch": "لا توجد منطقة بهذا الاسم",
+      "branchCityOptional": "المدينة (اختياري)",
+      "bankTitle": "الحساب البنكي",
+      "bankState": "الحالة",
+      "bankActive": "المعتمد",
+      "bankPending": "بانتظار المراجعة",
+      "bankHolder": "اسم صاحب الحساب",
+      "bankName": "البنك",
+      "bankIban": "الآيبان",
+      "noBankAccount": "لم يُقدَّم حساب بنكي.",
+      "loginPasswordSet": "كلمة المرور مُعيّنة",
+      "loginPasswordPending": "كلمة المرور غير مُعيّنة",
+      "loginEmailVerified": "البريد موثَّق",
+      "loginEmailUnverified": "البريد غير موثَّق"
+    },
+    "companyWorkbook": {
+      "exportAction": "تصدير Excel",
+      "templateAction": "تنزيل القالب",
+      "importAction": "استيراد من Excel",
+      "previewTitle": "معاينة الاستيراد",
+      "previewFile": "الملف",
+      "previewTotal": "إجمالي الصفوف",
+      "previewValid": "صفوف صالحة",
+      "previewRejected": "صفوف مرفوضة",
+      "previewDuplicates": "مكررة",
+      "previewNothing": "لا يوجد صف صالح للاستيراد. صحّح الملف ثم أعد رفعه.",
+      "previewPartial": "سيُستورد الصفوف الصالحة فقط، وتُترك الصفوف المرفوضة دون استيراد. يمكنك تنزيل ملف الأخطاء وتصحيحه وإعادة الرفع.",
+      "previewAll": "جميع الصفوف صالحة وستُستورد.",
+      "rowsTitle": "الصفوف المرفوضة",
+      "rowNumber": "رقم الصف",
+      "rowReason": "السبب",
+      "downloadErrors": "تنزيل ملف الأخطاء",
+      "commitAction": "تنفيذ الاستيراد",
+      "cancel": "إلغاء",
+      "working": "جارٍ التنفيذ…",
+      "doneTitle": "اكتمل الاستيراد",
+      "doneCreated": "منشآت أُنشئت",
+      "doneSkipped": "صفوف تُخطّيت",
+      "doneInvited": "دعوات أُرسلت",
+      "close": "إغلاق",
+      "errorTitle": "تعذّر إتمام العملية",
+      "requestIdLabel": "رقم المرجع:",
+      "unknownReason": "سبب غير معروف",
+      "reasons": {
+        "MISSING_CRNUMBER": "السجل التجاري مفقود",
+        "MISSING_LEGALNAME": "الاسم النظامي مفقود",
+        "MISSING_ACCOUNTTYPE": "نوع الحساب مفقود",
+        "MISSING_OWNEREMAIL": "بريد المالك مفقود",
+        "MISSING_PRIMARYMOBILE1": "رقم الجوال الأول مفقود",
+        "MISSING_PRIMARYMOBILE2": "رقم الجوال الثاني مفقود",
+        "INVALID_CR_FORMAT": "السجل التجاري يجب أن يكون عشرة أرقام",
+        "INVALID_EMAIL": "بريد إلكتروني غير صالح",
+        "INVALID_ACCOUNT_TYPE": "نوع الحساب يجب أن يكون TRADER أو SUPPLIER",
+        "INVALID_PRIMARYMOBILE1": "رقم الجوال الأول غير صالح",
+        "INVALID_PRIMARYMOBILE2": "رقم الجوال الثاني غير صالح",
+        "DUPLICATE_CR_IN_FILE": "سجل تجاري مكرر داخل الملف",
+        "DUPLICATE_EMAIL_IN_FILE": "بريد إلكتروني مكرر داخل الملف",
+        "CR_ALREADY_REGISTERED": "السجل التجاري مسجّل في المنصة",
+        "EMAIL_ALREADY_REGISTERED": "البريد الإلكتروني مسجّل في المنصة"
+      },
+      "exportEmpty": "لا توجد سجلات لتصديرها"
+    },
+    "overview": {
+      "title": "نظرة عامة",
+      "periodLabel": "الفترة",
+      "period": {
+        "7d": "آخر 7 أيام",
+        "30d": "آخر 30 يومًا",
+        "90d": "آخر 90 يومًا",
+        "ytd": "هذا العام"
+      },
+      "comparison": "مقارنة بالفترة السابقة",
+      "lastUpdated": "آخر تحديث:",
+      "refresh": "تحديث",
+      "paidOrders": "إجمالي قيمة الطلبات المدفوعة",
+      "paidOrderCount": "{count} طلبًا مدفوعًا",
+      "platformRevenue": "إيرادات المنصة",
+      "averageCommission": "متوسط العمولة {percent}%",
+      "noCommission": "لا توجد عمولة في هذه الفترة",
+      "supplierPayable": "مستحقات الموردين",
+      "pendingSettlements": "{count} تسوية قادمة",
+      "refunded": "المبالغ المستردة",
+      "refundRate": "{percent}% من المبيعات",
+      "noRefundRate": "لا توجد مبيعات للمقارنة",
+      "paymentSuccess": "معدل نجاح الدفع",
+      "activeOpportunities": "المنتجات النشطة",
+      "endingSoon": "{count} تنتهي قريبًا",
+      "activeSuppliers": "الموردون النشطون",
+      "activeBuyers": "المشترون النشطون",
+      "financialPerformance": "الأداء المالي",
+      "companyGrowth": "نمو المنشآت الجديدة",
+      "buyers": "مشترون",
+      "suppliers": "موردون",
+      "orderStatus": "حالة الطلبات",
+      "viewOrders": "عرض تفاصيل الطلبات",
+      "stage": {
+        "paid": "تم الدفع",
+        "inFulfilment": "قيد التنفيذ",
+        "completed": "مكتملة",
+        "troubled": "متعثرة"
+      },
+      "needsAttention": "يتطلب انتباهك",
+      "viewAllAlerts": "عرض جميع التنبيهات",
+      "nothingWaiting": "لا توجد حالات تحتاج تدخلًا",
+      "oldest": "أقدمها منذ {hours} ساعة",
+      "priority": {
+        "CRITICAL": "حرج",
+        "OVERDUE": "متأخر",
+        "REVIEW": "مراجعة"
+      },
+      "case": {
+        "SETTLEMENT_OVERDUE": "{count} تسوية متأخرة",
+        "PAYMENT_REPEATEDLY_FAILED": "{count} دفعة فاشلة متكررة",
+        "DISPUTE_OPEN": "{count} منازعة مفتوحة",
+        "BANK_ACCOUNT_REVIEW": "{count} حساب بنكي بانتظار المراجعة",
+        "SUPPLIER_VERIFICATION": "{count} مورد بانتظار التوثيق",
+        "LISTING_BLOCKED_BY_PLATFORM": "{count} منتج معروض متوقّف بسبب إعداد المنصّة"
+      },
+      "current": "الحالي",
+      "notEnoughData": "لا توجد بيانات كافية لرسم الاتجاه خلال هذه الفترة",
+      "growthEmpty": "لا توجد تسجيلات جديدة خلال هذه الفترة",
+      "granularity": {
+        "daily": "يومي",
+        "weekly": "أسبوعي"
+      },
+      "bucket": {
+        "daily": "اليوم {n}",
+        "weekly": "الأسبوع {n}"
+      },
+      "units": {
+        "thousand": "ألف",
+        "million": "مليون"
+      },
+      "settlementsOverdue": "{count} تسوية متأخرة"
+    },
+    "ordersDetail": {
+      "title": "تفاصيل الطلبات",
+      "breadcrumbSection": "الطلبات وخدمة العملاء",
+      "pathTitle": "مسار الطلبات خلال الفترة",
+      "pathHint": "اضغط على أي مرحلة لتصفية الطلبات في الجدول أدناه",
+      "stageNote": {
+        "paid": "نجاح الدفع",
+        "inFulfilment": "متوسط بدء التنفيذ",
+        "completed": "متوسط الإكمال",
+        "troubled": "التعثر"
+      },
+      "hours": "{value} ساعة",
+      "days": "{value} أيام",
+      "orderNumber": "رقم الطلب",
+      "buyer": "المشتري",
+      "supplier": "المورد",
+      "value": "القيمة",
+      "orderStatus": "حالة الطلب",
+      "paymentStatus": "حالة الدفع",
+      "orderDate": "تاريخ الطلب",
+      "paid": "مدفوعة",
+      "searchPlaceholder": "ابحث برقم الطلب أو المنشأة…",
+      "emptyTitle": "لا توجد طلبات",
+      "emptyDescription": "لا توجد طلبات ضمن الفترة والفلاتر المحددة.",
+      "tableCaption": "قائمة الطلبات",
+      "exportFile": "الطلبات"
+    },
+    "followUp": {
+      "title": "مركز المتابعة",
+      "subtitle": "الحالات التي تحتاج تدخّلًا إداريًا",
+      "breadcrumbParent": "يتطلب انتباهك",
+      "total": "الإجمالي",
+      "review": "بانتظار المراجعة",
+      "overdue": "متأخرة",
+      "critical": "حرجة",
+      "searchPlaceholder": "ابحث في الحالات…",
+      "priorityLabel": "الأولوية",
+      "kindLabel": "نوع الحالة",
+      "assigneeLabel": "المسؤول",
+      "unassigned": "غير معيّن",
+      "all": "الكل",
+      "assignAction": "تعيين المسؤول",
+      "markInProgress": "وضع علامة قيد المعالجة",
+      "caseStatus": "الحالة",
+      "item": "العنصر",
+      "duration": "المدة",
+      "action": "الإجراء",
+      "sinceHours": "منذ {hours} ساعة",
+      "sinceDays": "منذ {days} أيام",
+      "inProgressBadge": "قيد المعالجة",
+      "emptyTitle": "لا توجد حالات",
+      "emptyDescription": "لا توجد حالات تحتاج تدخلًا إداريًا الآن.",
+      "tableCaption": "حالات المتابعة",
+      "exportFile": "مركز-المتابعة",
+      "selectRow": "تحديد الحالة",
+      "selectAll": "تحديد الكل",
+      "openAction": {
+        "SETTLEMENT_OVERDUE": "فتح التسوية",
+        "PAYMENT_REPEATEDLY_FAILED": "مراجعة",
+        "DISPUTE_OPEN": "فتح المنازعة",
+        "BANK_ACCOUNT_REVIEW": "مراجعة الحساب",
+        "SUPPLIER_VERIFICATION": "فتح المورد"
+      },
+      "caseName": {
+        "SETTLEMENT_OVERDUE": "تسوية متأخرة",
+        "PAYMENT_REPEATEDLY_FAILED": "دفعة فاشلة متكررة",
+        "DISPUTE_OPEN": "منازعة مفتوحة",
+        "BANK_ACCOUNT_REVIEW": "حساب بنكي",
+        "SUPPLIER_VERIFICATION": "توثيق مورد"
+      }
+    },
+    "supplierVerification": {
+      "title": "طلب توثيق المورد",
+      "state": {
+        "INCOMPLETE": "بيانات المورد غير مكتملة",
+        "READY_TO_SUBMIT": "مكتمل ولم يُرسل بعد",
+        "UNDER_REVIEW": "بانتظار قرارك",
+        "NEEDS_COMPLETION": "أُعيد للمورد للاستكمال",
+        "VERIFIED": "موثّق",
+        "REJECTED": "مرفوض"
+      },
+      "submittedAt": "أُرسل في",
+      "decidedAt": "تاريخ القرار",
+      "reasonGiven": "السبب المُبلَّغ للمورد",
+      "noDecisionPending": "لا يوجد طلب قيد المراجعة لهذه المنشأة.",
+      "approve": "توثيق",
+      "approvePrompt": "سيتم توثيق {company} وتفعيل حسابها معًا، ويصبح حسابها البنكي المُراجَع هو الحساب الذي تُحوَّل إليه المستحقات.",
+      "return": "إعادة للاستكمال",
+      "returnPrompt": "سيُعاد الطلب إلى {company} مع السبب، وتُفتح بياناتها للتعديل، ويمكنها إرساله مرة أخرى.",
+      "returnReason": "ما الذي يجب على المورد استكماله؟",
+      "returnReasonHint": "يُعرض هذا النص للمورد كما هو، وهو ما يوجّهه لما يجب تصحيحه.",
+      "reject": "رفض الطلب",
+      "rejectPrompt": "سيُرفض طلب {company} نهائيًا، ولن تتمكّن من إعادة إرساله إلا بقرار إداري لاحق.",
+      "rejectReason": "سبب الرفض",
+      "rejectReasonHint": "يُعرض هذا النص للمورد كما هو."
+    },
+    "taxonomy": {
+      "title": "إدارة التصنيفات",
+      "addRoot": "إضافة تصنيف",
+      "addChild": "إضافة فرع",
+      "edit": "تعديل",
+      "remove": "حذف",
+      "nameAr": "الاسم بالعربية",
+      "nameEn": "الاسم بالإنجليزية",
+      "save": "حفظ",
+      "cancel": "إلغاء",
+      "empty": "لا توجد تصنيفات بعد.",
+      "activate": "تفعيل",
+      "deactivate": "تعطيل",
+      "active": "مفعّل",
+      "inactive": "معطّل",
+      "confirmRemove": "سيُحذف هذا التصنيف نهائيًا.",
+      "depthReached": "أعمق مستوى",
+      "sortOrder": "الترتيب",
+      "sortOrderHint": "الأصغر أولًا",
+      "childCount": "{count} فرعًا",
+      "productCount": "{count} منتجًا",
+      "moveRoot": "أفلته هنا ليصير تصنيفًا رئيسيًّا",
+      "products": "المنتجات",
+      "state": "الحالة",
+      "treeTitle": "التصنيفات"
+    },
+    "policies": {
+      "title": "السياسات والوثائق النظامية",
+      "registrationClosedTitle": "التسجيل مغلق الآن",
+      "registrationClosedDescription": "لا توجد أي سياسة إلزامية منشورة، ولا يمكن لأي منشأة إتمام التسجيل حتى تُنشر واحدة على الأقل.",
+      "documentsTitle": "الوثائق",
+      "addDocument": "وثيقة جديدة",
+      "documentCode": "المفتاح",
+      "documentCodeHint": "حروف إنجليزية صغيرة وأرقام وشرطة سفلية فقط — يظهر في رابط الصفحة العامة. مثال: refund_policy",
+      "create": "إنشاء",
+      "save": "حفظ المسودة",
+      "versionsTitle": "النسخ",
+      "newVersion": "نسخة جديدة",
+      "newVersionFrom": "نسخة جديدة من هذه",
+      "editDraft": "تعديل المسودة",
+      "versionLabel": "رقم النسخة",
+      "versionLabelHint": "نص قصير يميّز النسخة، مثل ‎2026-1‎",
+      "textAr": "النصّ بالعربية",
+      "textEn": "النصّ بالإنجليزية",
+      "textHint": "نصّ عادي — يُعرض كما هو ولا يُفسَّر كأكواد. اللغتان مطلوبتان لأن الصفحة العامة تعرض لغة القارئ بلا بديل.",
+      "isMandatory": "إلزامية",
+      "isMandatoryHint": "الإلزامية تمنع إتمام التسجيل قبل الموافقة عليها.",
+      "requiresReacceptance": "تتطلّب إعادة موافقة",
+      "requiresReacceptanceHint": "للمستخدمين الذين وافقوا على نسخة سابقة.",
+      "yes": "نعم",
+      "no": "لا",
+      "published": "منشورة",
+      "draft": "مسودة",
+      "publishedAt": "نُشرت في",
+      "acceptances": "عدد الموافقات",
+      "publish": "نشر",
+      "publishPrompt": "سيصبح هذا النصّ هو النافذ فورًا على الصفحة العامة وعند التسجيل. **النشر نهائي** — لا يمكن سحبه ولا تعديله بعده؛ التغيير يكون بنشر نسخة جديدة.",
+      "preview": "معاينة",
+      "hidePreview": "إخفاء المعاينة",
+      "noVersions": "لا توجد نسخ لهذه الوثيقة بعد.",
+      "readOnlyPublished": "نسخة منشورة: لا تُعدَّل ولا تُسحب ولا تُحذف — قاعدة البيانات تمنع ذلك، ومستخدمون وافقوا على نصّها. للتغيير أنشئ نسخة جديدة منها."
+    },
+    "auditActions": {
+      "ADMIN_2FA_ENABLED": "تفعيل المصادقة الثنائية لمشرف",
+      "ADMIN_2FA_VERIFY_SUCCESS": "تحقّق ثنائي ناجح لمشرف",
+      "ADMIN_LIST_EXPORTED": "تصدير قائمة إدارية",
+      "ADMIN_LOGIN_FAILED": "محاولة دخول مشرف فاشلة",
+      "ADMIN_LOGIN_SUCCESS": "دخول مشرف",
+      "ADMIN_LOGOUT": "خروج مشرف",
+      "ADMIN_PASSWORD_CHANGED": "تغيير كلمة مرور مشرف",
+      "ADMIN_PASSWORD_CHANGE_FAILED": "محاولة تغيير كلمة مرور مشرف فاشلة",
+      "ADMIN_STEP_UP_FAILED": "تحقّق إضافي فاشل لمشرف",
+      "BANK_ACCOUNT_APPROVED": "اعتماد حساب بنكي",
+      "BANK_ACCOUNT_SUBMITTED": "تقديم حساب بنكي",
+      "BANNER_ACTIVATED": "تفعيل لافتة",
+      "BANNER_CREATED": "إنشاء لافتة",
+      "BANNER_DEACTIVATED": "إيقاف لافتة",
+      "BANNER_DELETED": "حذف لافتة",
+      "BANNER_IMAGE_DELETED": "حذف صورة لافتة",
+      "BANNER_IMAGE_UPLOADED": "رفع صورة لافتة",
+      "BANNER_SCHEDULE_CHANGED": "تعديل جدولة لافتة",
+      "BRAND_LOGO_PUBLISHED": "نشر شعار",
+      "BRAND_LOGO_REPLACED": "استبدال شعار",
+      "BRAND_LOGO_UPLOADED": "رفع شعار",
+      "BRAND_THEME_DRAFT_SAVED": "حفظ مسودة ألوان",
+      "BRAND_THEME_PUBLISHED": "نشر ألوان الهوية",
+      "BRAND_THEME_RESET": "إعادة ألوان الهوية إلى الأصل",
+      "BRANDING_UPDATED": "تعديل هوية المنصّة",
+      "CHECKOUT_LOCK_CREATED": "حجز كمية عند الدفع",
+      "CHECKOUT_SETTINGS_UPDATED": "تعديل إعدادات إتمام الشراء",
+      "CITY_CREATED": "إضافة مدينة",
+      "CITY_TOGGLED": "تفعيل أو إيقاف مدينة",
+      "CITY_UPDATED": "تعديل مدينة",
+      "COMMISSION_POLICY_CREATED": "إصدار سياسة عمولة",
+      "COMMISSION_TAX_POLICY_CREATED": "إصدار سياسة ضريبة العمولة",
+      "COMPANY_BRANCH_ADDED": "إضافة فرع لمنشأة",
+      "COMPANY_BRANCH_UPDATED": "تعديل فرع منشأة",
+      "COMPANY_CONTACT_CREATED": "إضافة جهة اتصال لمنشأة",
+      "COMPANY_DELETED": "شطب منشأة",
+      "COMPANY_LOCATION_CREATED": "إضافة موقع لمنشأة",
+      "COMPANY_REACTIVATED": "إعادة تفعيل منشأة",
+      "COMPANY_REGISTERED": "تسجيل منشأة",
+      "COMPANY_SUSPENDED": "إيقاف منشأة",
+      "COMPANY_UPDATED": "تعديل بيانات منشأة",
+      "COMPANY_USER_PASSWORD_RESET_REQUESTED": "إرسال رابط إعادة تعيين كلمة مرور",
+      "COMPANY_USER_SESSIONS_REVOKED": "إنهاء جلسات مستخدم",
+      "COMPANY_VERIFICATION_APPROVED": "اعتماد توثيق منشأة",
+      "DEFAULT_TAX_RATE_UPDATED": "تعديل نسبة الضريبة الافتراضية",
+      "DISPUTE_DECIDED": "البتّ في نزاع",
+      "DISPUTE_OPENED": "فتح نزاع",
+      "FOLLOW_UP_ASSIGNED": "تعيين مسؤول لحالة متابعة",
+      "FOLLOW_UP_PROGRESS_CHANGED": "تغيير حالة متابعة",
+      "FULFILLMENT_SETTINGS_UPDATED": "تعديل إعدادات التجهيز",
+      "INVOICE_ADJUSTMENT_DRAFT_CREATED": "إنشاء تسوية على مسودة فاتورة",
+      "INVOICE_COMMISSION_DRAFT_CREATED": "إنشاء مسودة فاتورة عمولة",
+      "INVOICE_PRODUCT_DRAFT_CREATED": "إنشاء مسودة فاتورة منتجات",
+      "INVOICING_PROFILE_UPDATED": "تعديل ملف الفوترة",
+      "LISTING_DELETED": "حذف عرض منتج",
+      "MASTER_ORDER_BUYER_BILLING_OVERRIDE_CREATED": "إسناد بيانات فوترة المشتري",
+      "MEDIA_POLICY_UPDATED": "تعديل سياسة الوسائط",
+      "OPPORTUNITY_ACTION_REQUIRED_PRODUCT_CASCADE": "إيقاف عروض بسبب تغيّر المنتج",
+      "OPPORTUNITY_ACTIVATED": "نشر منتج معروض",
+      "OPPORTUNITY_CANCELLED": "إلغاء منتج معروض",
+      "OPPORTUNITY_CANCELLED_PRODUCT_CASCADE": "إلغاء عروض بسبب إغلاق المنتج",
+      "OPPORTUNITY_CREATED": "إنشاء عرض منتج",
+      "OPPORTUNITY_EXTENDED": "تمديد مدة عرض",
+      "OPPORTUNITY_PAUSED": "إيقاف مؤقّت لعرض",
+      "OPPORTUNITY_REPUBLISH_BLOCKED": "تعذّر إعادة نشر عرض",
+      "OPPORTUNITY_RESUMED": "استئناف عرض",
+      "OPPORTUNITY_SCHEDULED": "جدولة عرض منتج",
+      "OPPORTUNITY_UPDATED": "تعديل عرض منتج",
+      "PASSWORD_RESET_REQUESTED": "طلب إعادة تعيين كلمة مرور",
+      "PAYMENT_SETTINGS_UPDATED": "تعديل إعدادات الدفع",
+      "PAYOUT_HOLD_DAYS_UPDATED": "تعديل مدة تعليق المستحقات",
+      "PLATFORM_BILLING_PROFILE_VERSION_CREATED": "إصدار ملف فوترة المنصّة",
+      "POLICY_ACCEPTED": "الموافقة على سياسة",
+      "POLICY_DOCUMENT_CREATED": "إنشاء وثيقة سياسة",
+      "POLICY_VERSION_DRAFTED": "كتابة مسودة سياسة",
+      "POLICY_VERSION_PUBLISHED": "نشر نسخة سياسة",
+      "POLICY_VERSION_UPDATED": "تعديل مسودة سياسة",
+      "PRODUCT_ARCHIVED": "أرشفة منتج",
+      "PRODUCT_AUTO_APPROVED": "نشر منتج",
+      "PRODUCT_CLOSED": "إغلاق منتج",
+      "PRODUCT_CREATED": "إنشاء منتج",
+      "PRODUCT_MEDIA_UPLOADED": "رفع صورة منتج",
+      "PRODUCT_REACTIVATED": "إعادة تفعيل منتج",
+      "PRODUCT_SUSPENDED": "إيقاف منتج",
+      "REPLACEMENT_DELIVERED": "تسليم بديل",
+      "REPLACEMENT_FAILED": "تسجيل فشل بديل",
+      "REPLACEMENT_PREPARATION_STARTED": "بدء تجهيز بديل",
+      "REPLACEMENT_READY": "جاهزية بديل للشحن",
+      "REPLACEMENT_SHIPPED": "شحن بديل",
+      "SECURITY_SETTING_UPDATED": "تعديل إعداد أمني",
+      "SHIPPING_TARIFF_POLICY_CREATED": "إصدار سياسة تعرفة الشحن",
+      "SUPPLIER_VERIFICATION_APPROVED": "اعتماد توثيق مورّد",
+      "SUPPLIER_VERIFICATION_REJECTED": "رفض توثيق مورّد",
+      "SUPPLIER_VERIFICATION_REQUESTED": "طلب توثيق مورّد",
+      "SUPPLIER_VERIFICATION_RETURNED": "إرجاع طلب توثيق إلى المورّد",
+      "TAXONOMY_NODE_CREATED": "إنشاء تصنيف",
+      "TAXONOMY_NODE_DELETED": "حذف تصنيف",
+      "TAXONOMY_NODE_MOVED": "نقل تصنيف",
+      "TAXONOMY_NODE_TOGGLED": "تفعيل أو إيقاف تصنيف",
+      "TAXONOMY_NODE_UPDATED": "تعديل تصنيف",
+      "TAX_PROFILE_UPDATED": "تعديل الملف الضريبي",
+      "TRADER_TAX_PROFILE_UPDATED": "تعديل الملف الضريبي للمشتري",
+      "USER_LOGIN_FAILED": "محاولة دخول فاشلة",
+      "USER_LOGIN_SUCCESS": "دخول مستخدم",
+      "USER_LOGOUT": "خروج مستخدم"
+    },
+    "footer": {
+      "title": "التذييل",
+      "publishedTitle": "المنشور",
+      "draftTitle": "توجد مسودة غير منشورة",
+      "noDraft": "لا توجد مسودة — المعروض هو المنشور",
+      "linksTitle": "الروابط",
+      "linksHint": "الوجهات محدودة بصفحات هذه المنصة. لا يمكن توجيه التذييل إلى موقع خارجي من هنا.",
+      "moveUp": "تحريك لأعلى",
+      "moveDown": "تحريك لأسفل",
+      "enabled": "مُفعَّل",
+      "labelAr": "التسمية بالعربية",
+      "labelEn": "التسمية بالإنجليزية",
+      "labelHint": "اترك التسمية فارغة لاستخدام التسمية المعتمدة في المنصة.",
+      "addLink": "إضافة رابط:",
+      "removeLink": "إزالة",
+      "contactTitle": "بيانات التواصل",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "addressAr": "العنوان بالعربية",
+      "addressEn": "العنوان بالإنجليزية",
+      "socialTitle": "الشبكات الاجتماعية",
+      "socialHint": "الرابط يجب أن يكون https وعلى نطاق الشبكة نفسها. غير ذلك يُرفض قبل النشر.",
+      "socialUrl": "الرابط",
+      "addSocial": "إضافة شبكة:",
+      "removeSocial": "إزالة",
+      "invalidSocialUrl": "هذا الرابط ليس على نطاق هذه الشبكة، أو ليس https.",
+      "copyrightTitle": "حقوق النشر",
+      "copyrightAr": "نص الحقوق بالعربية",
+      "copyrightEn": "نص الحقوق بالإنجليزية",
+      "showDescription": "إظهار وصف المنصة في التذييل",
+      "previewTitle": "معاينة",
+      "previewHint": "هذا ما سيظهر للزائر. الرابط المشطوب لن يُعرض لأن مستنده غير منشور.",
+      "policyUnpublished": "لن يظهر — المستند غير منشور",
+      "saveDraft": "حفظ المسودة",
+      "publish": "نشر",
+      "publishPrompt": "سيظهر هذا التذييل لكل زائر فورًا. هل تريد النشر؟",
+      "discard": "إلغاء المسودة",
+      "discardPrompt": "ستُحذف المسودة ويعود المعروض إلى المنشور. هل تريد ذلك؟"
+    },
+    "auditFields": {
+      "status": "الحالة",
+      "verificationStatus": "حالة التوثيق",
+      "approvalStatus": "حالة الاعتماد",
+      "isActive": "التفعيل",
+      "isDefault": "الافتراضي",
+      "isMandatory": "الإلزامية",
+      "requiresReacceptance": "يتطلب موافقة جديدة",
+      "ratePercent": "النسبة",
+      "rateBasisPoints": "النسبة (نقاط أساس)",
+      "sameCityFeeAmount": "رسوم داخل المدينة",
+      "sameRegionDifferentCityFeeAmount": "رسوم داخل المنطقة",
+      "differentRegionFeeAmount": "رسوم بين المناطق",
+      "quantity": "الكمية",
+      "startsAt": "يبدأ في",
+      "endsAt": "ينتهي في",
+      "isVatRegistered": "مسجّل في ضريبة القيمة المضافة",
+      "parentId": "التصنيف الأب",
+      "sortOrder": "الترتيب",
+      "priority": "الأولوية"
+    }
+  },
+  "pages": {
+    "about": {
+      "title": "من نحن"
+    },
+    "faq": {
+      "title": "الأسئلة الشائعة"
+    },
+    "contact": {
+      "title": "تواصل معنا"
+    },
+    "empty": "لم يُضف محتوى هذه الصفحة بعد."
+  },
+  "completeProfile": {
+    "title": "إكمال الملف الشخصي",
+    "branchName": "اسم الفرع",
+    "city": "المدينة",
+    "cityPlaceholder": "اختر مدينة",
+    "shortAddress": "العنوان الوطني المختصر",
+    "contactPhone": "رقم التواصل",
+    "contactName": "اسم مسؤول التواصل",
+    "mapUrl": "رابط الموقع على خرائط جوجل",
+    "mapUrlHint": "افتح الفرع في خرائط جوجل وانسخ الرابط من شريط العنوان.",
+    "mapUrlRejected": "هذا الرابط لا يحتوي على إحداثيات. افتح الموقع في خرائط جوجل وانسخ الرابط من شريط العنوان.",
+    "submit": "حفظ ومتابعة"
+  },
+  "company": {
+    "title": "بيانات المنشأة",
+    "incomplete": "غير مكتملة",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "details": {
+      "title": "تفاصيل المنشأة",
+      "legalName": "الاسم النظامي",
+      "crNumber": "رقم السجل التجاري",
+      "contactNumber": "رقم التواصل",
+      "managedByAdmin": "الاسم النظامي ورقم السجل التجاري يعدّلهما فريق المنصة.",
+      "email": "البريد الإلكتروني"
+    },
+    "branches": {
+      "title": "الفروع",
+      "empty": "لم تُضَف أي فروع بعد.",
+      "add": "إضافة فرع",
+      "edit": "تعديل",
+      "name": "اسم الفرع",
+      "city": "المدينة",
+      "cityPlaceholder": "ابحث عن مدينة",
+      "shortAddress": "العنوان الوطني المختصر",
+      "contactName": "اسم مسؤول الفرع",
+      "contactPhone": "رقم تواصل الفرع",
+      "mainBadge": "الفرع الرئيسي",
+      "cityNoMatch": "لا توجد مدينة بهذا الاسم",
+      "region": "المنطقة",
+      "regionPlaceholder": "ابحث عن منطقة",
+      "regionNoMatch": "لا توجد منطقة بهذا الاسم",
+      "cityOptional": "المدينة (اختياري)",
+      "position": "موقع الفرع على الخريطة",
+      "positionEmpty": "لم يُحدَّد الموقع بعد",
+      "positionKept": "الموقع المحفوظ سيبقى كما هو",
+      "pickPosition": "تحديد الموقع",
+      "changePosition": "تغيير الموقع",
+      "picker": {
+        "title": "حدّد موقع الفرع",
+        "hint": "اسحب الدبوس أو انقر على الخريطة حتى يستقرّ على مدخل الفرع، ثم اعتمد الموقع.",
+        "confirm": "اعتماد الموقع",
+        "cancel": "إلغاء",
+        "useMyLocation": "موقعي الحالي",
+        "locating": "جارٍ تحديد موقعك…",
+        "locateFailed": "تعذّر تحديد موقعك. اسحب الدبوس يدويًا.",
+        "coordinates": "الإحداثيات:",
+        "searchPlaceholder": "ابحث باسم المكان أو الحي",
+        "search": "بحث",
+        "searchFailed": "لم يُعثر على مكان بهذا الاسم. جرّب اسمًا أوضح أو اسحب الدبوس.",
+        "mapUnavailable": "تعذّر تحميل خرائط قوقل. تحقّق من مفتاح الربط أو الاتصال.",
+        "usingOpenStreetMap": "خرائط قوقل غير مُفعّلة بعد — يلزم مفتاح ربط. تُعرض حاليًا خريطة مفتوحة بديلة، والموقع الذي تعتمده يُحفظ كما هو."
+      },
+      "remove": "حذف الفرع",
+      "cityNeedsRegion": "اختر المنطقة أولًا",
+      "extraTitle": "فروع إضافية (اختيارية)",
+      "extraEmpty": "لا توجد فروع إضافية. الفرع الرئيسي محفوظ من بيانات المنشأة أعلاه.",
+      "addPosition": "إضافة الموقع",
+      "regionAndCity": "المنطقة والمدينة",
+      "cityOptionalPlaceholder": "المدينة (اختياري)"
+    },
+    "contacts": {
+      "title": "جهة الاتصال",
+      "add": "إضافة جهة تواصل أخرى",
+      "edit": "تعديل",
+      "remove": "حذف",
+      "name": "اسم مسؤول التواصل",
+      "phone": "رقم التواصل الإضافي",
+      "pairRequired": "أدخل الاسم والرقم معًا، أو اتركهما فارغين.",
+      "none": "لا توجد جهة تواصل إضافية.",
+      "confirmRemove": "حذف جهة التواصل؟"
+    },
+    "bank": {
+      "title": "الحساب البنكي",
+      "empty": "لم يُضَف حساب بنكي بعد.",
+      "add": "إضافة حساب بنكي",
+      "accountHolder": "اسم صاحب الحساب",
+      "bankName": "اسم البنك",
+      "iban": "رقم الآيبان",
+      "ibanHint": "آيبان سعودي يبدأ بـ SA ومكوّن من ٢٤ خانة.",
+      "endingIn": "ينتهي بـ",
+      "statusLabel": "الحالة:",
+      "status": {
+        "PENDING_VERIFICATION": "بانتظار المراجعة",
+        "VERIFIED": "موثّق",
+        "REJECTED": "مرفوض",
+        "SUPERSEDED": "مستبدل"
+      },
+      "ibanInvalid": "رقم الآيبان غير صحيح. تحقّق من الأرقام.",
+      "bankAutoDetected": "تم التعرّف تلقائيًا",
+      "bankPending": "سيظهر اسم البنك تلقائيًا بعد إدخال الآيبان",
+      "bankNotIdentified": "لم يتم التعرّف على البنك",
+      "bankMergedInto": "أصبح جزءًا من",
+      "ibanOnFile": "الحساب المسجّل ينتهي بـ"
+    },
+    "completeness": {
+      "title": "بيانات منشأتك غير مكتملة",
+      "action": "استكمال بيانات المنشأة",
+      "requirement": {
+        "companyDetails": "تفاصيل المنشأة",
+        "mainBranch": "الفرع الرئيسي",
+        "bankAccount": "الحساب البنكي",
+        "billingIdentity": "بيانات الفوترة والضريبة"
+      }
+    },
+    "verification": {
+      "title": "توثيق المنشأة",
+      "state": {
+        "INCOMPLETE": "البيانات غير مكتملة",
+        "READY_TO_SUBMIT": "جاهز للإرسال",
+        "UNDER_REVIEW": "قيد المراجعة",
+        "NEEDS_COMPLETION": "أُعيد للاستكمال",
+        "VERIFIED": "منشأة موثّقة",
+        "REJECTED": "طلب مرفوض"
+      },
+      "description": {
+        "INCOMPLETE": "أكمل العناصر المطلوبة أدناه، ثم يظهر زر إرسال طلب التوثيق.",
+        "READY_TO_SUBMIT": "بياناتك مكتملة. أرسل طلب التوثيق لتبدأ مراجعته من الإدارة.",
+        "UNDER_REVIEW": "طلبك قيد المراجعة الآن. سنعلمك بالنتيجة، ولا يمكن تعديل البيانات حتى صدور القرار.",
+        "NEEDS_COMPLETION": "أعادت الإدارة طلبك لاستكمال ما ورد أدناه. صحّح ما طُلب ثم أرسله مرة أخرى.",
+        "VERIFIED": "تم توثيق منشأتك، ويمكنك مباشرة العمل على المنصّة.",
+        "REJECTED": "رُفض طلبك للسبب الموضّح أدناه. لا يمكن إعادة الإرسال من هنا؛ تواصل مع الدعم إن كان لديك ما يستدعي إعادة النظر."
+      },
+      "submit": "إرسال طلب التوثيق",
+      "missingTitle": "العناصر الناقصة",
+      "reasonTitle": "سبب القرار",
+      "submittedAt": "أُرسل في",
+      "locked": "البيانات مقفلة أثناء المراجعة ولا يمكن تعديلها حتى صدور القرار."
+    },
+    "billing": {
+      "title": "الفوترة والضريبة",
+      "requiredPill": "مطلوب",
+      "completePill": "مكتمل",
+      "invoicingName": "اسم الفوترة",
+      "invoicingNameHint": "يظهر هذا الاسم على مستندات العمولة التي تصدرها المنصة لك.",
+      "vatQuestion": "هل المنشأة مسجّلة في ضريبة القيمة المضافة؟",
+      "vatYes": "نعم",
+      "vatNo": "لا",
+      "vatNumber": "الرقم الضريبي",
+      "vatNumberHint": "خمسة عشر رقمًا كما هو في شهادة التسجيل الضريبي.",
+      "vatNumberInvalid": "الرقم الضريبي يجب أن يكون خمسة عشر رقمًا.",
+      "edit": "تعديل البيانات",
+      "save": "حفظ البيانات",
+      "saveChanges": "حفظ التغييرات",
+      "cancel": "إلغاء",
+      "notRegistered": "غير مسجّلة في ضريبة القيمة المضافة"
+    },
+    "completionTitle": "استكمال بيانات المنشأة",
+    "completionSubtitle": "أكمل بيانات منشأتك لإرسالها إلى التوثيق.",
+    "completionLabel": "اكتمال البيانات",
+    "completionInProgress": "قيد الاستكمال",
+    "completionDone": "مكتملة",
+    "footer": {
+      "back": "العودة",
+      "note": "راجع البيانات قبل الإرسال. قد لا يمكن تعديل بعض البيانات أثناء مراجعة الطلب.",
+      "savedNote": "تُحفظ كل بطاقة بمجرد حفظها؛ لا يوجد شيء بانتظار الحفظ في هذه الصفحة.",
+      "editNote": "ضغطة واحدة تحفظ كل ما غيّرته في هذه البطاقة."
+    },
+    "notEntered": "لم يُدخل بعد",
+    "editRecord": "تعديل البيانات",
+    "blocked": {
+      "title": "لإتمام الحفظ يلزم:",
+      "vatMissing": "إدخال الرقم الضريبي.",
+      "vatInvalid": "الرقم الضريبي يجب أن يكون ١٥ رقمًا.",
+      "ibanInvalid": "رقم آيبان صحيح، أو اترك الحقل فارغًا.",
+      "address": "إدخال العنوان الوطني المختصر.",
+      "region": "اختيار المنطقة.",
+      "position": "تحديد موقع المنشأة على الخريطة.",
+      "extraBranch": "استكمال بيانات الفروع الإضافية أو حذفها.",
+      "contact": "استكمال اسم ورقم كل جهة تواصل أو حذفها.",
+      "emailMissing": "إدخال البريد الإلكتروني.",
+      "emailInvalid": "بريد إلكتروني بصيغة صحيحة.",
+      "accountHolder": "إدخال اسم صاحب الحساب مع رقم الآيبان.",
+      "ibanMissing": "إدخال رقم الآيبان مع اسم صاحب الحساب."
+    },
+    "emailInvalid": "صيغة البريد الإلكتروني غير صحيحة.",
+    "emailReverify": "تغيير البريد يتطلّب تأكيده من جديد.",
+    "establishmentName": "اسم المنشأة",
+    "statusVerified": "منشأة موثقة",
+    "statusUnderReview": "جاري التوثيق",
+    "reverifies": "تعديله يتطلّب إعادة توثيق"
+  },
+  "timeRemaining": {
+    "days": "{days, plural, one {يوم واحد} two {يومان} few {# أيام} other {# يومًا}}",
+    "daysAndHours": "{days, plural, one {يوم واحد} two {يومان} few {# أيام} other {# يومًا}} و{hours, plural, one {ساعة} two {ساعتان} few {# ساعات} other {# ساعة}}",
+    "hours": "{hours, plural, one {ساعة واحدة} two {ساعتان} few {# ساعات} other {# ساعة}}",
+    "lessThanHour": "أقل من ساعة",
+    "ended": "انتهى العرض",
+    "label": "المتبقّي"
+  },
+  "visitor": {
+    "nav": {
+      "label": "تنقل الموقع",
+      "home": "الرئيسية",
+      "market": "السوق",
+      "openMenu": "فتح القائمة",
+      "closeMenu": "إغلاق القائمة"
     }
   }
 }

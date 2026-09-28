@@ -188,7 +188,7 @@ export function SiteContentEditor({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
-      <fieldset className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4">
+      <fieldset className="flex flex-col gap-4 rounded-card bg-surface shadow-card px-card-x py-card-y">
         <legend className="px-1 text-base font-medium text-content">
           {labels.contentLegend}
         </legend>
@@ -227,7 +227,7 @@ export function SiteContentEditor({
         ))}
       </fieldset>
 
-      <fieldset className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4">
+      <fieldset className="flex flex-col gap-4 rounded-card bg-surface shadow-card px-card-x py-card-y">
         <legend className="px-1 text-base font-medium text-content">{labels.navLegend}</legend>
         <p className="text-sm text-content-muted">{labels.navHint}</p>
 
@@ -254,7 +254,7 @@ export function SiteContentEditor({
                     id={`${ids}-nav-up-${index}`}
                     variant="ghost"
                     size="sm"
-                    className="min-h-11"
+                   
                     // Disabled only at the ends, where there is genuinely
                     // nowhere to move.
                     disabled={index === 0}
@@ -268,7 +268,7 @@ export function SiteContentEditor({
                     id={`${ids}-nav-down-${index}`}
                     variant="ghost"
                     size="sm"
-                    className="min-h-11"
+                   
                     disabled={index === nav.length - 1}
                     aria-label={root("admin.content.navMoveDown", { label })}
                     onClick={() => move(index, 1)}
@@ -279,7 +279,7 @@ export function SiteContentEditor({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="min-h-11"
+                   
                     aria-label={root("admin.content.navRemove", { label })}
                     onClick={() => {
                       setNav((current) => current.filter((value) => value !== id));
@@ -317,7 +317,7 @@ export function SiteContentEditor({
               type="button"
               variant="secondary"
               size="sm"
-              className="min-h-11"
+             
               disabled={pending === ""}
               onClick={() => {
                 if (pending === "") return;
@@ -351,7 +351,7 @@ export function SiteContentEditor({
       ) : null}
 
       <div>
-        <Button type="submit" className="min-h-11" isLoading={busy} disabled={busy}>
+        <Button type="submit" isLoading={busy} disabled={busy}>
           {busy ? labels.working : labels.save}
         </Button>
       </div>

@@ -32,3 +32,30 @@ export function policyDocumentLabel(
 ): string {
   return isKnownPolicyDocumentCode(code) ? translate(code) : code;
 }
+
+/**
+ * The stable fragment that addresses one document on the policies page.
+ *
+ * DERIVED from the document code, never invented and never typed twice:
+ * `terms_of_service` becomes `terms-of-service`. The code is the
+ * document's identity in the schema, so a link built this way keeps
+ * working across versions — a new version of the terms publishes under
+ * the same code and lands on the same anchor.
+ *
+ * The section's other id is its version UUID, which changes every time a
+ * new version is published. That is exactly why the footer cannot use
+ * it: a link to a version id would rot the first time the document was
+ * revised.
+ *
+ * Underscores become hyphens because a URL fragment is read by people —
+ * it appears in the address bar and gets pasted into messages.
+ */
+export function policyAnchorId(code: string): string {
+  return `policy-${code.replace(/_/g, "-")}`;
+}
+
+/** The two fragments the footer links to, by name rather than by hand. */
+export const POLICY_ANCHORS = {
+  terms_of_service: policyAnchorId("terms_of_service"),
+  privacy_policy: policyAnchorId("privacy_policy"),
+} as const satisfies Record<KnownPolicyDocumentCode, string>;

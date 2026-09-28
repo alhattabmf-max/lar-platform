@@ -20,6 +20,7 @@ function integrationEnv(): Env {
     DATABASE_URL: "postgresql://platform:platform@localhost:5432/platform_test",
     REDIS_URL: "redis://localhost:6379",
     ADMIN_TOTP_ENCRYPTION_KEY: "a".repeat(64),
+    ADMIN_TOTP_ISSUER: "Azier Plus Admin",
     BANK_DATA_ENCRYPTION_KEY: "b".repeat(64),
     STORAGE_ENDPOINT: process.env.STORAGE_ENDPOINT ?? "http://localhost:9000",
     STORAGE_REGION: process.env.STORAGE_REGION ?? "us-east-1",

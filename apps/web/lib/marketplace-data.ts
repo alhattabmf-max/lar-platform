@@ -1,5 +1,6 @@
 import type {
   CityItem,
+  RegionItem,
   Paginated,
   PublicOpportunityDetail,
   PublicOpportunityItem,
@@ -40,8 +41,35 @@ async function load<T>(fn: () => Promise<T>): Promise<Loaded<T>> {
   }
 }
 
-export function loadCities(): Promise<Loaded<CityItem[]>> {
-  return load(() => apiClient.get<CityItem[]>("/cities/active", { revalidate: REFERENCE_DATA_TTL }));
+/**
+ * The regions a branch form and the marketplace filter offer.
+ *
+ * THE PLATFORM'S OPERATIONAL UNIT, so this is the list that matters —
+ * `loadCities` below is the optional refinement beneath it.
+ */
+export function loadRegions(): Promise<Loaded<RegionItem[]>> {
+  return load(() =>
+    apiClient.get<RegionItem[]>("/regions/active", { revalidate: REFERENCE_DATA_TTL })
+  );
+}
+
+/**
+ * The active cities — of ONE REGION when a region is named.
+ *
+ * THE WHOLE LIST WAS THE DEFAULT and it should not have been. A city
+ * picker shows the cities of the region beside it and nothing else, so
+ * the marketplace filter received every active city and narrowed them
+ * in the browser. They were serialised twice into every page — as
+ * markup and again into the RSC payload — to display at most one
+ * region's worth.
+ */
+export function loadCities(regionId?: string): Promise<Loaded<CityItem[]>> {
+  return load(() =>
+    apiClient.get<CityItem[]>(
+      `/cities/active${regionId ? `?regionId=${encodeURIComponent(regionId)}` : ""}`,
+      { revalidate: REFERENCE_DATA_TTL }
+    )
+  );
 }
 
 export function loadTaxonomy(): Promise<Loaded<TaxonomyNodeItem[]>> {
@@ -95,10 +123,34 @@ export type OpportunityDetailResult =
   | { ok: false; notFound: true }
   | { ok: false; notFound: false; error: UserFacingError };
 
+/**
+ * ONE OFFER, READ FRESH EVERY TIME — and it has to be.
+ *
+ * IT WAS CACHED FOR THIRTY SECONDS AND NEVER EXPIRED. Measured live: an
+ * offer an operator had CANCELLED kept answering 200 with its name and
+ * its price, on five consecutive requests and again thirty-five seconds
+ * later, while the API answered 404 to every one of them. Clearing
+ * `.next/cache/fetch-cache` was the only thing that stopped it.
+ *
+ * THE MECHANISM IS THE POINT, because it decides the fix. Next serves a
+ * stale entry and revalidates behind the request; a revalidation that
+ * comes back NON-2xx does not evict — it keeps the last good response.
+ * So a read whose upstream can turn into a 404 has no expiry at all:
+ * the very answer that should remove it is the one Next discards.
+ *
+ * AND THAT IS WHY "EVICT ON 404" CANNOT BE WRITTEN HERE. During render
+ * there is no way to tell a cached hit from a fresh one — the only read
+ * that could detect the staleness is an uncached read, which is this.
+ * `revalidateTag` is a Server Action's tool and cannot run in a page.
+ *
+ * THE LIST IS NOT AFFECTED and keeps its window: its upstream stays
+ * 200 and simply returns fewer rows, so it expires normally. Only a
+ * read that can BECOME an error is exposed, and this is the one.
+ */
 export async function loadOpportunityDetail(id: string): Promise<OpportunityDetailResult> {
   try {
     const data = await apiClient.get<PublicOpportunityDetail>(`/opportunities/${id}`, {
-      revalidate: OPPORTUNITY_LIST_TTL,
+      cache: "no-store",
     });
     return { ok: true, data };
   } catch (error) {

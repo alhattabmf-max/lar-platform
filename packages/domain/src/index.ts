@@ -1,4 +1,5 @@
 export * from "./opportunity-transitions";
+export * from "./sale-mode";
 export * from "./opportunity-reason-codes";
 export * from "./tax-snapshot";
 export * from "./share-tier";

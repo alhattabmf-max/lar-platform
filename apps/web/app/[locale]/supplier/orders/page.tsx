@@ -6,10 +6,15 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadSupplierOrders } from "@/lib/supplier-data";
 import { localized, formatDate } from "@/lib/localized";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatMoneyParts, formatQuantity } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.orders");
+
 
 /**
  * The supplier's orders.
@@ -38,9 +43,13 @@ export default async function SupplierOrdersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
+      {/* THE TAB ABOVE IS THIS PAGE'S TITLE — «نكتفي باسم القسم في
+          اللسان كعنوان للصفحة». The heading stays for the document
+          outline and for anyone reading by structure; a tab is a link
+          and can never stand in for it. Absolutely positioned, so the
+          row it used to occupy costs nothing. */}
+      <header className="sr-only">
+        <h1>{t("title")}</h1>
       </header>
 
       <Suspense fallback={<LoadingState label={common("loading")} rows={4} />}>
@@ -87,8 +96,7 @@ async function Orders({ locale }: { locale: AppLocale }) {
             <CardTitle>{t("overdue.title")}</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="mb-3 text-sm text-content-muted">{t("overdue.description")}</p>
-            <OrderList locale={locale} orders={overdue} />
+              <OrderList locale={locale} orders={overdue} />
           </CardBody>
         </Card>
       ) : null}
@@ -130,7 +138,7 @@ async function OrderList({
     <ul className="grid list-none gap-3 sm:grid-cols-2">
       {orders.map((order) => {
         const name = localized(locale, order.productNameAr, order.productNameEn);
-        const payable = formatMoney(order.supplierPayableAmount, order.currency, locale);
+        const payable = formatMoneyParts(order.supplierPayableAmount, order.currency, locale);
         const paid = formatDate(order.paidAt, locale);
 
         return (
@@ -140,7 +148,7 @@ async function OrderList({
                 <div className="flex flex-col gap-2">
                   <Link
                     href={`/${locale}/supplier/orders/${order.id}`}
-                    className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                    className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                   >
                     {name}
                   </Link>
@@ -178,7 +186,13 @@ async function OrderList({
                     {payable ? (
                       <div className="flex flex-wrap gap-2">
                         <dt className="text-content-muted">{t("payable")}</dt>
-                        <dd className="text-content">{payable}</dd>
+                        <dd className="text-content">
+                          <Money
+                            amount={order.supplierPayableAmount}
+                            currency={order.currency}
+                            locale={locale}
+                          />
+                        </dd>
                       </div>
                     ) : null}
                     {paid ? (

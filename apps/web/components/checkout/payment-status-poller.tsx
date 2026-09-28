@@ -271,7 +271,7 @@ export function PaymentStatusPoller({
         <button
           type="button"
           onClick={() => router.refresh()}
-          className="self-start text-sm text-secondary hover:opacity-90"
+          className="self-start inline-flex min-h-control items-center rounded-control px-control-x py-control-y text-[length:var(--control-font-size)] leading-[var(--control-line-height)] text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {recheckLabel}
         </button>

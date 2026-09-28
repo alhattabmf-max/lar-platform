@@ -8,13 +8,18 @@ import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadSupplierOrder, loadSupplierOrderDocuments } from "@/lib/supplier-data";
 import { allocationAction } from "@/lib/fulfilment-actions";
 import { localized, formatDate, formatDateTime } from "@/lib/localized";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatQuantity } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Fact, FactList } from "@/components/trader/account-panels";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
 import { FulfilmentActions } from "@/components/supplier/fulfilment-actions";
 import { fulfilmentLabels } from "@/components/supplier/fulfilment-labels";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.orders");
+
 
 /**
  * One order, its shipments, and its documents.
@@ -96,22 +101,22 @@ export default async function SupplierOrderDetailPage({
             <Fact label={t("statusLabel")} value={status(`order.${order.status}`)} />
             <Fact
               label={t("payable")}
-              value={formatMoney(order.supplierPayableAmount, order.currency, appLocale) ?? ""}
+              value={<Money amount={order.supplierPayableAmount} currency={order.currency} locale={appLocale} />}
             />
             {/* What the platform charges THIS supplier. They are party to
                 the commission; how it was derived is the platform's
                 business and is not on this contract. */}
             <Fact
               label={t("commission")}
-              value={formatMoney(order.commissionAmount, order.currency, appLocale) ?? ""}
+              value={<Money amount={order.commissionAmount} currency={order.currency} locale={appLocale} />}
             />
             <Fact
               label={t("commissionTax")}
-              value={formatMoney(order.commissionTaxAmount, order.currency, appLocale) ?? ""}
+              value={<Money amount={order.commissionTaxAmount} currency={order.currency} locale={appLocale} />}
             />
             <Fact
               label={t("orderTotal")}
-              value={formatMoney(order.totalAmount, order.currency, appLocale) ?? ""}
+              value={<Money amount={order.totalAmount} currency={order.currency} locale={appLocale} />}
             />
             <Fact
               label={t("paidAt")}
@@ -158,7 +163,7 @@ export default async function SupplierOrderDetailPage({
                         {allocation.disputeId ? (
                           <Link
                             href={`/${appLocale}/supplier/disputes/${allocation.disputeId}`}
-                            className="inline-flex min-h-11 items-center text-sm text-secondary hover:opacity-90"
+                            className="inline-flex items-center text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
                           >
                             {t("openDispute")}
                           </Link>
@@ -177,27 +182,53 @@ export default async function SupplierOrderDetailPage({
                               : formatQuantity(allocation.quantity, appLocale)
                           }
                         />
+                        {/*
+                          THE REGION, WITH THE CITY WHEN THERE IS ONE.
+
+                          A branch is recorded against a region and may
+                          name no city, so a row labelled «المدينة»
+                          could be blank on a delivery contract. The
+                          region is always there, and the city narrows
+                          it when the supplier gave one.
+                        */}
                         <Fact
-                          label={t("city")}
-                          value={
+                          label={t("region")}
+                          value={[
+                            localized(
+                              appLocale,
+                              allocation.regionNameAr,
+                              allocation.regionNameEn
+                            ),
                             localized(
                               appLocale,
                               allocation.cityNameAr,
                               allocation.cityNameEn
-                            ) ?? ""
-                          }
+                            ),
+                          ]
+                            .filter(Boolean)
+                            .join(" — ")}
                         />
                         {/* The courier needs the address and someone to
                             call. No coordinate is on this contract. */}
                         <Fact label={t("address")} value={allocation.address} />
                         <Fact label={t("contactName")} value={allocation.contactName} />
                         <Fact label={t("contactPhone")} value={allocation.contactPhone} />
+                        {/* NO DATE UNTIL THE OFFER CLOSES — «إذا اكتمل
+                            الهدف يتم إرسال الطلبات للمورد… ويبدأ التجهيز
+                            من بداية إقفال العرض».
+                            A share that is paid for but still waiting on
+                            the rest of the target owes no work yet, so
+                            there is no date to print. The ROW stays, with
+                            a stated absence: hiding it would read as a
+                            platform that forgot to say when. */}
                         <Fact
                           label={t("preparationDueAt")}
                           value={
-                            <time dateTime={allocation.preparationDueAt}>
-                              {formatDateTime(allocation.preparationDueAt, appLocale)}
-                            </time>
+                            allocation.preparationDueAt === null ? null : (
+                              <time dateTime={allocation.preparationDueAt}>
+                                {formatDateTime(allocation.preparationDueAt, appLocale)}
+                              </time>
+                            )
                           }
                         />
                         {allocation.shippedAt ? (
@@ -224,11 +255,11 @@ export default async function SupplierOrderDetailPage({
                         <Fact
                           label={t("allocationPayable")}
                           value={
-                            formatMoney(
-                              allocation.supplierPayableShareAmount,
-                              order.currency,
-                              appLocale
-                            ) ?? ""
+                            <Money
+                              amount={allocation.supplierPayableShareAmount}
+                              currency={order.currency}
+                              locale={appLocale}
+                            />
                           }
                         />
                         {allocation.payoutSettledAt ? (
@@ -306,7 +337,7 @@ async function Documents({ locale, orderId }: { locale: AppLocale; orderId: stri
                 <FactList>
                   <Fact
                     label={t("documentAmount")}
-                    value={formatMoney(document.amount, document.currency, locale) ?? ""}
+                    value={<Money amount={document.amount} currency={document.currency} locale={locale} />}
                   />
                   <Fact
                     label={t("documentIssuedAt")}
@@ -329,7 +360,7 @@ async function Documents({ locale, orderId }: { locale: AppLocale; orderId: stri
 function Breadcrumb({ href, label, back }: { href: string; label: string; back: string }) {
   return (
     <nav aria-label={label} className="text-sm">
-      <Link href={href} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+      <Link href={href} className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {back}
       </Link>
     </nav>

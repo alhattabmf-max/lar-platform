@@ -1,7 +1,7 @@
 import { NOT_A_TAX_INVOICE, type DocumentSummary } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
 import { formatDate } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 
 /**
  * The internal documents belonging to ONE order.
@@ -52,24 +52,22 @@ export function OrderDocuments({
     <section aria-label={labels.title} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-semibold text-content">{labels.title}</h2>
-        <p className="text-sm text-content-muted">{labels.description}</p>
       </div>
 
       {documents.length === 0 ? (
-        <div className="rounded-lg border border-line bg-surface p-4">
+        <div className="rounded-card bg-surface shadow-card px-card-x py-card-y">
           <p className="text-sm font-medium text-content">{labels.emptyTitle}</p>
           <p className="text-sm text-content-muted">{labels.emptyDescription}</p>
         </div>
       ) : (
         <ul className="flex list-none flex-col gap-3">
           {documents.map((document) => {
-            const amount = formatMoney(document.amount, document.currency, locale);
             const issued = formatDate(document.issuedAt, locale);
 
             return (
               <li
                 key={document.id}
-                className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4"
+                className="flex flex-col gap-2 rounded-card bg-surface shadow-card px-card-x py-card-y"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h3 className="text-sm font-semibold text-content">
@@ -90,9 +88,16 @@ export function OrderDocuments({
                   <div className="flex gap-2">
                     <dt className="text-content-muted">{labels.amount}:</dt>
                     <dd className="text-content">
-                      {amount ?? (
-                        <span className="text-content-muted">{labels.amountUnavailable}</span>
-                      )}
+                      <Money
+                        amount={document.amount}
+                        currency={document.currency}
+                        locale={locale}
+                        fallback={
+                          <span className="text-content-muted">
+                            {labels.amountUnavailable}
+                          </span>
+                        }
+                      />
                     </dd>
                   </div>
                   {issued ? (

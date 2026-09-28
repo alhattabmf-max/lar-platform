@@ -9,6 +9,16 @@ import { MockPaymentProvider } from "../src/payments/providers/mock-payment.prov
 import { seedPaymentFixture, paymentFixturePrisma, ensureCommissionTaxPolicy } from "./fixtures/payment.fixture";
 import { seedCheckoutFixture } from "./fixtures/checkout.fixture";
 import { notificationEvents } from "./fixtures/notifications.fixture";
+import { uniqueVatNumber } from "./fixtures/unique";
+
+// ONE NUMBER PER TEST, not per file.
+//
+// `trader_tax_profiles.vat_number` is unique across the WHOLE table,
+// not per company — and this file seeds a different trader in each of
+// three tests. A file-level constant fixed the collision BETWEEN files
+// and left one inside this one, so the value is drawn where it is used
+// and read back by that test's own assertions.
+
 
 const prisma = paymentFixturePrisma;
 
@@ -63,9 +73,10 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
   }, 20_000);
 
   it("a successful capture freezes traderTaxProfileSnapshot/traderBillingLegalNameSnapshot on MasterOrder, and a LATER profile edit never changes them", async () => {
+    const vat = uniqueVatNumber();
     const fixture = await seedPaymentFixture({
       traderCrPrefix: "SNAPFREEZE",
-      traderTaxProfile: { isVatRegistered: true, vatNumber: "310175397500003", billingLegalName: "Original Legal Name LLC" },
+      traderTaxProfile: { isVatRegistered: true, vatNumber: vat, billingLegalName: "Original Legal Name LLC" },
     });
     const provider = new MockPaymentProvider();
 
@@ -74,7 +85,7 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
 
     const order = await prisma.masterOrder.findFirstOrThrow({ where: { paymentAttemptId: fixture.paymentAttemptId } });
     expect(order.traderBillingLegalNameSnapshot).toBe("Original Legal Name LLC");
-    expect((order.traderTaxProfileSnapshot as { vatNumber: string | null }).vatNumber).toBe("310175397500003");
+    expect((order.traderTaxProfileSnapshot as { vatNumber: string | null }).vatNumber).toBe(vat);
 
     const taxProfileService = buildTaxProfileService();
     await taxProfileService.upsert(
@@ -84,10 +95,11 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
 
     const orderAfter = await prisma.masterOrder.findUniqueOrThrow({ where: { id: order.id } });
     expect(orderAfter.traderBillingLegalNameSnapshot).toBe("Original Legal Name LLC");
-    expect((orderAfter.traderTaxProfileSnapshot as { vatNumber: string | null }).vatNumber).toBe("310175397500003");
+    expect((orderAfter.traderTaxProfileSnapshot as { vatNumber: string | null }).vatNumber).toBe(vat);
   }, 20_000);
 
   it("a REAL race between updating the trader tax profile and Capture produces a fully coherent snapshot from ONE version, never a mix", async () => {
+    const raceVat = uniqueVatNumber();
     const fixture = await seedPaymentFixture({
       traderCrPrefix: "SNAPRACE",
       traderTaxProfile: { isVatRegistered: false, billingLegalName: "Race Original Name LLC" },
@@ -100,7 +112,7 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
 
     const results = await Promise.allSettled([
       taxProfileService.upsert(
-        { isVatRegistered: true, vatNumber: "310175397500003", billingLegalName: "Race Updated Name LLC" },
+        { isVatRegistered: true, vatNumber: raceVat, billingLegalName: "Race Updated Name LLC" },
         { userId: crypto.randomUUID(), companyId: fixture.traderCompanyId, requestId: "r-race-update" }
       ),
       captureViaWebhook(provider, prismaB as unknown as PrismaService, fixture.paymentAttemptId, `prov-ref-race-${fixture.paymentAttemptId}`, fixture.providerAmount),
@@ -116,7 +128,7 @@ describe("Trader billing snapshot freeze at Capture (integration, real DB)", () 
     const nameSnapshot = order.traderBillingLegalNameSnapshot;
 
     const isFullyOriginal = snapshot.isVatRegistered === false && snapshot.vatNumber === null && nameSnapshot === "Race Original Name LLC";
-    const isFullyUpdated = snapshot.isVatRegistered === true && snapshot.vatNumber === "310175397500003" && nameSnapshot === "Race Updated Name LLC";
+    const isFullyUpdated = snapshot.isVatRegistered === true && snapshot.vatNumber === raceVat && nameSnapshot === "Race Updated Name LLC";
     expect(isFullyOriginal || isFullyUpdated).toBe(true);
   }, 20_000);
 });
@@ -139,13 +151,14 @@ describe("MasterOrderBuyerBillingOverride (integration, real DB)", () => {
   }, 20_000);
 
   it("a legacy order (traderTaxProfileSnapshot IS NULL) gets an override copying the CURRENT trader profile verbatim; the admin body never influences the VAT data", async () => {
+    const legacyVat = uniqueVatNumber();
     await ensureCommissionTaxPolicy();
     const fixture = await seedCheckoutFixture({ traderCrPrefix: "OVERRIDELEGACY" });
     const legacyOrder = await seedLegacyMasterOrder(fixture);
 
     const taxProfileService = buildTaxProfileService();
     await taxProfileService.upsert(
-      { isVatRegistered: true, vatNumber: "310175397500003", billingLegalName: "Legacy Current Legal Name LLC" },
+      { isVatRegistered: true, vatNumber: legacyVat, billingLegalName: "Legacy Current Legal Name LLC" },
       { userId: crypto.randomUUID(), companyId: fixture.traderCompanyId, requestId: "r-set-profile" }
     );
 
@@ -157,7 +170,7 @@ describe("MasterOrderBuyerBillingOverride (integration, real DB)", () => {
 
     const snapshotOverride = override.traderTaxProfileSnapshotOverride as { isVatRegistered: boolean; vatNumber: string | null; billingLegalName: string };
     expect(snapshotOverride.isVatRegistered).toBe(true);
-    expect(snapshotOverride.vatNumber).toBe("310175397500003");
+    expect(snapshotOverride.vatNumber).toBe(legacyVat);
     expect(snapshotOverride.billingLegalName).toBe("Legacy Current Legal Name LLC");
   }, 20_000);
 
@@ -260,7 +273,7 @@ describe("MasterOrderBuyerBillingOverride (integration, real DB)", () => {
     await ensureCommissionTaxPolicy();
     const fixture = await seedCheckoutFixture({ traderCrPrefix: "OVERRIDEAUDITSAFE" });
     const legacyOrder = await seedLegacyMasterOrder(fixture);
-    const secretVat = "555444333000222";
+    const secretVat = uniqueVatNumber();
     const secretName = "Override Secret Legal Name Co";
     const taxProfileService = buildTaxProfileService();
     await taxProfileService.upsert(
@@ -354,6 +367,14 @@ async function seedLegacyMasterOrder(fixture: Awaited<ReturnType<typeof seedChec
       supplierTaxProfileSnapshot: { isVatRegistered: supplierTaxProfile.isVatRegistered, vatNumber: supplierTaxProfile.vatNumber },
       supplierInvoicingProfileSnapshot: { invoicingLegalName: invoicingProfile.invoicingLegalName },
       paidAt: new Date(Date.now() - 400 * 86_400_000),
+      // WHAT WAS SOLD, frozen on the order — see the migration
+      // `order_freezes_what_was_sold`.
+      productNameArSnapshot: "منتج اختبار",
+      productNameEnSnapshot: "Test product",
+      salesUnitNameArSnapshot: "وحدة",
+      salesUnitNameEnSnapshot: "Unit",
+      unitPriceInclTaxSnapshot: 100,
+      totalQuantitySnapshot: 1,
     },
   });
 }

@@ -12,6 +12,14 @@ function fakePrisma(overrides: Record<string, unknown> = {}) {
       count: jest.fn().mockResolvedValue(0),
       ...(overrides.opportunity as Record<string, unknown> | undefined),
     },
+    // NO PAID ORDER BY DEFAULT, which is the state every cancel case
+    // here was written in. A plain cancel refuses outright once anyone
+    // has paid — «إذا كان عليه عملية شراء يطلب المورد من الإدارة» — and
+    // the case that proves that refusal sets its own count.
+    masterOrder: {
+      count: jest.fn().mockResolvedValue(0),
+      ...(overrides.masterOrder as Record<string, unknown> | undefined),
+    },
     $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(overrides.tx ?? {})),
   } as never;
 }
@@ -83,7 +91,7 @@ describe("AdminOpportunitiesService", () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const count = jest.fn().mockResolvedValue(0);
       const prisma = fakePrisma({ opportunity: { findMany, count } });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await service.list({ status: "ACTION_REQUIRED", companyId: "c1", productId: "p1", page: 1, pageSize: 20 });
 
@@ -97,7 +105,7 @@ describe("AdminOpportunitiesService", () => {
     it("shows ALL statuses by default (no restriction unlike trader/public)", async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await service.list({});
 
@@ -107,7 +115,7 @@ describe("AdminOpportunitiesService", () => {
     it("clamps pageSize to 100", async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       const result = await service.list({ pageSize: 500 });
       expect(result.pageSize).toBe(100);
@@ -117,7 +125,7 @@ describe("AdminOpportunitiesService", () => {
   describe("getById — not found", () => {
     it("throws NotFoundException for a missing id", async () => {
       const prisma = fakePrisma();
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
       await expect(service.getById("missing")).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -127,7 +135,7 @@ describe("AdminOpportunitiesService", () => {
       const existing = baseRow({ status: "SCHEDULED" });
       const tx = buildTx({ queryRawResults: [[]] }); // UPDATE...WHERE status='ACTIVE' matches 0 rows
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await expect(service.pause("opp-1", "issue found", ctx)).rejects.toMatchObject({
         response: expect.objectContaining({ code: "CONFLICT" }),
@@ -142,7 +150,7 @@ describe("AdminOpportunitiesService", () => {
         findUniqueOrThrowResult: baseRow({ status: "PAUSED", pauseReason: "supplier under investigation" }),
       });
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       const result = await service.pause("opp-1", "supplier under investigation", ctx);
 
@@ -163,7 +171,7 @@ describe("AdminOpportunitiesService", () => {
       const existing = baseRow({ status: "ACTIVE" });
       const tx = buildTx({ queryRawResults: [[], []] }); // resume claim empty, expire claim empty
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await expect(service.resume("opp-1", ctx)).rejects.toMatchObject({
         response: expect.objectContaining({ code: "VALIDATION_FAILED" }),
@@ -175,7 +183,7 @@ describe("AdminOpportunitiesService", () => {
       // resume claim (WHERE end_at > now()) matches nothing; expire claim (WHERE end_at <= now()) matches.
       const tx = buildTx({ queryRawResults: [[], [{ id: "opp-1" }]] });
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await expect(service.resume("opp-1", ctx)).rejects.toMatchObject({
         response: expect.objectContaining({ code: "CONFLICT" }),
@@ -197,7 +205,7 @@ describe("AdminOpportunitiesService", () => {
         findUniqueOrThrowResult: baseRow({ status: "ACTIVE", pausedAt: null, pauseReason: null }),
       });
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       const result = await service.resume("opp-1", ctx);
 
@@ -216,7 +224,7 @@ describe("AdminOpportunitiesService", () => {
         findUniqueOrThrowResult: baseRow({ status: "CANCELLED" }),
       });
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       const result = await service.cancel("opp-1", "mandatory legal reason", ctx);
       expect(result.status).toBe("CANCELLED");
@@ -229,7 +237,7 @@ describe("AdminOpportunitiesService", () => {
       // rows for this status.
       const tx = buildTx({ queryRawResults: [[]] });
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await expect(service.cancel("opp-1", "reason", ctx)).rejects.toMatchObject({
         response: expect.objectContaining({ code: "VALIDATION_FAILED" }),
@@ -241,7 +249,7 @@ describe("AdminOpportunitiesService", () => {
       const existing = baseRow({ status });
       const tx = buildTx({ queryRawResults: [[]] });
       const prisma = fakePrisma({ opportunity: { findUnique: jest.fn().mockResolvedValue(existing) }, tx });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       await expect(service.cancel("opp-1", "reason", ctx)).rejects.toMatchObject({
         response: expect.objectContaining({ code: "VALIDATION_FAILED" }),
@@ -255,7 +263,7 @@ describe("AdminOpportunitiesService", () => {
       const prisma = fakePrisma({
         opportunity: { findUnique: jest.fn().mockResolvedValue(baseRow()) },
       });
-      const service = new AdminOpportunitiesService(prisma);
+      const service = new AdminOpportunitiesService(prisma, {} as never);
 
       const result = await service.getById("opp-1");
 

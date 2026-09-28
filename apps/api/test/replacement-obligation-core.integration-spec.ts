@@ -142,7 +142,7 @@ describe("ReplacementObligationService — core lifecycle (integration, real DB)
     const fixture = await seedReplacementFixture("REPLFAILEDMIN");
     const service = buildService();
     const adminCtx = { userId: crypto.randomUUID(), requestId: "r1" };
-    const failed = await service.markFailed(fixture.replacementObligationId, adminCtx);
+    const failed = await service.markFailed(fixture.replacementObligationId, "Carrier confirmed the parcel was never delivered", adminCtx);
     expect(failed.status).toBe("FAILED");
     expect(failed.failedAt).not.toBeNull();
 

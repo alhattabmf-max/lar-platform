@@ -10,6 +10,10 @@ import { Fact, FactList, StatusWithAction } from "@/components/trader/account-pa
 import { ErrorState } from "@/components/ui/states";
 import { DisputeRespondForm } from "@/components/supplier/dispute-respond-form";
 import { DISPUTE_SUPPLIER_RESPONSE_TYPES } from "@platform/types";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.disputes");
+
 
 /**
  * One dispute, and the supplier's answer to it.
@@ -43,7 +47,8 @@ export default async function SupplierDisputeDetailPage({
   const result = await loadSupplierDispute(id);
   if (!result.ok && result.notFound) notFound();
 
-  const backHref = `/${appLocale}/supplier/disputes`;
+  // BACK TO «المتابعة», which is where this record's list now lives.
+  const backHref = `/${appLocale}/supplier/follow-up`;
 
   if (!result.ok) {
     return (
@@ -72,7 +77,7 @@ export default async function SupplierDisputeDetailPage({
         </h1>
         <Link
           href={`/${appLocale}/supplier/orders/${dispute.orderId}`}
-          className="inline-flex min-h-11 items-center text-sm text-secondary hover:opacity-90"
+          className="inline-flex items-center text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("openOrder")}
         </Link>
@@ -191,7 +196,6 @@ export default async function SupplierDisputeDetailPage({
           <CardTitle>{t("evidenceTitle")}</CardTitle>
         </CardHeader>
         <CardBody>
-          <p className="mb-3 text-sm text-content-muted">{t("evidenceNotice")}</p>
           {dispute.evidence.length === 0 ? (
             <p className="text-sm text-content-muted">{t("evidenceEmpty")}</p>
           ) : (
@@ -249,7 +253,7 @@ export default async function SupplierDisputeDetailPage({
 function Breadcrumb({ href, label, back }: { href: string; label: string; back: string }) {
   return (
     <nav aria-label={label} className="text-sm">
-      <Link href={href} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+      <Link href={href} className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {back}
       </Link>
     </nav>

@@ -69,10 +69,64 @@ describe("nothing internal ever reaches the UI", () => {
     expect(JSON.stringify(mapped)).not.toContain("main.js");
   });
 
-  it("exposes only three fields", () => {
+  it("exposes only the five named fields", () => {
+    // A FIFTH JOINED THEM, under the same rule as the others: it is
+    // named, it is EMPTY unless a specific reader recognised the
+    // payload, and its vocabulary is closed. Nothing general from
+    // `details` reaches the UI, which is what this test exists to keep
+    // true — the count is the point, not the number.
     const mapped = toUserFacingError(apiError(ERROR_CODES.FORBIDDEN));
 
-    expect(Object.keys(mapped).sort()).toEqual(["kind", "messageKey", "requestId"]);
+    expect(Object.keys(mapped).sort()).toEqual([
+      "blockedReason",
+      "invalidFields",
+      "kind",
+      "messageKey",
+      "requestId",
+    ]);
+    // And both stay empty for a failure that named nothing.
+    expect(mapped.blockedReason).toBeNull();
+    expect(mapped.invalidFields).toEqual([]);
+  });
+
+  /**
+   * THE FIFTH IS THE ONE THAT CARRIES FIELD NAMES, so it is the one a
+   * server string could ride into the UI on. It cannot: what crosses
+   * is a NAME that matched a closed list, and the screen renders its
+   * own label for it.
+   */
+  it("carries the names through, and the sentence never with them", () => {
+    // `readInvalidFields` is what turns a payload into names, and its
+    // own rules are pinned in `packages/types`. What is pinned HERE is
+    // that this mapper passes the NAMES on and adds nothing else.
+    const error = new ApiError({
+      kind: "validation",
+      status: 400,
+      code: ERROR_CODES.VALIDATION_FAILED as never,
+      requestId: "req-1",
+      message: "accountHolderName must be longer than or equal to 1 characters",
+      invalidFields: ["accountHolderName"] as never,
+    });
+
+    const mapped = toUserFacingError(error);
+
+    expect(mapped.invalidFields).toEqual(["accountHolderName"]);
+    expect(JSON.stringify(mapped)).not.toContain("longer than or equal");
+  });
+
+  it("carries an empty list when the reader recognised nothing", () => {
+    const error = new ApiError({
+      kind: "validation",
+      status: 400,
+      code: ERROR_CODES.VALIDATION_FAILED as never,
+      requestId: "req-1",
+      message: "internalLedgerRef must be a UUID",
+    });
+
+    const mapped = toUserFacingError(error);
+
+    expect(mapped.invalidFields).toEqual([]);
+    expect(JSON.stringify(mapped)).not.toContain("internalLedgerRef");
   });
 });
 

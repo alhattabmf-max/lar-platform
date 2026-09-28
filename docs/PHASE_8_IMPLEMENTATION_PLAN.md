@@ -1605,11 +1605,11 @@ Light mode only. Dark mode is out of Phase 8.
 | Secondary / Emerald | `--color-secondary` | `#0F766E` |
 | Accent / Gold | `--color-accent` | `#F59E0B` |
 | Accent interactive | `--color-accent-interactive` | `#B45309` |
-| Background | `--color-background` | `#F8FAFC` |
+| Background | `--color-background` | `#E9EEF5` |
 | Surface | `--color-surface` | `#FFFFFF` |
 | Primary text | `--color-text` | `#0F172A` |
 | Muted text | `--color-text-muted` | `#475569` |
-| Border | `--color-border` | `#E2E8F0` |
+| Border | `--color-border` | `#ABB6C4` |
 | Success | `--color-success` | `#15803D` |
 | Warning | `--color-warning` | `#D97706` |
 | Danger | `--color-danger` | `#DC2626` |
@@ -1639,9 +1639,9 @@ non-text UI targets 3:1.
 
 | Pair | Ratio | Verdict |
 |---|---|---|
-| Text `#0F172A` on Background `#F8FAFC` | 17.06:1 | AAA |
+| Text `#0F172A` on Background `#E9EEF5` | 15.31:1 | AAA |
 | Text `#0F172A` on Surface `#FFFFFF` | 17.85:1 | AAA |
-| Muted `#475569` on Background `#F8FAFC` | 7.24:1 | AAA |
+| Muted `#475569` on Background `#E9EEF5` | 6.50:1 | AAA |
 | Muted `#475569` on Surface `#FFFFFF` | 7.58:1 | AAA |
 | White on Navy `#0B1F33` | 16.69:1 | AAA |
 | White on Emerald `#0F766E` | 5.47:1 | AA |
@@ -1649,7 +1649,7 @@ non-text UI targets 3:1.
 | Dark `#0F172A` on Gold `#F59E0B` | 8.31:1 | AAA |
 | White on Success `#15803D` | 5.02:1 | AA |
 | White on Danger `#DC2626` | 4.83:1 | AA |
-| Navy focus ring on Background `#F8FAFC` | 15.95:1 | passes 3:1 |
+| Navy focus ring on Background `#E9EEF5` | 14.32:1 | passes 3:1 |
 | Emerald focus ring on Surface `#FFFFFF` | 5.47:1 | passes 3:1 |
 
 ### 14.4 Three measured failures and their resolutions
@@ -1671,12 +1671,19 @@ component has no white-on-accent variant.
   (`#B45309` on `#FFFBEB` = 4.84:1, AA). `#D97706` as text on `#FFFBEB` is 3.07:1
   and is not used for text.
 
-**F3 — Border `#E2E8F0` on Surface `#FFFFFF` = 1.23:1.**
-Acceptable for decorative dividers and card edges, which WCAG 1.4.11 does not
-require to meet 3:1. It is **not** acceptable for a form control whose boundary is
-the only indicator of the control. A second token is therefore required:
+**F3 — Border on Surface `#FFFFFF`.**
+The hairline is decorative and WCAG 1.4.11 does not require it to meet 3:1. It
+was `#E2E8F0` = **1.23:1**, which is a line the stylesheet knew about and the
+reader did not; it is now `#ABB6C4` = **2.05:1** on white and **1.76:1** on the
+page. It is still **not** acceptable for a form control whose boundary is the
+only indicator of the control, so the second token remains required:
 
-- `--color-border` = `#E2E8F0` — decorative dividers, card edges.
+- `--color-border` = `#ABB6C4` — decorative dividers, card edges.
+- `--color-border-control` = `#7A889A` — the outline that IS a region's only
+  boundary (empty state, dashed placeholder, drop zone). 3.61:1 on white and
+  3.10:1 on the page, so it clears 1.4.11 where the line carries meaning. It
+  darkened with the ground: `#8291A4` cleared 3:1 on `#F8FAFC` and measures
+  2.76:1 on `#E9EEF5`.
 - `--color-border-strong` = `#64748B` — input, select, checkbox, and radio borders
   (4.76:1 against white, passes 3:1). `#94A3B8` was measured at 2.56:1 and rejected.
 
@@ -1694,11 +1701,11 @@ is fixed and cannot be changed by branding settings.
 
 | Fixed (never admin-controlled) | Value |
 |---|---|
-| Background | `#F8FAFC` |
+| Background | `#E9EEF5` |
 | Surface | `#FFFFFF` |
 | Primary text | `#0F172A` |
 | Muted text | `#475569` |
-| Border | `#E2E8F0` |
+| Border | `#ABB6C4` |
 | Success | `#15803D` |
 | Warning | `#D97706` |
 | Danger | `#DC2626` |

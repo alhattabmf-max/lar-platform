@@ -33,6 +33,15 @@ import { localized } from "./localized";
  */
 export interface TaxonomyOption {
   id: string;
+  /**
+   * The node above it, or null at a root.
+   *
+   * CARRIED SO THE FILTER CAN BE TWO CHOOSERS. A flat list with a path
+   * string reads as a hierarchy inside one <select>; splitting it into
+   * a category and its branch needs to know which nodes are roots and
+   * which belong to the root a reader has chosen.
+   */
+  parentId: string | null;
   /** 0 at the root. */
   depth: number;
   /** Own name in the active locale. */
@@ -83,7 +92,13 @@ export function buildTaxonomyOptions(
     const name = localized(locale, node.nameAr, node.nameEn);
     const trail = [...ancestors, name];
 
-    options.push({ id: node.id, depth, name, path: trail.join(PATH_SEPARATOR) });
+    options.push({
+      id: node.id,
+      parentId: byId.has(node.parentId ?? "") ? node.parentId : null,
+      depth,
+      name,
+      path: trail.join(PATH_SEPARATOR),
+    });
 
     for (const child of childrenOf.get(node.id) ?? []) {
       walk(child, depth + 1, trail);

@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminDispute } from "@/lib/admin-data";
 import { formatDateTime } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/states";
 import { StatusBadge, disputeTone } from "@/components/trader/status-badge";
 import { DisputeDecisionForm } from "@/components/admin/dispute-decision-form";
+import { AdminAction } from "@/components/admin/admin-action";
 
 /**
  * One dispute, and the decision.
@@ -32,6 +34,23 @@ import { DisputeDecisionForm } from "@/components/admin/dispute-decision-form";
  * path handed to a browser is a credential, and an administrator is no
  * exception to that.
  */
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.disputes",
+  });
+  return { title: t("detailTitle") };
+}
+
 export default async function AdminDisputeDetailPage({
   params,
 }: {
@@ -44,6 +63,15 @@ export default async function AdminDisputeDetailPage({
   const t = await getTranslations({ locale: appLocale, namespace: "admin.disputes" });
   const vocab = await getTranslations({ locale: appLocale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale: appLocale, namespace: "states" });
+  const actions = await getTranslations({ locale: appLocale, namespace: "admin.actions" });
+
+  const actionLabels = {
+    confirm: actions("confirm"),
+    cancel: actions("cancel"),
+    working: actions("working"),
+    errorTitle: states("errorTitle"),
+    requestIdLabel: states("requestIdLabel"),
+  };
 
   const result = await loadAdminDispute(id);
 
@@ -105,7 +133,7 @@ export default async function AdminDisputeDetailPage({
         </div>
         <Link
           href={`/${appLocale}/admin/orders/${dispute.masterOrderId}`}
-          className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+          className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("openOrder")}
         </Link>
@@ -209,7 +237,11 @@ export default async function AdminDisputeDetailPage({
                       <div className="flex flex-wrap gap-2">
                         <dt className="text-content-muted">{t("productRefund")}</dt>
                         <dd className="text-content">
-                          {formatMoney(decision.productRefundAmountInclTax, dispute.currency, appLocale)}
+                          <Money
+                            amount={decision.productRefundAmountInclTax}
+                            currency={dispute.currency}
+                            locale={appLocale}
+                          />
                         </dd>
                       </div>
                     ) : null}
@@ -217,7 +249,11 @@ export default async function AdminDisputeDetailPage({
                       <div className="flex flex-wrap gap-2">
                         <dt className="text-content-muted">{t("shippingRefund")}</dt>
                         <dd className="text-content">
-                          {formatMoney(decision.shippingRefundAmount, dispute.currency, appLocale)}
+                          <Money
+                            amount={decision.shippingRefundAmount}
+                            currency={dispute.currency}
+                            locale={appLocale}
+                          />
                         </dd>
                       </div>
                     ) : null}
@@ -228,11 +264,74 @@ export default async function AdminDisputeDetailPage({
                   {decision.refundObligationId ? (
                     <Link
                       href={`/${appLocale}/admin/refunds/${decision.refundObligationId}`}
-                      className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                      className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                     >
                       {t("openRefund")}
                     </Link>
                   ) : null}
+
+                  {/* THE TWO ENDS OF A REPLACEMENT, offered where the
+                      decision that ordered it is read.
+                      `POST /admin/replacement-obligations/:id/confirm-delivery`
+                      and `/mark-failed` have existed since they were
+                      written, with no screen anywhere that could call
+                      either — so a replacement the supplier never
+                      delivered could not be closed by anyone.
+
+                        EACH ACTION IS DRAWN FROM THE OBLIGATION'S OWN
+                        STATE, not from the dispute's. The service takes a
+                        delivery confirmation ONLY from SHIPPED, and a
+                        failure from any of the four states before
+                        DELIVERED — so gating both on the dispute being
+                        AWAITING_REPLACEMENT offered a confirm button on a
+                        replacement still being prepared, which the server
+                        can only refuse. The status is on the contract for
+                        exactly this. */}
+                    {decision.replacementObligationId ? (
+                      <div className="flex flex-wrap gap-2">
+                        {decision.replacementObligationStatus === "SHIPPED" ? (
+                          <AdminAction
+                            path={`/admin/replacement-obligations/${decision.replacementObligationId}/confirm-delivery`}
+                            variant="secondary"
+                            reason={{
+                              field: "reasonNote",
+                              label: t("replacementConfirmReason"),
+                              // ADMIN_REASON_MIN / MAX on the API, quoted
+                              // at the call site as every other action
+                              // here does — the two must never disagree.
+                              minLength: 5,
+                              maxLength: 2000,
+                              hint: t("replacementConfirmHint"),
+                            }}
+                            labels={{
+                              ...actionLabels,
+                              action: t("replacementConfirm"),
+                              prompt: t("replacementConfirmPrompt"),
+                            }}
+                          />
+                        ) : null}
+                        {decision.replacementObligationStatus !== null &&
+                        decision.replacementObligationStatus !== "DELIVERED" &&
+                        decision.replacementObligationStatus !== "FAILED" ? (
+                          <AdminAction
+                            path={`/admin/replacement-obligations/${decision.replacementObligationId}/mark-failed`}
+                            variant="danger"
+                            reason={{
+                              field: "reasonNote",
+                              label: t("replacementMarkFailedReason"),
+                              minLength: 5,
+                              maxLength: 2000,
+                              hint: t("replacementMarkFailedHint"),
+                            }}
+                            labels={{
+                              ...actionLabels,
+                              action: t("replacementMarkFailed"),
+                              prompt: t("replacementMarkFailedPrompt"),
+                            }}
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
                 </li>
               ))}
             </ol>
@@ -271,7 +370,7 @@ export default async function AdminDisputeDetailPage({
         // A page is never a dead end: when no decision is possible the
         // reason is stated, so the operator knows what has to happen
         // next rather than wondering where the form went.
-        <p className="rounded-lg border border-line bg-surface p-4 text-sm text-content-muted">
+        <p className="rounded-card bg-surface shadow-card px-card-x py-card-y text-sm text-content-muted">
           {allowed.length === 0
             ? t("noFurtherDecision")
             : t("waitingForSupplier")}

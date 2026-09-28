@@ -7,11 +7,16 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadOrderDocuments, loadTraderOrder } from "@/lib/trader-data";
 import { localized, formatDate, formatDateTime } from "@/lib/localized";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatQuantity } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge, allocationTone } from "@/components/trader/status-badge";
 import { ConfirmDeliveryButton } from "@/components/trader/confirm-delivery-button";
 import { OrderDocuments } from "@/components/trader/order-documents";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.orders");
+
 
 /**
  * One order, with its allocations INLINE.
@@ -49,7 +54,7 @@ export default async function TraderOrderDetailPage({
       {/* Rendered before the fetch resolves, so the way back exists
           even while the order is still loading. */}
       <nav aria-label={t("breadcrumbLabel")} className="text-sm">
-        <Link href={`/${appLocale}/trader/orders`} className="text-secondary hover:opacity-90">
+        <Link href={`/${appLocale}/trader/orders`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("backToOrders")}
         </Link>
       </nav>
@@ -84,7 +89,6 @@ async function OrderBody({ locale, id }: { locale: AppLocale; id: string }) {
   const order = result.data;
   const name = localized(locale, order.productNameAr, order.productNameEn);
   const unit = localized(locale, order.salesUnitNameAr, order.salesUnitNameEn);
-  const total = formatMoney(order.totalAmount, order.currency, locale);
   const paid = formatDate(order.paidAt, locale);
 
   // What needs chasing comes first. An overdue preparation is the only
@@ -107,7 +111,16 @@ async function OrderBody({ locale, id }: { locale: AppLocale; id: string }) {
           <div className="flex gap-2">
             <dt className="text-content-muted">{t("total")}:</dt>
             <dd className="font-semibold text-content">
-              {total ?? <span className="font-normal text-content-muted">{t("amountUnavailable")}</span>}
+              <Money
+                amount={order.totalAmount}
+                currency={order.currency}
+                locale={locale}
+                fallback={
+                  <span className="font-normal text-content-muted">
+                    {t("amountUnavailable")}
+                  </span>
+                }
+              />
             </dd>
           </div>
           {paid ? (
@@ -167,7 +180,12 @@ async function AllocationList({
   // a reader stops trusting.
   const allocations = [...order.allocations].sort((a, b) => {
     if (a.isPreparationOverdue !== b.isPreparationOverdue) return a.isPreparationOverdue ? -1 : 1;
+    // A SHARE WITH NO DATE SORTS LAST, not first. Null is not "the
+    // earliest deadline" — it is "no deadline yet", and putting it at the
+    // head would push the work that IS owed below the work that is not.
     if (a.preparationDueAt !== b.preparationDueAt) {
+      if (a.preparationDueAt === null) return 1;
+      if (b.preparationDueAt === null) return -1;
       return a.preparationDueAt < b.preparationDueAt ? -1 : 1;
     }
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -203,8 +221,22 @@ async function AllocationCard({
   const statuses = await getTranslations({ locale, namespace: "trader.status" });
   const states = await getTranslations({ locale, namespace: "states" });
 
-  const city = localized(locale, allocation.cityNameAr, allocation.cityNameEn);
-  const due = formatDateTime(allocation.preparationDueAt, locale);
+  // THE REGION, NARROWED BY THE CITY WHEN THERE IS ONE. A branch may
+  // name no city, and this line used to read «المدينة:  · address» when
+  // it did not — a label and a separator with nothing between them.
+  const place = [
+    localized(locale, allocation.regionNameAr, allocation.regionNameEn),
+    localized(locale, allocation.cityNameAr, allocation.cityNameEn),
+  ]
+    .filter(Boolean)
+    .join(" — ");
+  // ABSENT WHILE THE OFFER IS STILL GATHERING ITS TARGET — the row
+  // below is drawn only when there is a date, because "due: —" tells a
+  // buyer nothing and a missing line tells the truth: nothing is owed
+  // yet. The share's own status says why.
+  const due = allocation.preparationDueAt
+    ? formatDateTime(allocation.preparationDueAt, locale)
+    : null;
   const shipped = allocation.shippedAt ? formatDateTime(allocation.shippedAt, locale) : null;
   const delivered = allocation.deliveredAt ? formatDateTime(allocation.deliveredAt, locale) : null;
   const disputeCloses = allocation.disputeWindowClosesAt
@@ -238,7 +270,7 @@ async function AllocationCard({
       <p className="text-sm text-content-muted">
         {/* The trader's OWN address, captured at checkout. DELIVERY
             city — not the supplier's shipping origin. */}
-        {t("deliveryCity")}: {city} · {allocation.address}
+        {t("deliveryRegion")}: {place} · {allocation.address}
       </p>
 
       <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -253,7 +285,7 @@ async function AllocationCard({
           <div className="flex gap-2">
             <dt className="text-content-muted">{t("preparationDue")}:</dt>
             <dd className="text-content">
-              <time dateTime={allocation.preparationDueAt}>{due}</time>
+              <time dateTime={allocation.preparationDueAt ?? undefined}>{due}</time>
             </dd>
           </div>
         ) : null}
@@ -321,7 +353,7 @@ async function AllocationCard({
       {allocation.disputeId ? (
         <Link
           href={`/${locale}/trader/disputes/${allocation.disputeId}`}
-          className="self-start text-sm text-secondary hover:opacity-90"
+          className="self-start text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {t("viewDispute")}
         </Link>
@@ -329,7 +361,7 @@ async function AllocationCard({
         <div className="flex flex-col gap-1">
           <Link
             href={`/${locale}/trader/orders/${order.id}/allocations/${allocation.id}/dispute`}
-            className="self-start text-sm text-secondary hover:opacity-90"
+            className="self-start text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
           >
             {t("openDispute")}
           </Link>

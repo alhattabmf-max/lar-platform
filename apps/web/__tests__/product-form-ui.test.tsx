@@ -30,7 +30,6 @@ const SALES_UNITS: SalesUnitItem[] = [
 
 const LABELS: ProductFormLabels = {
   sections: { identity: "بيانات", classification: "تصنيف", packaging: "عبوة", dimensions: "أبعاد" },
-  sectionHints: { identity: "h1", classification: "h2", packaging: "h3", dimensions: "h4" },
   fields: {
     taxonomyNodeId: "التصنيف",
     salesUnitId: "وحدة البيع",
@@ -48,7 +47,6 @@ const LABELS: ProductFormLabels = {
     packageContentUnitNameAr: "وحدة المحتوى عربي",
     packageContentUnitNameEn: "وحدة المحتوى إنجليزي",
   },
-  hints: { salesUnitId: "hint1", packageGroup: "hint2", snapshotNames: "hint3" },
   placeholderTaxonomy: "اختر تصنيفًا",
   placeholderSalesUnit: "بدون اختيار",
   required: "(مطلوب)",
@@ -521,11 +519,17 @@ describe("accessibility and layout", () => {
     }
   });
 
-  it("gives every control a 44px target", () => {
+  it("gives every control the shared metrics, and none its own", () => {
+    // 44px was the rule, one class at a time. The height is decided
+    // centrally now — 32 for a button, 36 for a field — so what a
+    // form must not do is set one itself.
     const { container } = renderForm();
 
     for (const control of container.querySelectorAll("input[type='text'], select, button")) {
-      expect(control.className).toContain("min-h-11");
+      expect([control.tagName, control.className]).not.toContain("min-h-11");
+      expect(control.className).toMatch(
+        /min-h-control|h-field|px-control-x|FIELD|rounded-control|rounded-md/,
+      );
     }
   });
 
@@ -551,7 +555,8 @@ describe("accessibility and layout", () => {
 describe("the pages exist and are guarded", () => {
   const pages = [
     "app/[locale]/supplier/products/new/page.tsx",
-    "app/[locale]/supplier/products/[id]/edit/page.tsx",
+    "app/[locale]/supplier/products/[id]/page.tsx",
+    "app/[locale]/supplier/products/[id]/offers/new/page.tsx",
   ];
 
   it.each(pages)("%s re-guards and adds no shell", (page) => {
@@ -574,14 +579,18 @@ describe("the pages exist and are guarded", () => {
   });
 
   it("answers unknown and cross-company with a real 404", () => {
-    const source = strip(read("app/[locale]/supplier/products/[id]/edit/page.tsx"));
+    const source = strip(read("app/[locale]/supplier/products/[id]/page.tsx"));
 
     expect(source).toContain("if (!result.ok && result.notFound) notFound()");
   });
 
-  it("links to create from the list and to edit from the detail", () => {
-    expect(strip(read("app/[locale]/supplier/products/page.tsx"))).toContain(
-      "/supplier/products/new"
+  it("links to create from the STRIP and to edit from the detail", () => {
+    // The list used to carry its own «إضافة منتج». The owner moved
+    // every page's one action up into the strip the layout draws — one
+    // row, always in the same place — and had the bar it stood in
+    // deleted.
+    expect(strip(read("components/supplier/supplier-bar-actions.ts"))).toContain(
+      "/products/new"
     );
 
     const detail = strip(read("app/[locale]/supplier/products/[id]/page.tsx"));
@@ -590,13 +599,49 @@ describe("the pages exist and are guarded", () => {
     expect(detail).toContain("gate.canEditMedia ? (");
   });
 
-  it("says plainly that creating is not approving", () => {
+  it("ADDING IS NOT SELLING, and the page that adds does neither by halves", () => {
+    // THIS TEST HAS BEEN BOTH WAYS ROUND. Adding and publishing were
+    // separate, then one submission, and now separate again — because
+    // the owner needs a supplier to record goods they are not selling
+    // yet: «يسجّل المورد كل منتجاته وتُحفظ لديه، ثم يُنشئ عرضًا على
+    // منتجات مختارة». What is here is the third shape, and it is not a
+    // return to the first: adding is still ONE form and ONE button.
     const source = read("app/[locale]/supplier/products/new/page.tsx");
-    const ar = JSON.parse(read("messages/ar-SA.json")).supplier.products.new;
+    const ar = JSON.parse(read("messages/ar-SA.json"));
 
-    expect(source).toContain("nextStepsTitle");
-    expect(ar.step1).toContain("مسودة");
-    expect(source).not.toContain("uploadFile");
+    // No numbered next steps, because adding is one step.
+    expect(source).not.toContain("nextStepsTitle");
+
+    // The approved reference writes the button out on a bar of its
+    // own: «إضافة المنتج».
+    expect(ar.supplier.listings.form.submit).toBe("إضافة المنتج");
+
+    // The catalogue row and its picture — and NOT an offer. No price,
+    // no quantity, no clock reaches this endpoint.
+    expect(source).toContain('scope="product"');
+    const form = read("components/supplier/listing-form.tsx");
+    expect(form).toContain('"/companies/me/products"');
+    expect(form).toContain("uploadFile");
+    expect(form).toContain("/media`");
+    // The merged endpoint that created a product and published an offer
+    // in one call is no longer what a supplier's «إضافة» does.
+    expect(form).not.toContain('"/companies/me/listings"');
+  });
+
+  it("puts the OFFER on its own page, under the product it is made on", () => {
+    const source = read("app/[locale]/supplier/products/[id]/offers/new/page.tsx");
+    const form = read("components/supplier/listing-form.tsx");
+
+    expect(source).toContain('scope="offer"');
+    // The product is in the address, so the form is never asked which
+    // one this is about.
+    expect(source).toContain("productId={product.id}");
+    expect(form).not.toContain("placeholderProduct");
+
+    // Created, then published — the same publish the offer's own button
+    // calls, so there is no second idea of what publishing means.
+    expect(form).toContain('"/companies/me/opportunities"');
+    expect(form).toContain("/publish`");
   });
 });
 

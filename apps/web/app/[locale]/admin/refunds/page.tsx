@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { REFUND_OBLIGATION_STATUSES } from "@platform/types";
@@ -6,17 +7,17 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminRefunds } from "@/lib/admin-data";
 import { formatDate } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
-import { AdminFilters } from "@/components/admin/admin-filters";
+import { ListToolbar } from "@/components/admin/list-toolbar";
 import {
-  AdminPagination,
-  adminPaginationLabels,
   firstParam,
   parseAdminPage,
 } from "@/components/admin/admin-pagination";
+import { DataTablePagination } from "@/components/admin/data-table-pagination";
+import { parsePageSize } from "@/lib/admin-list-query";
 
 /**
  * Money owed back to buyers.
@@ -30,7 +31,23 @@ import {
  * obligation nobody has touched and one that has failed four times —
  * two states that look identical if you only read the status.
  */
-const PAGE_SIZE = 25;
+
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.refunds",
+  });
+  return { title: t("title") };
+}
 
 export default async function AdminRefundsPage({
   params,
@@ -43,29 +60,53 @@ export default async function AdminRefundsPage({
   const appLocale = locale as AppLocale;
   await requireAdminOrRedirect(appLocale);
 
-  const t = await getTranslations({ locale: appLocale, namespace: "admin.refunds" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
-  const filters = await getTranslations({ locale: appLocale, namespace: "admin.filters" });
-  const vocab = await getTranslations({ locale: appLocale, namespace: "admin.vocab" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.refunds",
+  });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
+  const toolbar = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.toolbar",
+  });
+  const filters = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.filters",
+  });
+  const vocab = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.vocab",
+  });
 
   const page = parseAdminPage(query.page);
+  const pageSize = parsePageSize(query.pageSize);
   const status = firstParam(query.status);
-  const basePath = `/${appLocale}/admin/refunds`;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
-      </header>
+      {/* STILL A HEADING, just not a second copy of the sidebar.
+          Reading it off the screen was redundant; reading it with a
+          screen reader is how somebody knows which page they landed
+          on, because they cannot see which sidebar entry is lit. */}
+      <h1 className="sr-only">{t("title")}</h1>
 
-      <AdminFilters
-        action={basePath}
+      <ListToolbar
+        searchable={false}
+        labels={{
+          regionLabel: toolbar("regionLabel"),
+          openLabel: filters("search"),
+          searchLabel: filters("search"),
+          searchPlaceholder: toolbar("searchPlaceholder"),
+          filtersPanelLabel: toolbar("filtersPanelLabel"),
+          reset: toolbar("reset"),
+        }}
         selects={[
           {
             name: "status",
             label: t("status"),
-            value: status,
             options: [
               { value: "", label: filters("any") },
               ...REFUND_OBLIGATION_STATUSES.map((value) => ({
@@ -75,18 +116,18 @@ export default async function AdminRefundsPage({
             ],
           },
         ]}
-        labels={{
-          regionLabel: filters("regionLabel"),
-          apply: filters("apply"),
-          clear: filters("clear"),
-        }}
       />
 
       <Suspense
         key={`${page}:${status ?? ""}`}
         fallback={<LoadingState label={common("loading")} rows={6} />}
       >
-        <Refunds locale={appLocale} basePath={basePath} page={page} status={status} />
+        <Refunds
+          locale={appLocale}
+          page={page}
+          pageSize={pageSize}
+          status={status}
+        />
       </Suspense>
     </div>
   );
@@ -94,21 +135,22 @@ export default async function AdminRefundsPage({
 
 async function Refunds({
   locale,
-  basePath,
   page,
+  pageSize,
   status,
 }: {
   locale: AppLocale;
-  basePath: string;
   page: number;
+  pageSize: number;
   status?: string;
 }) {
   const t = await getTranslations({ locale, namespace: "admin.refunds" });
   const vocab = await getTranslations({ locale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale, namespace: "states" });
+  const toolbar = await getTranslations({ locale, namespace: "admin.toolbar" });
   const pagination = await getTranslations({ locale, namespace: "pagination" });
 
-  const result = await loadAdminRefunds({ page, pageSize: PAGE_SIZE, status });
+  const result = await loadAdminRefunds({ page, pageSize, status });
 
   if (!result.ok) {
     return (
@@ -122,7 +164,9 @@ async function Refunds({
   }
 
   if (result.data.total === 0) {
-    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
+    return (
+      <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+    );
   }
 
   return (
@@ -144,12 +188,16 @@ async function Refunds({
             {result.data.items.map((refund) => (
               <TR key={refund.id}>
                 <TD>
-                  <time dateTime={refund.createdAt}>{formatDate(refund.createdAt, locale)}</time>
+                  <time dateTime={refund.createdAt}>
+                    {formatDate(refund.createdAt, locale)}
+                  </time>
                 </TD>
                 {/* A malformed amount renders as an em dash with the
                     status still visible, never as "NaN" and never as
                     "0.00" — a zero is a claim about money. */}
-                <TD>{formatMoney(refund.amount, refund.currency, locale) ?? "—"}</TD>
+                <TD>
+                  <Money amount={refund.amount} currency={refund.currency} locale={locale} fallback={<span className="text-content-muted">—</span>} />
+                </TD>
                 <TD>
                   <StatusBadge
                     label={vocab(`refundStatus.${refund.status}`)}
@@ -168,7 +216,7 @@ async function Refunds({
                 <TD>
                   <Link
                     href={`/${locale}/admin/refunds/${refund.id}`}
-                    className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                    className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                   >
                     {t("openDetail")}
                   </Link>
@@ -179,18 +227,27 @@ async function Refunds({
         </Table>
       </div>
 
-      <AdminPagination
-        basePath={basePath}
+      <DataTablePagination
         page={result.data.page}
         pageSize={result.data.pageSize}
         total={result.data.total}
-        query={{ status }}
-        labels={adminPaginationLabels(
-          pagination,
-          result.data.page,
-          result.data.pageSize,
-          result.data.total
-        )}
+        labels={{
+          navLabel: pagination("navLabel"),
+          first: pagination("first"),
+          previous: pagination("previous"),
+          next: pagination("next"),
+          last: pagination("last"),
+          rowsPerPage: toolbar("rowsPerPage"),
+          rowsPerPageUnit: toolbar("rowsPerPageUnit"),
+          range: pagination("range", {
+            from: (result.data.page - 1) * result.data.pageSize + 1,
+            to: Math.min(
+              result.data.page * result.data.pageSize,
+              result.data.total,
+            ),
+            total: result.data.total,
+          }),
+        }}
       />
     </div>
   );

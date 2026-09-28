@@ -54,8 +54,18 @@ function makePrisma(row: unknown) {
 }
 
 function makeService(row: unknown) {
+  // No published logo: `headerLogo` is then null, which is the
+  // state every existing assertion here was written against.
+  const assets = {
+    hasPublished: async () => false,
+  } as unknown as import("./brand-asset.service").BrandAssetService;
+
   const { prisma, theme, findUnique } = makePrisma(row);
-  return { service: new BrandingService(prisma, theme), findUnique, theme };
+  return {
+    service: new BrandingService(prisma, theme, assets),
+    findUnique,
+    theme,
+  };
 }
 
 describe("BrandingService.getPublic", () => {
@@ -70,7 +80,7 @@ describe("BrandingService.getPublic", () => {
       faviconUrl: "https://cdn.example.com/fav.ico",
     });
 
-    const result = await service.getPublic();
+    const result = await service.getPublic("ar-SA");
 
     expect(Object.keys(result).sort()).toEqual([...BRANDING_PUBLIC_KEYS].sort());
   });
@@ -97,7 +107,7 @@ describe("BrandingService.getPublic", () => {
       updatedAt: new Date(),
     });
 
-    const result = await service.getPublic();
+    const result = await service.getPublic("ar-SA");
     const serialised = JSON.stringify(result);
 
     for (const field of ADMIN_ONLY_FIELDS) {
@@ -109,10 +119,10 @@ describe("BrandingService.getPublic", () => {
     expect(serialised).not.toContain("22222222-2222-2222-2222-222222222222");
   });
 
-  it("asks Prisma for the seven public columns only, and never for the theme", async () => {
+  it("asks Prisma for the public columns only, and never for the theme", async () => {
     const { service, findUnique } = makeService(null);
 
-    await service.getPublic();
+    await service.getPublic("ar-SA");
 
     const args = findUnique.mock.calls[0][0] as { select: Record<string, boolean> };
     expect(Object.keys(args.select).sort()).toEqual([...PUBLIC_DB_COLUMNS].sort());
@@ -123,7 +133,7 @@ describe("BrandingService.getPublic", () => {
   it("falls back to null text/assets plus the default theme when no branding row exists", async () => {
     const { service } = makeService(null);
 
-    const result = await service.getPublic();
+    const result = await service.getPublic("ar-SA");
 
     expect(result).toEqual(EMPTY_BRANDING_PUBLIC);
     // Every DB-backed field is null; the theme is never null, because an
@@ -137,7 +147,7 @@ describe("BrandingService.getPublic", () => {
   it("carries the ACTIVE theme from BrandThemeService, never a draft", async () => {
     const { service, theme } = makeService(null);
 
-    const result = await service.getPublic();
+    const result = await service.getPublic("ar-SA");
 
     expect(theme.getActive).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.theme)).toEqual(["colors"]);
@@ -148,9 +158,9 @@ describe("BrandingService.getPublic", () => {
   it("returns a copy of the fallback, so a caller cannot mutate the shared constant", async () => {
     const { service } = makeService(null);
 
-    const first = await service.getPublic();
+    const first = await service.getPublic("ar-SA");
     (first as { nameAr: string | null }).nameAr = "mutated";
-    const second = await service.getPublic();
+    const second = await service.getPublic("ar-SA");
 
     expect(second.nameAr).toBeNull();
     expect(EMPTY_BRANDING_PUBLIC.nameAr).toBeNull();

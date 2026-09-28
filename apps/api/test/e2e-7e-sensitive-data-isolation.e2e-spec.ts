@@ -9,13 +9,15 @@ import { AdminSessionService } from "../src/admin/admin-auth/admin-session.servi
 import { RefundProviderRegistry } from "../src/refunds/providers/refund-provider.registry";
 import { MockRefundProvider } from "../src/refunds/providers/mock-refund.provider";
 import { seedHistoricalDisputeRefundFixture, seedSettlementFixture, settlementFixturePrisma } from "./fixtures/settlement.fixture";
+import { uniqueMobile } from "./fixtures/unique";
+import { uniqueVatNumber } from "./fixtures/unique";
 
 const prisma = settlementFixturePrisma;
 const ORIGIN = "http://localhost:3001";
 const API = "/api/v1";
 
-const TRADER_VAT_NUMBER = "310175397500003";
-const TRADER_PHONE = "+966500000099"; // fixed contact phone used by checkout.fixture.ts's traderLocations.sameCity
+const TRADER_VAT_NUMBER = uniqueVatNumber();
+const TRADER_PHONE = uniqueMobile(); // fixed contact phone used by checkout.fixture.ts's traderLocations.sameCity
 
 const FORBIDDEN_KEY_PATTERNS = [
   "iban",

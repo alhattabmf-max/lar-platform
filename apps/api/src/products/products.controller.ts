@@ -1,7 +1,20 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import type { Request } from "express";
 import { ProductsService } from "./products.service";
-import type { ProductDetail, ProductSummary } from "@platform/types";
+import type { Paginated, ProductDetail, ProductSummary } from "@platform/types";
+import { ListMyProductsQueryDto } from "./dto/list-my-products.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { SessionAuthGuard } from "../common/security/session-auth.guard";
@@ -25,9 +38,20 @@ function ctxFrom(session: SessionData, req: Request) {
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
+  /**
+   * One page of the supplier's own catalogue.
+   *
+   * PAGED AND SEARCHABLE, where it used to answer with the whole list
+   * under a five-hundred ceiling. The query decides the page, the
+   * search term and which half of the catalogue is wanted; the service
+   * clamps the page size.
+   */
   @Get()
-  listMine(@CurrentSession() session: SessionData): Promise<ProductSummary[]> {
-    return this.products.listMine(session.companyId);
+  listMine(
+    @CurrentSession() session: SessionData,
+    @Query() query: ListMyProductsQueryDto
+  ): Promise<Paginated<ProductSummary>> {
+    return this.products.listMine(session.companyId, query);
   }
 
   /**
@@ -79,5 +103,22 @@ export class ProductsController {
     @Req() req: Request
   ) {
     return this.products.archive(id, ctxFrom(session, req));
+  }
+
+  /**
+   * «المنتج يُحذف من صفحة المورّد ومن صفحة الإدارة.»
+   *
+   * The console has had `DELETE admin/products/:id` since the owner
+   * asked for it; the supplier had only archive, which is a one-way
+   * door. Both now run the same rule and the same routine — see
+   * `common/removal.ts`.
+   */
+  @Delete(":id")
+  remove(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentSession() session: SessionData,
+    @Req() req: Request
+  ) {
+    return this.products.remove(id, ctxFrom(session, req));
   }
 }

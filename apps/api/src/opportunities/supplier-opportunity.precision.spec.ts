@@ -36,14 +36,19 @@ describe("no money value reaches a column through a float", () => {
   it("declares every stored money field on SnapshotFields as a string", () => {
     const block = CODE.match(/interface SnapshotFields \{([\s\S]*?)\n\}/)![1];
 
-    for (const field of [
-      "taxRatePercent",
-      "unitPriceExclTaxAmount",
-      "unitTaxAmount",
-      "totalValueInclTaxAmount",
-    ]) {
+    for (const field of ["taxRatePercent", "unitPriceExclTaxAmount", "unitTaxAmount"]) {
       expect([field, new RegExp(`${field}:\\s*string;`).test(block)]).toEqual([field, true]);
     }
+
+    // `totalValueInclTaxAmount` IS NULLABLE, AND STILL NEVER A NUMBER.
+    //
+    // It is the collective offer's total, the figure a share tier is
+    // chosen by — and a DIRECT listing has no tier, so the column is
+    // NULL on one of the two sale modes. What this test is actually
+    // about is unchanged: the value, when there is one, crosses into
+    // the column as a decimal STRING and never as a float.
+    expect(/totalValueInclTaxAmount:\s*string \| null;/.test(block)).toBe(true);
+    expect(/totalValueInclTaxAmount:\s*number/.test(block)).toBe(false);
   });
 
   it("leaves exactly one toNumber, and it is the tier selection", () => {

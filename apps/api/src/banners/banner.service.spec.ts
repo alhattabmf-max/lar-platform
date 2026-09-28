@@ -1,7 +1,8 @@
 import { NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { BannerService } from "./banner.service";
-import { LIVE_BANNER_CONDITION } from "./banner-visibility.sql";
+import type { BannerImageService } from "./banner-image.service";
+import { LIVE_BANNER_CONDITION_B } from "./banner-visibility.sql";
 import { BusinessException } from "../common/errors/business-exception";
 import type { PrismaService } from "../database/prisma.service";
 import type { AuditService } from "../audit/audit.service";
@@ -18,6 +19,10 @@ interface Row {
   isActive: boolean;
   startsAt: Date | null;
   endsAt: Date | null;
+  // Deleting reads these; every other path ignores them.
+  sortOrder?: number;
+  imageObjectKey?: string | null;
+  imageThumbnailKey?: string | null;
 }
 
 /**
@@ -26,7 +31,25 @@ interface Row {
  * can prove the advisory lock precedes the clock read and the window
  * read, and that the audit write lands on the transaction client.
  */
-function makeService(rows: Row[] = [], maxConcurrent = 2) {
+/**
+ * Artwork the mocked banners have.
+ *
+ * BOTH LANGUAGES BY DEFAULT, because these tests are about the lock,
+ * the clock and the concurrent limit — not about the artwork rule. A
+ * fixture missing an image would make every activation test fail for a
+ * reason none of them is asking about. The tests that DO cover the rule
+ * pass their own value.
+ */
+const BOTH_LOCALES = [
+  { locale: "AR_SA" as const },
+  { locale: "EN_SA" as const },
+];
+
+function makeService(
+  rows: Row[] = [],
+  maxConcurrent = 2,
+  images: Array<{ locale: "AR_SA" | "EN_SA" }> = BOTH_LOCALES,
+) {
   const store = new Map(rows.map((r) => [r.id, { ...r }]));
   const trace: string[] = [];
   let created: Row | null = null;
@@ -105,10 +128,22 @@ function makeService(rows: Row[] = [], maxConcurrent = 2) {
     return created;
   });
 
+  const remove = jest.fn(async ({ where }: { where: { id: string } }) => {
+    trace.push("WRITE");
+    const row = store.get(where.id)!;
+    store.delete(where.id);
+    return row;
+  });
+
+  // Which languages a banner has artwork for, read inside the lock when
+  // something is being activated.
+  const findImages = jest.fn(async () => images);
+
   const txClient = {
     $queryRaw: queryRaw,
     $executeRaw: executeRaw,
-    promotionalBanner: { findMany, findUnique, update, create },
+    promotionalBanner: { findMany, findUnique, update, create, delete: remove },
+    bannerImage: { findMany: findImages },
   };
 
   const prisma = {
@@ -154,13 +189,24 @@ function makeService(rows: Row[] = [], maxConcurrent = 2) {
       .filter((sql) => sql.sql.includes("pg_advisory_xact_lock"))
       .map((sql) => String(sql.values[sql.values.length - 1]));
 
+  // Only `discardStoredImages` is ever reached from the service, and only
+  // after a delete commits. A recording stub lets a test assert WHICH
+  // keys were handed over, with no storage layer in the way.
+  const discarded: Array<{ bannerId: string; keys: readonly string[] }> = [];
+  const imageService = {
+    discardStoredImages: async (bannerId: string, keys: readonly string[]) => {
+      discarded.push({ bannerId, keys });
+    },
+  } as unknown as BannerImageService;
+
   return {
-    service: new BannerService(prisma, audit, policy),
+    service: new BannerService(prisma, audit, policy, imageService),
     trace,
     auditLog,
     store,
     queryRaw,
     lockKeys,
+    discarded,
     getCreated: () => created,
   };
 }
@@ -406,10 +452,6 @@ describe("create", () => {
     await service.create(
       {
         placement: "PUBLIC_HOME",
-        titleAr: "ع",
-        titleEn: "e",
-        bodyAr: null,
-        bodyEn: null,
         linkUrl: null,
         sortOrder: 0,
         isActive: false,
@@ -433,10 +475,6 @@ describe("create", () => {
       service.create(
         {
           placement: "PUBLIC_HOME",
-          titleAr: "ع",
-          titleEn: "e",
-          bodyAr: null,
-          bodyEn: null,
           linkUrl: null,
           sortOrder: 0,
           isActive: true,
@@ -454,10 +492,6 @@ describe("create", () => {
     await service.create(
       {
         placement: "PUBLIC_HOME",
-        titleAr: "ع",
-        titleEn: "e",
-        bodyAr: null,
-        bodyEn: null,
         linkUrl: null,
         sortOrder: 0,
         isActive: false,
@@ -583,10 +617,6 @@ describe("every display-affecting mutation is serialised on one lock", () => {
     await service.create(
       {
         placement: "PUBLIC_HOME",
-        titleAr: "ع",
-        titleEn: "e",
-        bodyAr: null,
-        bodyEn: null,
         linkUrl: null,
         sortOrder: 0,
         isActive: false,
@@ -630,22 +660,30 @@ describe("the LIVE predicate is shared, not restated", () => {
   it("listLive and findLiveImage both embed the ONE shared fragment", async () => {
     const { service, queryRaw } = makeService();
 
-    await service.listLive("PUBLIC_HOME");
-    await service.findLiveImage("11111111-1111-1111-1111-111111111111");
+    await service.listLive("PUBLIC_HOME", "ar-SA");
+    await service.findLiveImage(
+      "11111111-1111-1111-1111-111111111111",
+      "ar-SA",
+    );
 
     const withPredicate = queryRaw.mock.calls
       .map((c) => sqlTextOf(c[0]))
-      .filter((text) => text.includes(LIVE_BANNER_CONDITION.sql));
+      .filter((text) => text.includes(LIVE_BANNER_CONDITION_B.sql));
 
     // Both public paths, and the assertion is against the shared
     // constant itself — a divergent copy could not satisfy it.
+    //
+    // The QUALIFIED form, because both statements now join the artwork
+    // table and `is_active` alone would be ambiguous to read. It lives
+    // beside its unqualified twin in one file, so a change to one that
+    // misses the other shows up in a two-line diff.
     expect(withPredicate).toHaveLength(2);
   });
 
   it("binds values as parameters rather than interpolating them into SQL", async () => {
     const { service, queryRaw } = makeService();
 
-    await service.listLive("PUBLIC_HOME");
+    await service.listLive("PUBLIC_HOME", "ar-SA");
 
     const call = queryRaw.mock.calls[0][0] as Prisma.Sql;
     expect(call.values).toContain("PUBLIC_HOME");
@@ -656,12 +694,28 @@ describe("the LIVE predicate is shared, not restated", () => {
   it("never selects a raw object key into the public list", async () => {
     const { service, queryRaw } = makeService();
 
-    await service.listLive("PUBLIC_HOME");
+    await service.listLive("PUBLIC_HOME", "ar-SA");
 
     const sql = sqlTextOf(queryRaw.mock.calls[0][0]);
-    // The key is reduced to a boolean before it leaves the database.
-    expect(sql).toContain("image_object_key IS NOT NULL AS has_image");
-    expect(sql).not.toContain("image_thumbnail_key");
-    expect(sql.match(/image_object_key/g)).toHaveLength(1);
+    // No storage key reaches the public list in ANY form. It used to
+    // select one column and reduce it to a boolean; now it selects none
+    // at all, because whether artwork exists is answered by the join
+    // rather than by a flag.
+    expect(sql).not.toContain("object_key");
+    expect(sql).not.toContain("thumbnail_key");
+  });
+
+  it("returns a banner only when THIS language has artwork", async () => {
+    const { service, queryRaw } = makeService();
+
+    await service.listLive("PUBLIC_HOME", "ar-SA");
+
+    const call = queryRaw.mock.calls[0][0] as Prisma.Sql;
+    // An INNER join, not a LEFT one: a banner without artwork for the
+    // requested language is absent rather than present-and-empty, and
+    // there is no fallback to the other language anywhere.
+    expect(call.sql).toContain("JOIN banner_images");
+    expect(call.sql).not.toContain("LEFT JOIN");
+    expect(call.values).toContain("ar-SA");
   });
 });

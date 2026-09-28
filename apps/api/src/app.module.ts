@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
+import { ScheduleModule } from "@nestjs/schedule";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard } from "@nestjs/throttler";
+import { SessionThrottlerGuard } from "./common/security/session-throttler.guard";
 import { AppConfigModule } from "./config/app-config.module";
 import { LoggerModule } from "./common/logger/logger.module";
 import { PrismaModule } from "./database/prisma.module";
@@ -43,19 +44,26 @@ import { AdminTaxonomyModule } from "./admin/taxonomy/admin-taxonomy.module";
 import { AdminSalesUnitsModule } from "./admin/sales-units/admin-sales-units.module";
 import { AdminProductsModule } from "./admin/products/admin-products.module";
 import { FinancialModule } from "./financial/financial.module";
-import { AdminFinancialModule } from "./admin/financial/admin-financial.module";
 import { GeographyModule } from "./geography/geography.module";
 import { AdminGeographyModule } from "./admin/geography/admin-geography.module";
 import { TaxModule } from "./tax/tax.module";
 import { OpportunitiesModule } from "./opportunities/opportunities.module";
+import { ListingsModule } from "./listings/listings.module";
 import { AdminOpportunitiesModule } from "./admin/opportunities/admin-opportunities.module";
 import { BrandingModule } from "./branding/branding.module";
 import { BannerModule } from "./banners/banner.module";
 import { AdminBannerModule } from "./admin/banners/admin-banner.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { SupplierDashboardModule } from "./dashboard/supplier-dashboard.module";
 
 @Module({
   imports: [
+    // THE CLOCK. Before this the platform had no scheduler of any kind:
+    // nothing ended an offer when its window closed, and 145 outbox
+    // events sat with no consumer. "Automatic" had no mechanism behind
+    // it. Registered once here; the jobs themselves live beside the
+    // domain they belong to.
+    ScheduleModule.forRoot(),
     AppConfigModule,
     LoggerModule,
     PrismaModule,
@@ -97,16 +105,17 @@ import { NotificationsModule } from "./notifications/notifications.module";
     AdminSalesUnitsModule,
     AdminProductsModule,
     FinancialModule,
-    AdminFinancialModule,
     GeographyModule,
     AdminGeographyModule,
     TaxModule,
     OpportunitiesModule,
+    ListingsModule,
     AdminOpportunitiesModule,
     BrandingModule,
     BannerModule,
     AdminBannerModule,
     NotificationsModule,
+    SupplierDashboardModule,
   ],
   providers: [
     {
@@ -114,8 +123,12 @@ import { NotificationsModule } from "./notifications/notifications.module";
       useClass: ErrorEnvelopeFilter,
     },
     {
+      // BUCKETED BY THE VISITOR, NOT BY THE ADDRESS. Server-side
+      // rendering means nearly every read arrives from the web
+      // server itself, so an IP bucket was one budget shared by
+      // everyone signed in. See the guard for the whole argument.
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: SessionThrottlerGuard,
     },
   ],
 })

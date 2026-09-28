@@ -4,6 +4,7 @@ import type { Env } from "@platform/config";
 function fakeEnv(bankKey: string, adminKey: string): Env {
   return {
     ADMIN_TOTP_ENCRYPTION_KEY: adminKey,
+    ADMIN_TOTP_ISSUER: "Azier Plus Admin",
     BANK_DATA_ENCRYPTION_KEY: bankKey,
   } as Env;
 }

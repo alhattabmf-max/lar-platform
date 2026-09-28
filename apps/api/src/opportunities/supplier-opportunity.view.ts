@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { SaleMode } from "@platform/types";
 import type {
   SupplierOpportunityDetail,
   SupplierOpportunityReasonCode,
@@ -77,9 +78,23 @@ export function ownedOpportunityWhere(companyId: string): Prisma.OpportunityWher
 export const SUPPLIER_OPPORTUNITY_SUMMARY_SELECT = {
   id: true,
   productId: true,
-  product: { select: { nameAr: true, nameEn: true } },
+  product: {
+    select: {
+      nameAr: true,
+      nameEn: true,
+      // THE MAIN PICTURE, or the first one if none is marked. A
+      // supplier recognises a product by its photograph before its
+      // name, which is why the list carries one at all.
+      media: {
+        select: { id: true },
+        orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+        take: 1,
+      },
+    },
+  },
   salesUnitNameAr: true,
   salesUnitNameEn: true,
+  saleMode: true,
   status: true,
   reasonCode: true,
   targetQuantity: true,
@@ -89,6 +104,7 @@ export const SUPPLIER_OPPORTUNITY_SUMMARY_SELECT = {
   startAt: true,
   endAt: true,
   extendedAt: true,
+  decisionWindowClosesAt: true,
   createdAt: true,
 } satisfies Prisma.OpportunitySelect;
 
@@ -130,6 +146,23 @@ export type SupplierOpportunityDetailRow = Prisma.OpportunityGetPayload<{
   select: typeof SUPPLIER_OPPORTUNITY_DETAIL_SELECT;
 }>;
 
+/**
+ * The route the SUPPLIER can reach for their own product's picture.
+ *
+ * Not the public one. `/opportunities/:id/image` serves ACTIVE offers
+ * only, so a draft or an expired one would answer 404 to the person
+ * who owns it. This is the media route already scoped to the company,
+ * and it is built here rather than in the browser so a client cannot
+ * assemble a path to somebody else's product.
+ */
+function supplierProductImageUrl(
+  productId: string,
+  mediaId: string | undefined
+): string | null {
+  if (!mediaId) return null;
+  return `/api/v1/companies/me/products/${productId}/media/${mediaId}/image`;
+}
+
 export function toSupplierOpportunitySummary(
   row: SupplierOpportunitySummaryRow
 ): SupplierOpportunitySummary {
@@ -138,8 +171,14 @@ export function toSupplierOpportunitySummary(
     productId: row.productId,
     productNameAr: row.product.nameAr,
     productNameEn: row.product.nameEn,
+    imageUrl: supplierProductImageUrl(row.productId, row.product.media[0]?.id),
     salesUnitNameAr: row.salesUnitNameAr,
     salesUnitNameEn: row.salesUnitNameEn,
+    // WHICH OF THE TWO LISTS THIS ROW BELONGS TO. The portal shows
+    // direct sales and group offers in one place and needs to know
+    // which is which before it can decide what to say about progress,
+    // a window, or stock.
+    saleMode: row.saleMode as SaleMode,
     status: row.status as SupplierOpportunityStatus,
     // The CODE only. The paired `reasonDetails` is operator-facing English
     // and is not selected.
@@ -149,8 +188,11 @@ export function toSupplierOpportunitySummary(
     unitPriceAmount: money(row.unitPriceAmount),
     currency: row.currency,
     startAt: iso(row.startAt),
-    endAt: iso(row.endAt),
+    // NULL FOR A DIRECT LISTING — it has no window, and a date here
+    // would be a deadline nobody set.
+    endAt: isoOrNull(row.endAt),
     extendedAt: isoOrNull(row.extendedAt),
+    decisionWindowClosesAt: isoOrNull(row.decisionWindowClosesAt),
     createdAt: iso(row.createdAt),
   };
 }

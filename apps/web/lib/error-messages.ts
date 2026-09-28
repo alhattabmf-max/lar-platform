@@ -1,4 +1,9 @@
-import { ERROR_CODES, type ErrorCode } from "@platform/types";
+import type { NameableInvalidField } from "@platform/types";
+import {
+  ERROR_CODES,
+  type ErrorCode,
+  type SupplierOpportunityReasonCode,
+} from "@platform/types";
 import { isApiError, type ApiError } from "./errors";
 
 /**
@@ -27,6 +32,30 @@ export interface UserFacingError {
   requestId: string | null;
   /** Drives affordances such as offering sign-in links. */
   kind: ApiError["kind"] | "unknown";
+  /**
+   * The rule that refused a publication, when the platform named one.
+   *
+   * Carried through so a caller can show the sentence that says what to
+   * DO about it — `supplier.opportunities.reasonFix.*` — instead of
+   * "VALIDATION_FAILED", which names nothing a supplier can act on.
+   * Null everywhere else, which is every other failure in the app.
+   */
+  blockedReason: SupplierOpportunityReasonCode | null;
+
+  /**
+   * WHICH FIELDS THE SERVER REFUSED, as names this build already knows.
+   *
+   * THE COMPLAINT THIS ANSWERS: a refused save showed «البيانات المُدخلة
+   * غير صحيحة» and a reference number, and left the person who typed
+   * the form to find which of a dozen fields was wrong. The server DID
+   * say; the portal threw it away.
+   *
+   * RULE 2 IS NOT WAIVED. Nothing the server wrote is rendered — only
+   * a MATCH against a closed list survives, and what the screen shows
+   * is this application's own translated label for that field. An
+   * unrecognised name yields nothing and the generic message stands.
+   */
+  invalidFields: readonly NameableInvalidField[];
 }
 
 const KNOWN_CODES: ReadonlySet<string> = new Set(Object.values(ERROR_CODES));
@@ -47,11 +76,23 @@ export function toUserFacingError(error: unknown): UserFacingError {
     // A non-API throw — a bug, a network stack error, anything. Its
     // message may contain a file path or a stack fragment, so it is
     // discarded entirely.
-    return { messageKey: "errors.unknown", requestId: null, kind: "unknown" };
+    return {
+      messageKey: "errors.unknown",
+      requestId: null,
+      kind: "unknown",
+      blockedReason: null,
+      invalidFields: [],
+    };
   }
 
   if (error.kind === "network") {
-    return { messageKey: "errors.network", requestId: null, kind: "network" };
+    return {
+      messageKey: "errors.network",
+      requestId: null,
+      kind: "network",
+      blockedReason: null,
+      invalidFields: [],
+    };
   }
 
   if (isKnownCode(error.code)) {
@@ -59,12 +100,20 @@ export function toUserFacingError(error: unknown): UserFacingError {
       messageKey: `errors.codes.${error.code}`,
       requestId: error.requestId,
       kind: error.kind,
+      blockedReason: error.blockedReason,
+      invalidFields: error.invalidFields,
     };
   }
 
   // A code the server knows and this build does not — after a deploy
   // skew, say. The requestId is still useful for support.
-  return { messageKey: "errors.unknown", requestId: error.requestId, kind: error.kind };
+  return {
+    messageKey: "errors.unknown",
+    requestId: error.requestId,
+    kind: error.kind,
+    blockedReason: error.blockedReason,
+    invalidFields: error.invalidFields,
+  };
 }
 
 /**

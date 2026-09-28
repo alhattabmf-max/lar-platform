@@ -59,7 +59,12 @@ export class MasterOrderBuyerBillingOverrideService {
       });
 
       await this.audit.log({
-        actorType: AuditActorType.USER,
+        // ADMIN, not USER. There is no company-facing route to this
+        // service anywhere in the API — its only caller is
+        // `AdminBuyerBillingOverrideController`. Recording it as a USER
+        // action hides it from anyone filtering the audit log for what
+        // an administrator did.
+        actorType: AuditActorType.ADMIN,
         actorId: ctx.userId,
         action: "MASTER_ORDER_BUYER_BILLING_OVERRIDE_CREATED",
         entityType: "master_order_buyer_billing_override",

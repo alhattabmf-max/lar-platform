@@ -105,7 +105,11 @@ async function runSimpleExpiryBatches(prisma: PrismaClient, fromStatus: "ACTIVE"
       const expired = await tx.$queryRaw<{ id: string; company_id: string }[]>`
         WITH batch AS (
           SELECT id FROM opportunities
-          WHERE status = ${fromStatus}::"OpportunityStatus" AND end_at <= now() AND funded_quantity < target_quantity
+          -- A SHELF DOES NOT EXPIRE: a DIRECT listing holds no end_at at
+          -- all, so naming the mode states the rule rather than leaving
+          -- a NULL comparison to imply it.
+          WHERE status = ${fromStatus}::"OpportunityStatus" AND sale_mode = 'GROUP'
+            AND end_at <= now() AND funded_quantity < target_quantity
           ORDER BY end_at
           LIMIT ${BATCH_SIZE}
           FOR UPDATE SKIP LOCKED
@@ -153,6 +157,22 @@ async function runSimpleExpiryBatches(prisma: PrismaClient, fromStatus: "ACTIVE"
  * a "safety net" because the primary path to FUNDED is expected to be
  * the payment-success write itself detecting it has just reached the
  * cap; this sweep exists to catch any row that slipped through.
+ *
+ * A GROUP OFFER ONLY, AND THIS IS NOT A DETAIL.
+ *
+ * «إذا أصبح المتاح صفرًا تبقى النشرة ACTIVE وتظهر نفد المخزون، وعند
+ *  إضافة مخزون تعود قابلة للشراء.» A direct listing whose last unit
+ * sold satisfies `funded_quantity >= target_quantity` exactly as a
+ * filled group offer does — and it means something entirely different:
+ * the shelf is empty, not the sale finished. Swept to FUNDED it would
+ * enter a status that is TERMINAL in `OPPORTUNITY_TRANSITIONS`, and
+ * restocking it would be impossible.
+ *
+ * WITHOUT THE MODE FILTER THIS SWEEP THROWS, every minute, on every
+ * sold-out direct listing: `opportunities_sale_mode_status` refuses
+ * FUNDED on such a row, the batch's transaction rolls back, and the
+ * expiry work in the same run is lost with it. The constraint caught
+ * it; the filter is what stops it being caught.
  */
 async function runFundedSafetyNetBatches(prisma: PrismaClient): Promise<number> {
   let total = 0;
@@ -161,7 +181,8 @@ async function runFundedSafetyNetBatches(prisma: PrismaClient): Promise<number> 
       const funded = await tx.$queryRaw<{ id: string; company_id: string }[]>`
         WITH batch AS (
           SELECT id FROM opportunities
-          WHERE status = 'ACTIVE' AND funded_quantity >= target_quantity
+          WHERE status = 'ACTIVE' AND sale_mode = 'GROUP'
+            AND funded_quantity >= target_quantity
           LIMIT ${BATCH_SIZE}
           FOR UPDATE SKIP LOCKED
         )

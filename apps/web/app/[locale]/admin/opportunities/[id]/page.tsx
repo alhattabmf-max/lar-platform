@@ -1,22 +1,32 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminOpportunity } from "@/lib/admin-data";
 import { formatDate, formatDateTime, localized } from "@/lib/localized";
-import { formatMoney, formatQuantity } from "@/lib/money";
+import { formatQuantity } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
 import { AdminAction } from "@/components/admin/admin-action";
+import { AdminOpportunityEditForm } from "@/components/admin/admin-opportunity-edit-form";
 
 /**
- * One opportunity, and the three things an operator may do to it.
+ * One opportunity, and what an operator may do to it.
  *
- * MONITOR PLUS THREE TRANSITIONS, and nothing else. There is no create
- * and no edit in the admin service at all, so price, quantity and every
- * share field are unreachable from this portal by construction.
+ * FOUR TRANSITIONS, AN EDIT AND A DELETE — «حذف وتعديل العرض من صفحة
+ * الإدارة، دام المشتري ما بعد دفع».
+ *
+ * THE LAST TWO ARE NEW, and the page had said in this very comment
+ * that they did not exist. What stood here answered «أوقفه» four ways
+ * and «صحّحه» none: an operator who found a price with a zero too many
+ * had to ask the supplier to cancel and republish, which loses an
+ * offer's history to fix a typo. Neither is a way around the buyer —
+ * both refuse the moment one has paid, from the same function the
+ * supplier's own routes ask.
  *
  * Each action is drawn only from the status the service will accept it
  * from, transcribed from its own guards:
@@ -27,7 +37,21 @@ import { AdminAction } from "@/components/admin/admin-action";
  *             whose window has closed cannot be resumed; the button is
  *             hidden and the reason is stated.
  *   cancel  — DRAFT, SCHEDULED, ACTIVE or PAUSED, filtered through the
- *             domain's own transition table.
+ *             domain's own transition table, AND ONLY WHILE NOBODY HAS
+ *             PAID. A plain cancel leaves money where it is, so the
+ *             service refuses it outright once an order stands on the
+ *             offer, and names the other route in the refusal.
+ *   cancel-and-refund
+ *           — the same states, and the button drawn in cancel's place
+ *             once buyers are on it. «الإدارة توقف العرض ويكون عندها زر
+ *             استرداد الأموال، عند الضغط يكون مثل أن فرصة انتهت ولم
+ *             تكتمل — بس يدوي، قبل أن تنتهي مدة العرض.»
+ *
+ * THE TWO ARE NEVER BOTH DRAWN. Moving buyers' money is not a variation
+ * of stopping an offer, and an operator should not be choosing between
+ * two buttons whose difference is whether the money moves — the offer's
+ * own state decides which one is the honest act, and only that one
+ * appears.
  *
  * ACTION_REQUIRED has no admin action at all: the transition table only
  * allows ACTION_REQUIRED → SCHEDULED/ACTIVE, and that path belongs
@@ -35,6 +59,23 @@ import { AdminAction } from "@/components/admin/admin-action";
  * blocked opportunity on their behalf, and the page says so instead of
  * leaving an operator hunting for a button that was never built.
  */
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.opportunities",
+  });
+  return { title: t("detailTitle") };
+}
+
 export default async function AdminOpportunityDetailPage({
   params,
 }: {
@@ -68,8 +109,34 @@ export default async function AdminOpportunityDetailPage({
 
   const canPause = opportunity.status === "ACTIVE";
   const canResume = opportunity.status === "PAUSED" && windowOpen;
-  const canCancel = ["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED"].includes(opportunity.status);
+  const cancellable = ["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED"].includes(opportunity.status);
+  // «العرض منشور وليس عليه أي عمليات شراء — يقدر يلغيه… وإذا كان عليه
+  //  عملية شراء يطلب المورد من الإدارة» — and no share is held without
+  //  payment, so a funded quantity above zero IS money in the platform.
+  const hasBuyers = opportunity.fundedQuantity > 0;
+  const canCancel = cancellable && !hasBuyers;
+  const canCancelAndRefund = cancellable && hasBuyers;
 
+  // EDIT AND DELETE ANSWER TO THE BUYER, NOT TO THE STATUS — «دام
+  // المشتري ما بعد دفع». FUNDED, EXPIRED and CANCELLED are excluded
+  // for a different reason: they are finished states, and correcting
+  // one would be correcting the past.
+  //
+  // THE REFUSAL IS STILL THE SERVER'S TO GIVE. `fundedQuantity` is one
+  // of three witnesses the service reads — a live basket and a paid
+  // one are the others, and neither is on this page — so the server
+  // may refuse what this drew, and says which of the two it was.
+  const live = ["DRAFT", "SCHEDULED", "ACTION_REQUIRED", "ACTIVE", "PAUSED"].includes(
+    opportunity.status
+  );
+  const canEdit = live && !hasBuyers;
+  const canDelete = live && !hasBuyers;
+
+  const region = localized(
+    appLocale,
+    opportunity.fulfillmentRegionNameAr,
+    opportunity.fulfillmentRegionNameEn
+  );
   const city = localized(
     appLocale,
     opportunity.fulfillmentCityNameAr,
@@ -114,7 +181,12 @@ export default async function AdminOpportunityDetailPage({
             <div className="flex flex-wrap gap-2">
               <dt className="text-content-muted">{t("unitPrice")}</dt>
               <dd className="text-content">
-                {formatMoney(opportunity.unitPriceAmount, opportunity.currency, appLocale) ?? "—"}
+                <Money
+                  amount={opportunity.unitPriceAmount}
+                  currency={opportunity.currency}
+                  locale={appLocale}
+                  fallback={<span className="text-content-muted">—</span>}
+                />
               </dd>
             </div>
             {/* Every money figure comes from the server as a fixed-scale
@@ -124,11 +196,12 @@ export default async function AdminOpportunityDetailPage({
               <div className="flex flex-wrap gap-2">
                 <dt className="text-content-muted">{t("unitPriceExclTax")}</dt>
                 <dd className="text-content">
-                  {formatMoney(
-                    opportunity.unitPriceExclTaxAmount,
-                    opportunity.currency,
-                    appLocale
-                  ) ?? "—"}
+                  <Money
+                    amount={opportunity.unitPriceExclTaxAmount}
+                    currency={opportunity.currency}
+                    locale={appLocale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
                 </dd>
               </div>
             ) : null}
@@ -136,7 +209,12 @@ export default async function AdminOpportunityDetailPage({
               <div className="flex flex-wrap gap-2">
                 <dt className="text-content-muted">{t("unitTax")}</dt>
                 <dd className="text-content">
-                  {formatMoney(opportunity.unitTaxAmount, opportunity.currency, appLocale) ?? "—"}
+                  <Money
+                    amount={opportunity.unitTaxAmount}
+                    currency={opportunity.currency}
+                    locale={appLocale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
                 </dd>
               </div>
             ) : null}
@@ -144,11 +222,12 @@ export default async function AdminOpportunityDetailPage({
               <div className="flex flex-wrap gap-2">
                 <dt className="text-content-muted">{t("totalValue")}</dt>
                 <dd className="text-content">
-                  {formatMoney(
-                    opportunity.totalValueInclTaxAmount,
-                    opportunity.currency,
-                    appLocale
-                  ) ?? "—"}
+                  <Money
+                    amount={opportunity.totalValueInclTaxAmount}
+                    currency={opportunity.currency}
+                    locale={appLocale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
                 </dd>
               </div>
             ) : null}
@@ -165,6 +244,18 @@ export default async function AdminOpportunityDetailPage({
               <div className="flex flex-wrap gap-2">
                 <dt className="text-content-muted">{t("salesUnit")}</dt>
                 <dd className="text-content">{salesUnit}</dd>
+              </div>
+            ) : null}
+            {/*
+              THE REGION FIRST — a listing ships from a branch and a
+              branch is recorded against one. This row showed the city
+              alone, so a listing from a branch that names no city said
+              nothing at all about where it ships from.
+            */}
+            {region ? (
+              <div className="flex flex-wrap gap-2">
+                <dt className="text-content-muted">{t("fulfillmentRegion")}</dt>
+                <dd className="text-content">{region}</dd>
               </div>
             ) : null}
             {city ? (
@@ -238,13 +329,47 @@ export default async function AdminOpportunityDetailPage({
         </Card>
       ) : null}
 
+      {/* CORRECTING IT COMES BEFORE STOPPING IT. An operator reading
+          down the page meets the smaller act first: the four buttons
+          below all end something. */}
+      {canEdit ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("editTitle")}</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <AdminOpportunityEditForm
+              opportunity={{
+                id: opportunity.id,
+                status: opportunity.status,
+                unitPriceAmount: opportunity.unitPriceAmount,
+                targetQuantity: opportunity.targetQuantity,
+                startAt: opportunity.startAt,
+                endAt: opportunity.endAt,
+                expectedPreparationDays: opportunity.expectedPreparationDays,
+                descriptionAr: opportunity.descriptionAr,
+                descriptionEn: opportunity.descriptionEn,
+              }}
+              labels={{
+                save: actions("save"),
+                working: actions("working"),
+                saved: t("editSaved"),
+                noChange: t("editNoChange"),
+                errorTitle: states("errorTitle"),
+                requestIdLabel: states("requestIdLabel"),
+              }}
+            />
+          </CardBody>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>{t("actionsTitle")}</CardTitle>
         </CardHeader>
         <CardBody>
           <div className="flex flex-col gap-3">
-            {canPause || canResume || canCancel ? (
+            {canPause || canResume || canCancel || canCancelAndRefund || canDelete ? (
               <div className="flex flex-wrap gap-2">
                 {canPause ? (
                   <AdminAction
@@ -301,13 +426,71 @@ export default async function AdminOpportunityDetailPage({
                     }}
                   />
                 ) : null}
+
+                {/* THE OWNER'S BUTTON. It ends the offer and gives every
+                    payment back through the same util the clock uses
+                    when a window closes short, so a buyer's refund does
+                    not depend on which door the offer left by. */}
+                {canCancelAndRefund ? (
+                  <AdminAction
+                    path={`/admin/opportunities/${opportunity.id}/cancel-and-refund`}
+                    variant="danger"
+                    reason={{
+                      field: "reason",
+                      label: t("cancelAndRefundReasonField"),
+                      minLength: 5,
+                      maxLength: 2000,
+                      hint: t("cancelAndRefundReasonHint"),
+                    }}
+                    labels={{
+                      ...actionLabels,
+                      action: t("cancelAndRefund"),
+                      prompt: t("cancelAndRefundPrompt"),
+                    }}
+                  />
+                ) : null}
+
+                {/* NOT A CANCEL, AND NOT NAMED LIKE ONE. Cancelling an
+                    offer nobody ever bought from leaves a permanent
+                    CANCELLED line claiming something was withdrawn from
+                    sale — a statement about a thing that was never sold.
+                    This is for the duplicate, the test row and the price
+                    typed with a zero too many.
+
+                    NO REASON ASKED, as with the product delete beside it
+                    — «بدون أن يطلب مني سبب لذلك» — and the confirmation
+                    stays, because a permanent delete must never be one
+                    mis-aimed click away. */}
+                {canDelete ? (
+                  <AdminAction
+                    path={`/admin/opportunities/${opportunity.id}`}
+                    method="DELETE"
+                    variant="danger"
+                    labels={{
+                      ...actionLabels,
+                      action: t("deleteForever"),
+                      prompt: t("deletePrompt"),
+                    }}
+                  />
+                ) : null}
               </div>
+            ) : null}
+
+            {/* WHY THE PLAIN CANCEL IS NOT THERE. Without this an
+                operator who came to cancel finds a differently-worded
+                button and has to guess whether it is the same act. */}
+            {canCancelAndRefund ? (
+              <p className="text-sm text-content-muted">{t("cancelNeedsRefundNotice")}</p>
             ) : null}
 
             {/* A page is never a dead end. When nothing can be done the
                 reason is named — and for ACTION_REQUIRED it names who
                 CAN act, which is the supplier. */}
-            {!canPause && !canResume && !canCancel ? (
+            {!canPause &&
+            !canResume &&
+            !canCancel &&
+            !canCancelAndRefund &&
+            !canDelete ? (
               <p className="text-sm text-content-muted">
                 {opportunity.status === "ACTION_REQUIRED"
                   ? t("actionRequiredNotice")
@@ -324,7 +507,7 @@ export default async function AdminOpportunityDetailPage({
 
       <Link
         href={`/${appLocale}/admin/opportunities`}
-        className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+        className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
       >
         {t("backToList")}
       </Link>

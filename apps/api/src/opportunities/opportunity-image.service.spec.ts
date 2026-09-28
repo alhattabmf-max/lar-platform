@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import {
   OpportunityImageService,
   contentTypeFromObjectKey,
@@ -191,5 +193,46 @@ describe("findPublicTarget", () => {
     for (const commercial of ["unitPriceAmount", "targetQuantity", "fundedQuantity", "shareQuantity"]) {
       expect(select).not.toHaveProperty(commercial);
     }
+  });
+});
+
+/**
+ * THE GALLERY'S OWN QUERY.
+ *
+ * The detail page lists every photograph in the frozen snapshot and
+ * addresses each by index on THIS route — not on a second endpoint, so
+ * the n-th url and the n-th image cannot disagree.
+ *
+ * THE DTO IS WHY THIS EXISTS. The application runs `ValidationPipe`
+ * with `whitelist` and `forbidNonWhitelisted`, so a query parameter no
+ * DTO names is a 400 before the handler runs. The first attempt read
+ * `index` off a cast inside the controller: every indexed request
+ * answered 400, the page rendered empty boxes, and nothing in the code
+ * said why. The pipe was right; the cast was the bug.
+ */
+describe("the indexed gallery", () => {
+  it("names `index` on the route's own DTO, so the pipe lets it through", () => {
+    const dto = readFileSync(
+      join(__dirname, "dto/opportunity-image-query.dto.ts"),
+      "utf8",
+    );
+
+    // DECLARED, not read around: a cast in the controller cannot get a
+    // parameter past `forbidNonWhitelisted`.
+    expect(dto).toContain("index?: number");
+    expect(dto).toContain("extends ImageVariantQueryDto");
+    // A BAD INDEX IS A 400, the same rule `variant` follows — never a
+    // quiet fall back to a different photograph.
+    expect(dto).toContain("@IsInt(");
+    expect(dto).toContain("@Min(0");
+
+    const controller = readFileSync(
+      join(__dirname, "opportunity-image.controller.ts"),
+      "utf8",
+    );
+    expect(controller).toContain("OpportunityImageQueryDto");
+    expect(controller).toContain("query.index");
+    // The cast that caused it must not come back.
+    expect(controller).not.toMatch(/as \{ index\?/);
   });
 });

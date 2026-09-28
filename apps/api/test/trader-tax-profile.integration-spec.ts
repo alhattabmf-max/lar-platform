@@ -8,6 +8,26 @@ import { CheckoutSettingsService } from "../src/settings/checkout-settings.servi
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.fixture";
 import { buildPaymentAttemptService } from "./fixtures/payment.fixture";
+import { uniqueVatNumber } from "./fixtures/unique";
+
+// ONE NUMBER PER RUN, shared by every write and every assertion in
+// this file. `*_tax_profiles.vat_number` is UNIQUE, so a literal
+// here collided with the same literal in a sibling spec — and with
+// the rows every previous run left behind.
+const TRADER_VAT = uniqueVatNumber();
+
+/**
+ * ASCII digits to Arabic-Indic ones (٠-٩).
+ *
+ * The normalisation test needs the SAME number in both scripts:
+ * what it writes and what it expects back must be one value, or
+ * the test proves nothing about normalisation.
+ */
+function toArabicIndic(digits: string): string {
+  return digits.replace(/[0-9]/g, (d) => String.fromCharCode(0x0660 + Number(d)));
+}
+
+
 
 const prisma = checkoutFixturePrisma;
 
@@ -52,12 +72,21 @@ describe("TraderTaxProfileService (integration, real DB)", () => {
   it("Arabic-Indic and Extended Arabic-Indic digits are normalized and stored in a uniform ASCII format", async () => {
     const fixture = await seedCheckoutFixture({ traderCrPrefix: "TAXARABICDIGITS" });
     const service = buildService();
-    const arabicVat = "٣١٠ ١٧٥٣٩٧٥٠٠٠٠٣";
+    // THE SAME NUMBER, WRITTEN IN ARABIC-INDIC DIGITS — derived from
+    // `TRADER_VAT` rather than typed out, so the value written here and
+    // the value asserted below can never drift apart. It was a literal
+    // whose ASCII form was the old shared constant; once that constant
+    // became per-run, the literal was writing one number while the
+    // assertion expected another.
+    //
+    // The space is kept: separators are part of what normalisation has
+    // to strip, and removing it would quietly narrow the test.
+    const arabicVat = `${toArabicIndic(TRADER_VAT.slice(0, 3))} ${toArabicIndic(TRADER_VAT.slice(3))}`;
     const profile = await service.upsert(
       { isVatRegistered: true, vatNumber: arabicVat, billingLegalName: "Arabic Digit Test LLC" },
       { userId: crypto.randomUUID(), companyId: fixture.traderCompanyId, requestId: "r1" }
     );
-    expect(profile.vatNumber).toBe("310175397500003");
+    expect(profile.vatNumber).toBe(TRADER_VAT);
   }, 15_000);
 
   it("isVatRegistered=false WITH a vatNumber is rejected", async () => {
@@ -65,7 +94,7 @@ describe("TraderTaxProfileService (integration, real DB)", () => {
     const service = buildService();
     await expect(
       service.upsert(
-        { isVatRegistered: false, vatNumber: "310175397500003", billingLegalName: "Valid Name LLC" },
+        { isVatRegistered: false, vatNumber: TRADER_VAT, billingLegalName: "Valid Name LLC" },
         { userId: crypto.randomUUID(), companyId: fixture.traderCompanyId, requestId: "r1" }
       )
     ).rejects.toThrow();
@@ -107,7 +136,7 @@ describe("TraderTaxProfileService (integration, real DB)", () => {
   it("Audit and Outbox never contain vatNumber or the raw billingLegalName", async () => {
     const fixture = await seedCheckoutFixture({ traderCrPrefix: "TAXAUDITSAFE" });
     const service = buildService();
-    const secretVat = "999888777000111";
+    const secretVat = uniqueVatNumber();
     const secretName = "Extremely Secret Legal Name Co";
 
     await service.upsert(

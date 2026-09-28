@@ -41,7 +41,15 @@ import type { CheckoutAllocationIntent } from "./checkout-create";
 export interface SelectableLocation {
   id: string;
   name: string;
-  /** Already localised. Null when the reference data could not be read. */
+  /**
+   * WHERE THE BRANCH IS, already localised. Null only when the
+   * reference data could not be read — a branch always has a region.
+   */
+  regionName: string | null;
+  /**
+   * The optional refinement, already localised. Null when the branch
+   * names no city, which is an ordinary state.
+   */
   cityName: string | null;
   shortAddress: string;
 }
@@ -198,11 +206,6 @@ export function validatePurchase(input: PurchaseInput): PurchaseIssue[] {
   }
 
   return issues;
-}
-
-/** True when the draft may be submitted. */
-export function isSubmittable(input: PurchaseInput): boolean {
-  return validatePurchase(input).length === 0;
 }
 
 /**

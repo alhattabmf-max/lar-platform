@@ -654,8 +654,16 @@ describe("the status vocabularies match the database", () => {
     }
   });
 
-  it("carries every real allocation status", () => {
+  it("carries every real allocation status, in the order a share travels", () => {
+    // AWAITING_FUNDING IS FIRST, AND IT IS NEW — «إذا اكتمل الهدف يتم
+    // إرسال الطلبات للمورد». A share is paid for and then WAITS for the
+    // offer to reach its target; only then does the supplier owe work.
+    //
+    // `AWAITING_PREPARATION` used to mean both things at once — "paid,
+    // waiting for the others" and "the target is in, the clock runs" —
+    // and every screen had to guess which. Two meanings, two names.
     expect([...ORDER_ALLOCATION_STATUSES]).toEqual([
+      "AWAITING_FUNDING",
       "AWAITING_PREPARATION",
       "PREPARING",
       "READY_TO_SHIP",

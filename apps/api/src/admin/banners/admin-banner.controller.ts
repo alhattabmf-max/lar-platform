@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import type { Request } from "express";
 import { BannerService } from "../../banners/banner.service";
 import { BannerLinkService } from "../../banners/banner-link.service";
@@ -36,7 +47,7 @@ import { getRequestId } from "../../common/logger/request-id.util";
 export class AdminBannerController {
   constructor(
     private readonly banners: BannerService,
-    private readonly links: BannerLinkService
+    private readonly links: BannerLinkService,
   ) {}
 
   @Get()
@@ -48,22 +59,18 @@ export class AdminBannerController {
   async create(
     @Body() dto: CreateBannerDto,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
     return this.banners.create(
       {
         placement: dto.placement,
-        titleAr: dto.titleAr,
-        titleEn: dto.titleEn,
-        bodyAr: dto.bodyAr ?? null,
-        bodyEn: dto.bodyEn ?? null,
         linkUrl: await this.links.normalise(dto.linkUrl ?? null),
         sortOrder: dto.sortOrder ?? 0,
         isActive: dto.isActive ?? false,
         startsAt: toDate(dto.startsAt),
         endsAt: toDate(dto.endsAt),
       },
-      ctxFrom(session, req)
+      ctxFrom(session, req),
     );
   }
 
@@ -72,7 +79,7 @@ export class AdminBannerController {
     @Param("id") id: string,
     @Body() dto: UpdateBannerDto,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
     return this.banners.updateContent(
       id,
@@ -86,7 +93,7 @@ export class AdminBannerController {
           : {}),
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
       },
-      ctxFrom(session, req)
+      ctxFrom(session, req),
     );
   }
 
@@ -95,12 +102,12 @@ export class AdminBannerController {
     @Param("id") id: string,
     @Body() dto: SetBannerScheduleDto,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
     return this.banners.setSchedule(
       id,
       { startsAt: toDate(dto.startsAt), endsAt: toDate(dto.endsAt) },
-      ctxFrom(session, req)
+      ctxFrom(session, req),
     );
   }
 
@@ -109,18 +116,39 @@ export class AdminBannerController {
     @Param("id") id: string,
     @Body() dto: ToggleBannerDto,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
     return this.banners.setActive(id, dto.isActive, ctxFrom(session, req));
+  }
+
+  /**
+   * Removes a banner for good, in any state — draft, scheduled or live.
+   *
+   * Separate from the toggle on purpose: deactivating is the reversible
+   * control and this one is not, so they are two different actions
+   * rather than one with a flag.
+   */
+  @Delete(":id")
+  async remove(
+    @Param("id") id: string,
+    @CurrentAdminSession() session: AdminSessionData,
+    @Req() req: Request,
+  ) {
+    await this.banners.delete(id, ctxFrom(session, req));
+    return { status: "ok" };
   }
 
   @Post("reorder")
   reorder(
     @Body() dto: ReorderBannersDto,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
-    return this.banners.reorder(dto.placement, dto.bannerIds, ctxFrom(session, req));
+    return this.banners.reorder(
+      dto.placement,
+      dto.bannerIds,
+      ctxFrom(session, req),
+    );
   }
 }
 

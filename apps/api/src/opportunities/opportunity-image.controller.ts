@@ -2,7 +2,8 @@ import { Controller, Get, Headers, NotFoundException, Param, Query, Res } from "
 import type { Response } from "express";
 import { OpportunityImageService } from "./opportunity-image.service";
 import { ImageDeliveryService } from "../common/media/image-delivery.service";
-import { ImageVariantQueryDto, wantsThumbnail } from "../banners/dto/image-variant.dto";
+import { wantsThumbnail } from "../banners/dto/image-variant.dto";
+import { OpportunityImageQueryDto } from "./dto/opportunity-image-query.dto";
 
 /**
  * Public opportunity image.
@@ -28,14 +29,18 @@ export class OpportunityImageController {
   @Get(":id/image")
   async getImage(
     @Param("id") id: string,
-    @Query() query: ImageVariantQueryDto,
+    @Query() query: OpportunityImageQueryDto,
     @Headers("if-none-match") ifNoneMatch: string | undefined,
     @Headers("if-modified-since") ifModifiedSince: string | undefined,
     @Res() res: Response
   ): Promise<void> {
+    // WHICH PHOTOGRAPH — validated by the DTO, not read around it. A
+    // malformed index is a 400 there, the same as a malformed variant;
+    // omitted, it is the main image.
     const target = await this.images.findPublicTarget(
       id,
-      wantsThumbnail(query) ? "thumb" : "main"
+      wantsThumbnail(query) ? "thumb" : "main",
+      query.index
     );
 
     // Unknown id, not publicly visible, a legacy snapshot with no

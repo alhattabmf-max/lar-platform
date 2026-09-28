@@ -7,10 +7,14 @@ import type { AuditService } from "../audit/audit.service";
 import type { StorageService } from "../storage/storage.service";
 import type { BannerPolicyService } from "../settings/banner-policy.service";
 
+const AR = "ar-SA" as const;
+
 const CTX = { actorId: "admin-1", requestId: "req-1" };
 
 const MAIN = Buffer.from("main-bytes");
 const THUMB = Buffer.from("thumb-bytes");
+
+import { DEFAULT_BANNER_IMAGE_SHAPE } from "@platform/types";
 
 jest.mock("../common/media/image-processing.util", () => {
   const actual = jest.requireActual("../common/media/image-processing.util");
@@ -30,27 +34,56 @@ interface Existing {
 }
 
 function makeService(
-  existing: Existing | null = { id: "b1", imageObjectKey: null, imageThumbnailKey: null },
-  options: { updateThrows?: boolean } = {}
+  existing: Existing | null = {
+    id: "b1",
+    imageObjectKey: null,
+    imageThumbnailKey: null,
+  },
+  options: { updateThrows?: boolean } = {},
 ) {
   const trace: string[] = [];
 
-  const findUnique = jest.fn().mockResolvedValue(existing);
+  // The banner itself, only to prove it exists.
+  const findUnique = jest
+    .fn()
+    .mockResolvedValue(existing ? { id: existing.id } : null);
 
-  const update = jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+  // This language's artwork row, if any.
+  const findImage = jest
+    .fn()
+    .mockResolvedValue(
+      existing && existing.imageObjectKey
+        ? {
+            objectKey: existing.imageObjectKey,
+            thumbnailKey: existing.imageThumbnailKey,
+          }
+        : null,
+    );
+
+  const upsert = jest.fn(
+    async ({ create }: { create: Record<string, unknown> }) => {
+      trace.push("DB_UPDATE");
+      if (options.updateThrows) throw new Error("db write failed");
+      return { id: "img-1", ...create };
+    },
+  );
+
+  const removeImage = jest.fn(async (_args: { where: unknown }) => {
     trace.push("DB_UPDATE");
-    if (options.updateThrows) throw new Error("db write failed");
-    return { id: "b1", ...data };
+    return { id: "img-1" };
   });
 
-  const auditLog = jest.fn(async (_input: { action: string }, _tx?: unknown): Promise<void> => {
-    trace.push("AUDIT");
-  });
+  const auditLog = jest.fn(
+    async (_input: { action: string }, _tx?: unknown): Promise<void> => {
+      trace.push("AUDIT");
+    },
+  );
 
-  const txClient = { promotionalBanner: { update } };
+  const txClient = { bannerImage: { upsert, delete: removeImage } };
 
   const prisma = {
     promotionalBanner: { findUnique },
+    bannerImage: { findUnique: findImage },
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       trace.push("TX_BEGIN");
       const result = await fn(txClient);
@@ -78,6 +111,7 @@ function makeService(
       maxPixels: 8_000_000,
       allowedTypes: ["image/jpeg", "image/png", "image/webp"],
       maxConcurrentLiveBannersPerPlacement: 3,
+      imageShape: DEFAULT_BANNER_IMAGE_SHAPE,
     }),
   } as unknown as BannerPolicyService;
 
@@ -86,16 +120,25 @@ function makeService(
     mainBuffer: MAIN,
     thumbnailBuffer: THUMB,
     contentType: "image/jpeg",
-    width: 1200,
-    height: 600,
+    // A VALID banner shape: 2000x400 is 5:1, the preferred ratio, and
+    // clears the 1500x300 minimum. The old 1200x600 fixture was a 2:1
+    // image, which the shape policy now refuses — as it should.
+    width: 2000,
+    height: 400,
   });
 
   return {
-    service: new BannerImageService(prisma, { log: auditLog } as unknown as AuditService, storage, policy),
+    service: new BannerImageService(
+      prisma,
+      { log: auditLog } as unknown as AuditService,
+      storage,
+      policy,
+    ),
     trace,
     uploaded,
     deleted,
-    update,
+    upsert,
+    removeImage,
     auditLog,
     storage,
   };
@@ -105,7 +148,7 @@ describe("upload ordering", () => {
   it("decodes BEFORE writing anything to storage", async () => {
     const { service, trace } = makeService();
 
-    await service.upload("b1", Buffer.from("x"), CTX);
+    await service.upload("b1", AR, Buffer.from("x"), CTX);
 
     // processImage is mocked, so its call cannot appear on the trace —
     // instead assert that no PUT precedes the first DB touch, and that
@@ -116,11 +159,13 @@ describe("upload ordering", () => {
 
   it("writes NOTHING when the bytes fail to decode", async () => {
     const { service, trace, storage } = makeService();
-    (processImage as jest.Mock).mockRejectedValue(new InvalidImageError("not an image"));
-
-    await expect(service.upload("b1", Buffer.from("x"), CTX)).rejects.toBeInstanceOf(
-      BusinessException
+    (processImage as jest.Mock).mockRejectedValue(
+      new InvalidImageError("not an image"),
     );
+
+    await expect(
+      service.upload("b1", AR, Buffer.from("x"), CTX),
+    ).rejects.toBeInstanceOf(BusinessException);
 
     expect(storage.upload).not.toHaveBeenCalled();
     expect(trace).not.toContain("TX_BEGIN");
@@ -129,7 +174,7 @@ describe("upload ordering", () => {
   it("uploads both variants, then updates the database, then commits", async () => {
     const { service, trace } = makeService();
 
-    await service.upload("b1", Buffer.from("x"), CTX);
+    await service.upload("b1", AR, Buffer.from("x"), CTX);
 
     expect(trace).toEqual([
       "PUT",
@@ -141,58 +186,67 @@ describe("upload ordering", () => {
     ]);
   });
 
-  it("writes all image metadata in one atomic update", async () => {
-    const { service, update } = makeService();
+  it("writes all image metadata in one atomic write", async () => {
+    const { service, upsert } = makeService();
 
-    await service.upload("b1", Buffer.from("x"), CTX);
+    await service.upload("b1", AR, Buffer.from("x"), CTX);
 
-    const data = update.mock.calls[0][0].data as Record<string, unknown>;
+    const data = upsert.mock.calls[0][0].create as Record<string, unknown>;
     expect(Object.keys(data).sort()).toEqual(
       [
-        "imageContentType",
-        "imageETag",
-        "imageHeight",
-        "imageObjectKey",
-        "imageThumbnailETag",
-        "imageThumbnailKey",
-        "imageUpdatedAt",
-        "imageWidth",
-      ].sort()
+        "bannerId",
+        "contentType",
+        "etag",
+        "height",
+        "locale",
+        "objectKey",
+        "thumbnailETag",
+        "thumbnailKey",
+        "width",
+      ].sort(),
     );
-    // The CHECK constraint requires all eight to move together; none is null.
-    expect(Object.values(data).every((v) => v !== null && v !== undefined)).toBe(true);
+    // Every column is NOT NULL, so a partial write is not representable
+    // — the old shape needed a CHECK constraint to say the same thing.
+    expect(
+      Object.values(data).every((v) => v !== null && v !== undefined),
+    ).toBe(true);
+    expect(data.locale).toBe("AR_SA");
   });
 
   it("gives main and thumb DIFFERENT ETags, derived from their own bytes", async () => {
-    const { service, update } = makeService();
+    const { service, upsert } = makeService();
 
-    await service.upload("b1", Buffer.from("x"), CTX);
+    await service.upload("b1", AR, Buffer.from("x"), CTX);
 
-    const data = update.mock.calls[0][0].data as Record<string, string>;
-    expect(data.imageETag).toBe(computeETag(MAIN));
-    expect(data.imageThumbnailETag).toBe(computeETag(THUMB));
-    expect(data.imageETag).not.toBe(data.imageThumbnailETag);
+    const data = upsert.mock.calls[0][0].create as Record<string, string>;
+    expect(data.etag).toBe(computeETag(MAIN));
+    expect(data.thumbnailETag).toBe(computeETag(THUMB));
+    expect(data.etag).not.toBe(data.thumbnailETag);
   });
 
   it("uses a FRESH key per upload, so a failed update leaves the old image resolvable", async () => {
     const first = makeService();
-    await first.service.upload("b1", Buffer.from("x"), CTX);
+    await first.service.upload("b1", AR, Buffer.from("x"), CTX);
 
     const second = makeService();
-    await second.service.upload("b1", Buffer.from("x"), CTX);
+    await second.service.upload("b1", AR, Buffer.from("x"), CTX);
 
     expect(first.uploaded[0]).not.toBe(second.uploaded[0]);
-    expect(first.uploaded[0]).toMatch(/^banners\/b1\/[0-9a-f-]+\.jpg$/);
+    // The LOCALE is part of the path, so the two languages' objects are
+    // never confusable when looking at storage directly.
+    expect(first.uploaded[0]).toMatch(/^banners\/b1\/ar-SA\/[0-9a-f-]+\.jpg$/);
     expect(first.uploaded[1]).toMatch(/-thumb\.jpg$/);
   });
 
   it("deletes the NEW objects when the database update fails", async () => {
     const { service, uploaded, deleted } = makeService(
       { id: "b1", imageObjectKey: null, imageThumbnailKey: null },
-      { updateThrows: true }
+      { updateThrows: true },
     );
 
-    await expect(service.upload("b1", Buffer.from("x"), CTX)).rejects.toThrow("db write failed");
+    await expect(
+      service.upload("b1", AR, Buffer.from("x"), CTX),
+    ).rejects.toThrow("db write failed");
 
     // Both freshly uploaded objects are removed — nothing references them.
     expect(deleted.sort()).toEqual([...uploaded].sort());
@@ -205,19 +259,27 @@ describe("upload ordering", () => {
       imageThumbnailKey: "banners/b1/old-thumb.jpg",
     });
 
-    await service.upload("b1", Buffer.from("x"), CTX);
+    await service.upload("b1", AR, Buffer.from("x"), CTX);
 
-    expect(trace.indexOf("TX_COMMIT")).toBeLessThan(trace.lastIndexOf("DELETE"));
+    expect(trace.indexOf("TX_COMMIT")).toBeLessThan(
+      trace.lastIndexOf("DELETE"),
+    );
     expect(deleted).toEqual(["banners/b1/old.jpg", "banners/b1/old-thumb.jpg"]);
   });
 
   it("keeps the old objects when the database update fails", async () => {
     const { service, deleted } = makeService(
-      { id: "b1", imageObjectKey: "banners/b1/old.jpg", imageThumbnailKey: "banners/b1/old-thumb.jpg" },
-      { updateThrows: true }
+      {
+        id: "b1",
+        imageObjectKey: "banners/b1/old.jpg",
+        imageThumbnailKey: "banners/b1/old-thumb.jpg",
+      },
+      { updateThrows: true },
     );
 
-    await expect(service.upload("b1", Buffer.from("x"), CTX)).rejects.toThrow();
+    await expect(
+      service.upload("b1", AR, Buffer.from("x"), CTX),
+    ).rejects.toThrow();
 
     expect(deleted).not.toContain("banners/b1/old.jpg");
   });
@@ -228,16 +290,20 @@ describe("upload ordering", () => {
       imageObjectKey: "banners/b1/old.jpg",
       imageThumbnailKey: "banners/b1/old-thumb.jpg",
     });
-    (storage.delete as jest.Mock).mockRejectedValue(new Error("storage unreachable"));
+    (storage.delete as jest.Mock).mockRejectedValue(
+      new Error("storage unreachable"),
+    );
 
-    await expect(service.upload("b1", Buffer.from("x"), CTX)).resolves.toBeDefined();
+    await expect(
+      service.upload("b1", AR, Buffer.from("x"), CTX),
+    ).resolves.toBeDefined();
   });
 
   it("refuses a payload larger than the policy before decoding", async () => {
     const { service, storage } = makeService();
 
     await expect(
-      service.upload("b1", Buffer.alloc(3 * 1024 * 1024), CTX)
+      service.upload("b1", AR, Buffer.alloc(3 * 1024 * 1024), CTX),
     ).rejects.toBeInstanceOf(BusinessException);
     expect(processImage).not.toHaveBeenCalled();
     expect(storage.upload).not.toHaveBeenCalled();
@@ -246,16 +312,16 @@ describe("upload ordering", () => {
   it("404s for an unknown banner without touching storage", async () => {
     const { service, storage } = makeService(null);
 
-    await expect(service.upload("missing", Buffer.from("x"), CTX)).rejects.toBeInstanceOf(
-      NotFoundException
-    );
+    await expect(
+      service.upload("missing", AR, Buffer.from("x"), CTX),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(storage.upload).not.toHaveBeenCalled();
   });
 
   it("never records an object key in the audit entry", async () => {
     const { service, auditLog } = makeService();
 
-    await service.upload("b1", Buffer.from("x"), CTX);
+    await service.upload("b1", AR, Buffer.from("x"), CTX);
 
     const entry = JSON.stringify(auditLog.mock.calls[0][0]);
     expect(entry).not.toContain("banners/b1/");
@@ -272,24 +338,29 @@ describe("remove ordering", () => {
       imageThumbnailKey: "banners/b1/a-thumb.jpg",
     });
 
-    await service.remove("b1", CTX);
+    await service.remove("b1", AR, CTX);
 
     expect(trace.indexOf("TX_COMMIT")).toBeLessThan(trace.indexOf("DELETE"));
     expect(deleted).toEqual(["banners/b1/a.jpg", "banners/b1/a-thumb.jpg"]);
   });
 
-  it("nulls all eight image columns together", async () => {
-    const { service, update } = makeService({
+  it("removes the artwork ROW rather than nulling columns", async () => {
+    const { service, removeImage } = makeService({
       id: "b1",
       imageObjectKey: "banners/b1/a.jpg",
       imageThumbnailKey: "banners/b1/a-thumb.jpg",
     });
 
-    await service.remove("b1", CTX);
+    await service.remove("b1", AR, CTX);
 
-    const data = update.mock.calls[0][0].data as Record<string, unknown>;
-    expect(Object.keys(data)).toHaveLength(8);
-    expect(Object.values(data).every((v) => v === null)).toBe(true);
+    // The old shape nulled eight columns together and needed a CHECK
+    // constraint to stop them drifting apart. A row's absence says the
+    // same thing with nothing to keep in step — and it says it for ONE
+    // language, leaving the other's artwork alone.
+    expect(removeImage).toHaveBeenCalledTimes(1);
+    expect(removeImage.mock.calls[0][0]).toEqual({
+      where: { bannerId_locale: { bannerId: "b1", locale: "AR_SA" } },
+    });
   });
 
   it("is a no-op when there is no image", async () => {
@@ -299,67 +370,78 @@ describe("remove ordering", () => {
       imageThumbnailKey: null,
     });
 
-    await service.remove("b1", CTX);
+    await service.remove("b1", AR, CTX);
 
     expect(trace).not.toContain("TX_BEGIN");
     expect(storage.delete).not.toHaveBeenCalled();
   });
 
-  it("does not leave a half-cleared row when storage deletion fails", async () => {
-    const { service, storage, update } = makeService({
+  it("does not leave a half-deleted row when storage deletion fails", async () => {
+    const { service, storage, removeImage } = makeService({
       id: "b1",
       imageObjectKey: "banners/b1/a.jpg",
       imageThumbnailKey: "banners/b1/a-thumb.jpg",
     });
-    (storage.delete as jest.Mock).mockRejectedValue(new Error("storage unreachable"));
+    (storage.delete as jest.Mock).mockRejectedValue(
+      new Error("storage unreachable"),
+    );
 
     // The database already committed; a storage failure is logged and
     // swallowed rather than reported as a failed request.
-    await expect(service.remove("b1", CTX)).resolves.toBeUndefined();
-    expect(update).toHaveBeenCalledTimes(1);
+    await expect(service.remove("b1", AR, CTX)).resolves.toBeUndefined();
+    // The row went; only the storage cleanup failed, and that is logged
+    // and swallowed rather than reported as a failed request.
+    expect(removeImage).toHaveBeenCalledTimes(1);
   });
 
-  it("404s for an unknown banner", async () => {
-    const { service } = makeService(null);
-    await expect(service.remove("missing", CTX)).rejects.toBeInstanceOf(NotFoundException);
+  it("is a no-op for a language that has no artwork", async () => {
+    // Not a 404: the banner may well exist and simply have nothing for
+    // this language. Removing what is not there is nothing to report.
+    const { service, removeImage } = makeService(null);
+
+    await expect(service.remove("b1", AR, CTX)).resolves.toBeUndefined();
+    expect(removeImage).not.toHaveBeenCalled();
   });
 });
 
 describe("findAdminImage", () => {
-  it("returns null when any image column is missing", async () => {
-    const findUnique = jest.fn().mockResolvedValue({
-      imageObjectKey: "k",
-      imageThumbnailKey: null,
-      imageContentType: "image/jpeg",
-      imageETag: "e",
-      imageThumbnailETag: "t",
-      imageUpdatedAt: new Date(),
-    });
-    const prisma = { promotionalBanner: { findUnique } } as unknown as PrismaService;
+  it("returns null when this language has no artwork row", async () => {
+    // The old shape kept eight nullable columns and this test proved a
+    // half-written set was rejected. That state is no longer
+    // representable — every column on the row is NOT NULL — so what is
+    // left to prove is that a MISSING row reads as no image, and that a
+    // present one is complete by construction.
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const prisma = { bannerImage: { findUnique } } as unknown as PrismaService;
     const service = new BannerImageService(
       prisma,
       { log: jest.fn() } as unknown as AuditService,
       {} as unknown as StorageService,
-      {} as unknown as BannerPolicyService
+      {} as unknown as BannerPolicyService,
     );
 
-    await expect(service.findAdminImage("b1")).resolves.toBeNull();
+    await expect(service.findAdminImage("b1", AR)).resolves.toBeNull();
   });
 
   it("does NOT apply a live-window filter — drafts are previewable", async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
-    const prisma = { promotionalBanner: { findUnique } } as unknown as PrismaService;
+    const prisma = { bannerImage: { findUnique } } as unknown as PrismaService;
     const service = new BannerImageService(
       prisma,
       { log: jest.fn() } as unknown as AuditService,
       {} as unknown as StorageService,
-      {} as unknown as BannerPolicyService
+      {} as unknown as BannerPolicyService,
     );
 
-    await service.findAdminImage("b1");
+    await service.findAdminImage("b1", AR);
 
     const where = findUnique.mock.calls[0][0].where as Record<string, unknown>;
-    expect(where).toEqual({ id: "b1" });
+    // Addressed by banner AND language, with no live-window predicate:
+    // an admin previews drafts, which is the whole point of a separate
+    // lookup from the public one.
+    expect(where).toEqual({
+      bannerId_locale: { bannerId: "b1", locale: "AR_SA" },
+    });
     expect(where).not.toHaveProperty("isActive");
     expect(where).not.toHaveProperty("startsAt");
   });

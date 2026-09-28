@@ -95,7 +95,7 @@ export function ResetPasswordForm({ locale }: { locale: string }) {
     return (
       <div role="alert" className="flex flex-col gap-3">
         <p className="text-sm text-content">{t("missingToken")}</p>
-        <Link href={`/${locale}/forgot-password`} className="text-sm text-secondary hover:opacity-90">
+        <Link href={`/${locale}/forgot-password`} className="text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("requestNewLink")}
         </Link>
       </div>
@@ -155,7 +155,7 @@ export function ResetPasswordForm({ locale }: { locale: string }) {
               <p className="mt-2 text-sm">
                 <Link
                   href={`/${locale}/forgot-password`}
-                  className="text-secondary hover:opacity-90"
+                  className="text-secondary hover:opacity-[var(--state-hover-opacity)]"
                 >
                   {t("requestNewLink")}
                 </Link>

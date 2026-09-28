@@ -110,7 +110,10 @@ export function Dialog({
       <div
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-primary/40"
+        // MIXED, NOT DIMMED — see billing-identity-card.tsx. `/40` on
+        // a plain-hex `var()` token paints nothing, and a scrim that
+        // paints nothing is a dialog with no backdrop at all.
+        className="absolute inset-0 bg-[color-mix(in_srgb,var(--color-primary)_40%,transparent)]"
       />
       <div
         ref={panelRef}
@@ -119,7 +122,7 @@ export function Dialog({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-lg bg-surface shadow-lg",
+          "relative z-10 w-full max-w-lg rounded-lg bg-surface shadow-overlay",
           "max-h-[90vh] overflow-y-auto",
           className
         )}
@@ -132,7 +135,7 @@ export function Dialog({
             type="button"
             onClick={onClose}
             aria-label={closeLabel}
-            className="rounded-sm p-1 text-content-muted hover:text-content"
+            className="inline-flex size-8 min-h-control shrink-0 items-center justify-center rounded-control text-content-muted hover:text-content"
           >
             <span aria-hidden="true">×</span>
           </button>

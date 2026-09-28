@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SiteContent } from "@platform/types";
+import {
+  SITE_CONTENT_FIELDS,
+  type SiteContent,
+  type SiteContentText,
+} from "@platform/types";
 
 const ROOT = join(__dirname, "..");
 const read = (relative: string) => readFileSync(join(ROOT, relative), "utf8");
@@ -22,13 +26,15 @@ const strip = (source: string) =>
 
 // ------------------------------------------------------- site content
 
+// Derived from the FIELD LIST rather than written out: a hand-listed
+// copy goes stale the moment a field is added, and this fixture is what
+// every assertion below is measured against.
 const siteContent = (overrides: Partial<SiteContent> = {}): SiteContent => ({
-  heroTitle: { ar: null, en: null },
-  heroDescription: { ar: null, en: null },
-  featuredTitle: { ar: null, en: null },
-  policiesTitle: { ar: null, en: null },
-  policiesDescription: { ar: null, en: null },
+  ...(Object.fromEntries(
+    SITE_CONTENT_FIELDS.map((field) => [field, { ar: null, en: null }]),
+  ) as Record<(typeof SITE_CONTENT_FIELDS)[number], SiteContentText>),
   headerNav: [],
+  faqItems: [],
   ...overrides,
 });
 
@@ -148,31 +154,44 @@ describe("the public site reads the operator's content", () => {
 });
 
 describe("the homepage actually consumes it", () => {
-  const HOME = strip(read("app/[locale]/(public)/page.tsx"));
+  const HOME = strip(read("components/home/home-content.tsx"));
 
   it("reads the content", () => {
     expect(HOME).toContain("getSiteContent()");
   });
 
-  it.each([
-    "heroTitle",
-    "heroDescription",
-    "featuredTitle",
-    "policiesTitle",
-    "policiesDescription",
-  ])("resolves %s with a fallback to the message catalogue", (field) => {
-    expect(HOME).toContain(`siteText(content, "${field}", appLocale) ?? t(`);
+  // Only the offers heading is resolved here now. The hero panel and
+  // the policies panel are both gone from the front door — the
+  // reference goes straight from the category bar to the promotional
+  // strip and then to the offers.
+  it.each(["featuredTitle"])(
+    "resolves %s with a fallback to the message catalogue",
+    (field) => {
+      expect(HOME).toContain(`siteText(content, "${field}", locale) ?? t(`);
+    },
+  );
+
+  it("renders the resolved value, not the raw message", () => {
+    expect(HOME).toContain("{featuredTitle}");
+    expect(HOME).not.toContain('{t("featuredTitle")}');
   });
 
-  it("renders the resolved values, not the raw messages", () => {
-    expect(HOME).toContain("{heroTitle}");
-    expect(HOME).toContain("{heroDescription}");
-    expect(HOME).toContain("{featuredTitle}");
-    expect(HOME).toContain("{policiesTitle}");
-    expect(HOME).toContain("{policiesDescription}");
-    // The direct message calls those replaced are gone.
-    expect(HOME).not.toContain('{t("title")}');
-    expect(HOME).not.toContain('{t("description")}');
+  it("no longer renders the hero, without dropping its fields", () => {
+    // The wording stays in the contract, stays stored, and stays
+    // editable from the admin screen — it simply has no place on this
+    // page any more. Deleting the fields would be a contract change
+    // nobody asked for and would discard an operator's writing.
+    expect(HOME).not.toContain("{heroTitle}");
+    expect(HOME).not.toContain("{heroDescription}");
+    expect(SITE_CONTENT_FIELDS).toContain("heroTitle");
+    expect(SITE_CONTENT_FIELDS).toContain("heroDescription");
+  });
+
+  it("puts the promotional strip above the offers grid", () => {
+    // The approved order: top bar, categories, banner, offers, footer.
+    expect(HOME.indexOf("BannerSlot")).toBeLessThan(
+      HOME.indexOf("FeaturedOpportunities"),
+    );
   });
 
   it("renders them as text, never as markup", () => {
@@ -180,27 +199,57 @@ describe("the homepage actually consumes it", () => {
   });
 });
 
-describe("the header actually consumes it", () => {
-  const HEADER = strip(read("components/shell/header.tsx"));
+// THE SURFACE MOVED, THE BEHAVIOUR DID NOT. `components/shell/header.tsx`
+// was the public header that read the operator's category order; nothing
+// has rendered it since the market strip took that job, and the file is
+// gone. `market-strip.tsx` makes the same two reads, so these cases
+// follow it rather than disappear with the file.
+describe("the market strip actually consumes it", () => {
+  const HEADER = strip(read("components/portal/market-strip.tsx"));
 
-  it("reads the content and maps the categories", () => {
+  it("reads the content and uses the operator's category order", () => {
     expect(HEADER).toContain("getSiteContent()");
     expect(HEADER).toContain("content.headerNav.map");
+  });
+
+  it("reads the live taxonomy, so a category can carry subcategories", () => {
+    // headerNav stores ids only. The names and the children come from
+    // the taxonomy at request time, which is what lets a root open its
+    // subcategories without storing a second copy of anything.
+    expect(HEADER).toContain("loadTaxonomy()");
+    expect(HEADER).toContain("buildCategoryTree");
   });
 
   it("BUILDS each href from the taxonomy id — it stores no destination", () => {
     // The stored value is an id, so there is nothing a person typed and
     // nothing to allowlist.
-    expect(HEADER).toContain("opportunities?taxonomyNodeId=");
-    expect(HEADER).toContain("encodeURIComponent(item.taxonomyNodeId)");
+    expect(HEADER).toContain("?taxonomyNodeId=${encodeURIComponent(id)}");
+    expect(HEADER).toContain("encodeURIComponent(id)");
+    // The stored entry carries an id and nothing that could be a
+    // destination, so there is nothing here anyone typed.
+    expect(HEADER).toContain("item.taxonomyNodeId");
     expect(HEADER).not.toContain("item.url");
     expect(HEADER).not.toContain("item.href");
     expect(HEADER).not.toContain("item.linkUrl");
   });
 
-  it("keeps the two permanent links, so a retired category cannot empty the nav", () => {
-    expect(HEADER).toContain('t("navOpportunities")');
-    expect(HEADER).toContain('t("navPolicies")');
+  it("leaves Home to the row of tabs, and does not print it twice", () => {
+    // THE HOME LINK MOVED, and this case moved with it rather than
+    // being deleted.
+    //
+    // The old public header carried a permanent Home link so a
+    // retired category could not leave the bar empty. The strip is
+    // not the bar any more: the row of tabs above it carries Home on
+    // a wide screen, and the drawer carries it on a narrow one, so a
+    // second Home inside the categories would be the same destination
+    // printed twice.
+    //
+    // `CategoryNav` says so itself: in `strip` tone it renders no home
+    // entry at all, whatever it is handed.
+    const nav = strip(read("components/shell/category-nav.tsx"));
+    expect(nav).toContain("{strip || !homeHref ? null : (");
+    // AND THE STRIP HANDS IT NONE.
+    expect(HEADER).not.toContain("homeHref");
   });
 
   it("renders category names as text", () => {
@@ -251,7 +300,13 @@ describe("the media manager consumes the media limits", () => {
   it("says the limits without figures when the policy could not be read", () => {
     // A hardcoded fallback would be a number this app invented — the
     // exact thing the original comment refused to do.
-    expect(MEDIA).toContain("limits ? labels.addImageLimits : labels.addImageHint");
+    //
+    // MATCHED WITHOUT ITS WHITESPACE. The rule is which two labels
+    // stand on either side of `limits`, and that rule does not change
+    // when the formatter decides the ternary now wants three lines.
+    expect(MEDIA.replace(/\s+/g, " ")).toContain(
+      "limits ? labels.addImageLimits : labels.addImageHint"
+    );
     expect(MEDIA).toContain("limits !== undefined &&");
   });
 
@@ -278,8 +333,14 @@ describe("the opportunity form consumes the opportunity limits", () => {
     expect(FORM).toContain("limits.maxDurationDays");
   });
 
-  it("states the bounds when known and stays vague when not", () => {
-    expect(FORM).toContain("limits ? labels.hints.bounds : labels.hints.boundsUnknown");
+  it("no longer PRINTS the bounds, and still uses them", () => {
+    // The sentence stating them was an instruction under a field, and
+    // the owner removed every one of those from the platform. What the
+    // limits are for did not change: the form warns before a submit and
+    // the server re-checks against live policy.
+    expect(FORM).not.toContain("labels.hints");
+    expect(FORM).toContain("limits.minDurationHours");
+    expect(FORM).toContain("limits.maxDurationDays");
   });
 
   it("warns rather than blocks", () => {
@@ -294,8 +355,11 @@ describe("the opportunity form consumes the opportunity limits", () => {
   });
 
   it("both pages pass them through", () => {
+    // THE TWO PAGES ARE THE OFFER'S, not the product's. A duration and a
+    // target quantity belong to a sale; the page that records a product
+    // asks for neither and reads no policy it would not use.
     for (const page of [
-      "app/[locale]/supplier/opportunities/new/page.tsx",
+      "app/[locale]/supplier/products/[id]/offers/new/page.tsx",
       "app/[locale]/supplier/opportunities/[id]/edit/page.tsx",
     ]) {
       const source = strip(read(page));
@@ -328,8 +392,8 @@ describe("the pre-submit warnings fire on the right values", () => {
 
 describe("neither surface renders operator content as markup", () => {
   it.each([
-    "app/[locale]/(public)/page.tsx",
-    "components/shell/header.tsx",
+    "components/home/home-content.tsx",
+    "components/portal/market-strip.tsx",
     "components/admin/site-content-editor.tsx",
   ])("%s has no markup path", (file) => {
     expect(strip(read(file))).not.toContain("dangerouslySetInnerHTML");

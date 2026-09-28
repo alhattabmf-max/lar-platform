@@ -10,6 +10,7 @@ import { createE2eApplication } from "./support/create-e2e-application";
 import { hashPassword } from "../src/common/security/argon2.util";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
 import { ensureTestCity } from "./fixtures/city.fixture";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -23,7 +24,6 @@ async function submitWithMainImage(agent: request.Agent, productId: string) {
   await agent.post(`/api/v1/companies/me/products/${productId}/media`).set("Origin", ORIGIN).attach("file", buffer, "test.jpg");
   return agent.post(`/api/v1/companies/me/products/${productId}/submit`).set("Origin", ORIGIN);
 }
-let testCityId: string;
 
 async function resetThrottleCounters(): Promise<void> {
   const keys = await redis.keys("throttle:*");
@@ -49,12 +49,7 @@ async function registerSupplier(
     legalName: "Product Test Supplier",
     email: `supplier-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
     password: "correct-horse-battery-staple",
-    primaryMobile1: "+966500000001",
-    primaryMobile2: "+966500000002",
-    cityId: testCityId,
-    shortAddress: "Riyadh",
-    latitude: 24.7136,
-    longitude: 46.6753,
+    primaryMobile1: uniqueMobile(),
     acceptedPolicyVersionIds,
     ...overrides,
   };
@@ -104,7 +99,9 @@ describe("Products (e2e)", () => {
     app = await createE2eApplication(moduleRef);
 
     await publishTestPolicy(prisma);
-    testCityId = await ensureTestCity(prisma);
+    // The city is no longer part of registration, but the suite still
+    // needs one to exist for the branches it creates later.
+    await ensureTestCity(prisma);
     await prisma.systemSetting.deleteMany({ where: { key: "company_verification_mode" } });
 
     const node = await prisma.taxonomyNode.create({ data: { nameAr: "قسم", nameEn: "Section" } });
@@ -147,12 +144,7 @@ describe("Products (e2e)", () => {
         legalName: "Trader Co",
         email: `trader-${Date.now()}@example.com`,
         password: "correct-horse-battery-staple",
-        primaryMobile1: "+966500000001",
-        primaryMobile2: "+966500000002",
-        cityId: testCityId,
-        shortAddress: "Riyadh",
-        latitude: 24.7136,
-        longitude: 46.6753,
+        primaryMobile1: uniqueMobile(),
         acceptedPolicyVersionIds,
       };
       await request(app.getHttpServer())

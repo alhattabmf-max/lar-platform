@@ -60,7 +60,6 @@ export interface AdminLoginLabels {
   working: string;
 
   verifyTitle: string;
-  verifyDescription: string;
   code: string;
   codeHint: string;
   verify: string;
@@ -70,7 +69,6 @@ export interface AdminLoginLabels {
   recoveryHint: string;
 
   setupTitle: string;
-  setupDescription: string;
   setupSecret: string;
   setupSecretHint: string;
   setupRecoveryTitle: string;
@@ -249,7 +247,7 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
 
         {failureBlock}
 
-        <Button type="submit" className="min-h-11" isLoading={busy} disabled={busy}>
+        <Button type="submit" isLoading={busy} disabled={busy}>
           {busy ? labels.working : labels.signIn}
         </Button>
       </form>
@@ -261,7 +259,6 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
       <form onSubmit={submitVerify} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-content">{labels.verifyTitle}</h2>
-          <p className="text-sm text-content-muted">{labels.verifyDescription}</p>
         </div>
 
         {usingRecovery ? (
@@ -276,11 +273,7 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
               required
               value={recoveryCode}
               onChange={(event) => setRecoveryCode(event.target.value)}
-              aria-describedby={`${ids}-recovery-hint`}
             />
-            <p id={`${ids}-recovery-hint`} className="text-xs text-content-muted">
-              {labels.recoveryHint}
-            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-1">
@@ -299,24 +292,20 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
               required
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              aria-describedby={`${ids}-code-hint`}
             />
-            <p id={`${ids}-code-hint`} className="text-xs text-content-muted">
-              {labels.codeHint}
-            </p>
           </div>
         )}
 
         {failureBlock}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" className="min-h-11" isLoading={busy} disabled={busy}>
+          <Button type="submit" isLoading={busy} disabled={busy}>
             {busy ? labels.working : labels.verify}
           </Button>
           <Button
             type="button"
             variant="ghost"
-            className="min-h-11"
+           
             disabled={busy}
             onClick={() => {
               setUsingRecovery((value) => !value);
@@ -328,7 +317,7 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
           <Button
             type="button"
             variant="ghost"
-            className="min-h-11"
+           
             disabled={busy}
             onClick={restart}
           >
@@ -343,7 +332,6 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
     <form onSubmit={submitSetup} className="flex flex-col gap-4" noValidate>
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-content">{labels.setupTitle}</h2>
-        <p className="text-sm text-content-muted">{labels.setupDescription}</p>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -401,7 +389,7 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
       <div className="flex flex-wrap gap-2">
         <Button
           type="submit"
-          className="min-h-11"
+         
           isLoading={busy}
           // Gated on the acknowledgement: these codes are shown once and
           // are the only way back in if the authenticator is lost.
@@ -409,7 +397,7 @@ export function AdminLoginFlow({ labels }: { labels: AdminLoginLabels }) {
         >
           {busy ? labels.working : labels.setupConfirm}
         </Button>
-        <Button type="button" variant="ghost" className="min-h-11" disabled={busy} onClick={restart}>
+        <Button type="button" variant="ghost" disabled={busy} onClick={restart}>
           {labels.back}
         </Button>
       </div>

@@ -45,23 +45,3 @@ export function actionNeedsTracking(action: string | null): boolean {
   return action === "ship";
 }
 
-/**
- * Whether an allocation still needs the supplier to act.
- *
- * Drives needs-attention ordering. SHIPPED is waiting on the trader's
- * confirmation and DELIVERED is finished — neither is the supplier's move.
- */
-export function allocationNeedsAction(status: OrderAllocationStatus): boolean {
-  return allocationAction(status) !== null;
-}
-
-/**
- * Past its preparation deadline with nothing shipped.
- *
- * Read from the server's own `isPreparationOverdue` wherever it is
- * available — this exists only for the summary rows, which carry
- * `hasOverduePreparation` for the order as a whole.
- */
-export function replacementNeedsAction(status: ReplacementObligationStatus): boolean {
-  return replacementAction(status) !== null;
-}

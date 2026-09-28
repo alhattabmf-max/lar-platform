@@ -9,7 +9,9 @@ import { AppModule } from "../src/app.module";
 import { createE2eApplication } from "./support/create-e2e-application";
 import { hashPassword } from "../src/common/security/argon2.util";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
-import { ensureTestCity } from "./fixtures/city.fixture";
+import { ensureTestCity, ensureTestPlace, type TestPlace } from "./fixtures/city.fixture";
+import { createBranch, markSupplierVerified, verifySupplierThroughReview } from "./fixtures/branch.fixture";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -44,7 +46,6 @@ async function getActivePolicyIds(app: INestApplication): Promise<string[]> {
 async function registerCompany(
   app: INestApplication,
   kind: "supplier" | "trader",
-  cityId: string,
   overrides: Record<string, unknown> = {}
 ): Promise<{ crNumber: string; password: string }> {
   const acceptedPolicyVersionIds = await getActivePolicyIds(app);
@@ -55,12 +56,7 @@ async function registerCompany(
     legalName: `Discovery Test ${kind}`,
     email: `${kind}-disc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
     password,
-    primaryMobile1: "+966500000001",
-    primaryMobile2: "+966500000002",
-    cityId,
-    shortAddress: "Riyadh",
-    latitude: 24.7136,
-    longitude: 46.6753,
+    primaryMobile1: uniqueMobile(),
     acceptedPolicyVersionIds,
     ...overrides,
   };
@@ -103,6 +99,7 @@ async function createAuthenticatedAdminAgent(app: INestApplication) {
 describe("Opportunity discovery — trader and public views (e2e)", () => {
   let app: INestApplication;
   let adminAgent: request.Agent;
+  let place: TestPlace;
   let cityId: string;
   let taxonomyNodeId: string;
   let salesUnitId: string;
@@ -113,7 +110,10 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
     await resetThrottleCounters();
 
     await publishTestPolicy(prisma);
-    cityId = await ensureTestCity(prisma);
+    // Registration no longer creates a branch, so the suite makes one
+    // per company through the branches endpoint — see `./fixtures/branch.fixture`.
+    place = await ensureTestPlace(prisma);
+    cityId = place.cityId;
     await prisma.systemSetting.deleteMany({
       where: { key: { in: ["company_verification_mode", "email_verification_enabled"] } },
     });
@@ -143,23 +143,29 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
     /** Overrides the closing time — needed to exercise ENDING_SOON ordering. */
     endAt?: string;
   } = {}) {
-    const supplier = await registerCompany(app, "supplier", cityId);
-    await prisma.company.updateMany({
-      where: { crNumber: supplier.crNumber },
-      data: { verificationStatus: "VERIFIED" },
-    });
+    const supplier = await registerCompany(app, "supplier");
     const agent = await loginAgent(app, supplier.crNumber, supplier.password);
 
-    const bankRes = await agent
+    // THE RECORD IS COMPLETED FIRST, THEN REVIEWED.
+    //
+    // A supplier registers PENDING_VERIFICATION and becomes VERIFIED
+    // only by submitting a complete record that an administrator
+    // approves — the bank account is activated by that same approval,
+    // which is why `POST /admin/bank-accounts/:id/approve` no longer
+    // exists. Submitting a product and publishing an offer both need
+    // the company to be verified, so all of this happens before them.
+    await agent
       .post("/api/v1/companies/me/bank-account")
       .set("Origin", ORIGIN)
-      .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
-    await adminAgent.post(`/api/v1/admin/bank-accounts/${bankRes.body.id}/approve`).set("Origin", ORIGIN);
+      .send({ accountHolderName: "Holder", iban: VALID_IBAN });
     await agent.put("/api/v1/companies/me/tax-profile").set("Origin", ORIGIN).send({ isVatRegistered: false });
     await agent
       .put("/api/v1/companies/me/invoicing-profile")
       .set("Origin", ORIGIN)
       .send({ invoicingLegalName: "Discovery Supplier LLC" });
+    const branch = await createBranch(agent, ORIGIN, place);
+    const fulfillmentLocationId = branch.id;
+    await verifySupplierThroughReview(agent, adminAgent, ORIGIN, branch.companyId as string);
 
     const productRes = await agent
       .post("/api/v1/companies/me/products")
@@ -180,8 +186,6 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
     await submitWithMainImage(agent, productId);
     await adminAgent.post(`/api/v1/admin/products/${productId}/approve`).set("Origin", ORIGIN);
 
-    const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
-    const fulfillmentLocationId = locationRes.body[0].id;
 
     // 100 * 11.5 = 1,150 SAR -> the default 10% (1000 bps) tier ->
     // shareQuantity = 100*1000/10000 = 10, evenly divisible.
@@ -197,19 +201,19 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
         endAt: overrides.endAt ?? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
         expectedPreparationDays: 3,
       });
+    expect(createRes.body).toMatchObject({ status: "DRAFT" });
     const opportunityId = createRes.body.id;
 
     const publishRes = await agent
       .post(`/api/v1/companies/me/opportunities/${opportunityId}/publish`)
       .set("Origin", ORIGIN);
-    expect(publishRes.status).toBe(201);
-    expect(publishRes.body.status).toBe("ACTIVE");
+    expect(publishRes.body).toMatchObject({ status: "ACTIVE" });
 
     return { agent, supplier, productId, opportunityId, fulfillmentLocationId };
   }
 
   async function registerVerifiedTrader() {
-    const trader = await registerCompany(app, "trader", cityId);
+    const trader = await registerCompany(app, "trader");
     const agent = await loginAgent(app, trader.crNumber, trader.password);
     return { agent, trader };
   }
@@ -310,7 +314,7 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
 
   describe("Excluded statuses never appear to trader or public", () => {
     it("a DRAFT opportunity is invisible to both views", async () => {
-      const supplier = await registerCompany(app, "supplier", cityId);
+      const supplier = await registerCompany(app, "supplier");
       await prisma.company.updateMany({
         where: { crNumber: supplier.crNumber },
         data: { verificationStatus: "VERIFIED" },
@@ -331,13 +335,15 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
           widthCm: 1,
           heightCm: 1,
         });
-      const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
+      const branch = await createBranch(agent, ORIGIN, place);
+      // Adding the branch put the supplier back under review, by design.
+      await markSupplierVerified(prisma, branch.companyId as string);
       const draftRes = await agent
         .post("/api/v1/companies/me/opportunities")
         .set("Origin", ORIGIN)
         .send({
           productId: productRes.body.id,
-          fulfillmentLocationId: locationRes.body[0].id,
+          fulfillmentLocationId: branch.id,
           targetQuantity: 10,
           unitPriceAmount: 5,
           startAt: new Date(Date.now() + 3600_000).toISOString(),
@@ -389,23 +395,22 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
 
   describe("SCHEDULED visibility controlled by admin setting", () => {
     async function setupScheduledOpportunity() {
-      const supplier = await registerCompany(app, "supplier", cityId);
-      await prisma.company.updateMany({
-        where: { crNumber: supplier.crNumber },
-        data: { verificationStatus: "VERIFIED" },
-      });
+      const supplier = await registerCompany(app, "supplier");
       const agent = await loginAgent(app, supplier.crNumber, supplier.password);
 
-      const bankRes = await agent
+      // Complete the record, then have it reviewed — see the note in
+      // `setupActiveOpportunity`.
+      await agent
         .post("/api/v1/companies/me/bank-account")
         .set("Origin", ORIGIN)
-        .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
-      await adminAgent.post(`/api/v1/admin/bank-accounts/${bankRes.body.id}/approve`).set("Origin", ORIGIN);
+        .send({ accountHolderName: "Holder", iban: VALID_IBAN });
       await agent.put("/api/v1/companies/me/tax-profile").set("Origin", ORIGIN).send({ isVatRegistered: false });
       await agent
         .put("/api/v1/companies/me/invoicing-profile")
         .set("Origin", ORIGIN)
         .send({ invoicingLegalName: "Scheduled Supplier LLC" });
+      const branch = await createBranch(agent, ORIGIN, place);
+      await verifySupplierThroughReview(agent, adminAgent, ORIGIN, branch.companyId as string);
 
       const productRes = await agent
         .post("/api/v1/companies/me/products")
@@ -424,14 +429,13 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
         });
       await submitWithMainImage(agent, productRes.body.id);
       await adminAgent.post(`/api/v1/admin/products/${productRes.body.id}/approve`).set("Origin", ORIGIN);
-      const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
 
       const createRes = await agent
         .post("/api/v1/companies/me/opportunities")
         .set("Origin", ORIGIN)
         .send({
           productId: productRes.body.id,
-          fulfillmentLocationId: locationRes.body[0].id,
+          fulfillmentLocationId: branch.id,
           targetQuantity: 10,
           unitPriceAmount: 5,
           startAt: new Date(Date.now() + 3600_000).toISOString(),
@@ -565,11 +569,17 @@ describe("Opportunity discovery — trader and public views (e2e)", () => {
     const HOUR = 60 * 60 * 1000;
 
     async function threeWithStaggeredClosings() {
+      // 29 DAYS, NOT 30. The offer starts a minute in the past, so a
+      // closing exactly 30 days out made the duration 30 days and one
+      // minute, which the create refuses with «Duration must not
+      // exceed 30 days». Only the ORDER of the three matters here.
       const far = await setupActiveOpportunity({
-        endAt: new Date(Date.now() + 30 * 24 * HOUR).toISOString(),
+        endAt: new Date(Date.now() + 29 * 24 * HOUR).toISOString(),
       });
+      // 25 HOURS, NOT 2 — an offer must run at least 24 hours. Still
+      // the soonest of the three, which is all this needs.
       const near = await setupActiveOpportunity({
-        endAt: new Date(Date.now() + 2 * HOUR).toISOString(),
+        endAt: new Date(Date.now() + 25 * HOUR).toISOString(),
       });
       const middle = await setupActiveOpportunity({
         endAt: new Date(Date.now() + 10 * 24 * HOUR).toISOString(),

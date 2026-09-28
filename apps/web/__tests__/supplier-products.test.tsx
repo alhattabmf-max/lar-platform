@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ProductApprovalStatus, ProductMediaView } from "@platform/types";
@@ -44,7 +50,10 @@ const ALL_STATUSES: readonly ProductApprovalStatus[] = [
  * If the service's guards change, these expectations are what fail.
  */
 describe("action gating matches the API's guards, state by state", () => {
-  const live = (approvalStatus: ProductApprovalStatus) => ({ approvalStatus, archivedAt: null });
+  const live = (approvalStatus: ProductApprovalStatus) => ({
+    approvalStatus,
+    archivedAt: null,
+  });
 
   it.each([
     ["DRAFT", true],
@@ -81,35 +90,76 @@ describe("action gating matches the API's guards, state by state", () => {
     expect(productActions(live(status)).canEditMedia).toBe(allowed);
   });
 
-  it.each(ALL_STATUSES)("an archived %s product allows nothing at all", (status) => {
-    expect(productActions({ approvalStatus: status, archivedAt: "2026-08-01T00:00:00.000Z" })).toEqual(
-      { canSubmit: false, canArchive: false, canEditMedia: false }
-    );
+  it.each(ALL_STATUSES)(
+    "an archived %s product allows no WRITE — and still allows a delete",
+    (status) => {
+      // ARCHIVE WAS A ONE-WAY DOOR, and that is the defect this
+      // answers. An archived product had no edit, no offer, no submit
+      // and no unarchive: the owner ended up with two products he
+      // could neither sell nor remove, because deleting a draft offer
+      // used to archive the product underneath it.
+      //
+      // A DELETE IS NOT A WRITE TO THE ROW, it is the removal of it,
+      // and the server's only question is whether a buyer got there
+      // first — a fact no status can answer.
+      expect(
+        productActions({
+          approvalStatus: status,
+          archivedAt: "2026-08-01T00:00:00.000Z",
+        }),
+      ).toEqual({
+        canSubmit: false,
+        canArchive: false,
+        canEditMedia: false,
+        canDelete: true,
+      });
+    },
+  );
+
+  it.each(ALL_STATUSES)("a live %s product can be deleted", (status) => {
+    // «المنتج يُحذف من صفحة المورّد ومن صفحة الإدارة، دام المشتري ما
+    //  بعد دفع» — the condition is the buyer, and the buyer is not a
+    // status. The refusal arrives as a 409 naming which of the two it
+    // was: somebody mid-checkout, or somebody who paid.
+    expect(productActions(live(status)).canDelete).toBe(true);
   });
 
   it("gives every state a next step", () => {
-    const messages = JSON.parse(read("messages/ar-SA.json")).supplier.products.nextStep;
+    const messages = JSON.parse(read("messages/ar-SA.json")).supplier.products
+      .nextStep;
 
     for (const status of ALL_STATUSES) {
-      const key = productNextStepKey({ approvalStatus: status, archivedAt: null });
-      const value = key.split(".").reduce<unknown>((node, part) => (node as never)[part], messages);
+      const key = productNextStepKey({
+        approvalStatus: status,
+        archivedAt: null,
+      });
+      const value = key
+        .split(".")
+        .reduce<unknown>((node, part) => (node as never)[part], messages);
       expect(value, status).toBeTruthy();
     }
 
     expect(messages.archived).toBeTruthy();
-    expect(productNextStepKey({ approvalStatus: "DRAFT", archivedAt: "x" })).toBe("archived");
+    expect(
+      productNextStepKey({ approvalStatus: "DRAFT", archivedAt: "x" }),
+    ).toBe("archived");
   });
 
   it("flags exactly the states where the supplier must act", () => {
     for (const status of ALL_STATUSES) {
-      expect([status, productNeedsAttention({ approvalStatus: status, archivedAt: null })]).toEqual([
+      expect([
+        status,
+        productNeedsAttention({ approvalStatus: status, archivedAt: null }),
+      ]).toEqual([
         status,
         status === "DRAFT" || status === "REJECTED" || status === "SUSPENDED",
       ]);
     }
 
     // Archived is finished with, whatever its status used to be.
-    expect(productNeedsAttention({ approvalStatus: "REJECTED", archivedAt: "x" })).toBe(false);
+    expect(
+      productNeedsAttention({ approvalStatus: "REJECTED", archivedAt: "x" }),
+    ).toBe(false);
   });
 });
 
@@ -126,8 +176,21 @@ describe("no button is rendered for an action the API would refuse", () => {
     expect(code).not.toMatch(/approvalStatus === "REJECTED"/);
   });
 
-  it("renders nothing when neither action is allowed", () => {
-    expect(strip(ACTIONS)).toContain("if (!gate.canSubmit && !gate.canArchive) return null");
+  it("renders nothing when no action is allowed", () => {
+    expect(strip(ACTIONS)).toContain(
+      "if (!gate.canSubmit && !gate.canArchive && !gate.canDelete) return null",
+    );
+  });
+
+  it("leaves the page after a delete instead of re-reading it", () => {
+    // THE ROW IS GONE, so this page is gone with it. `router.refresh()`
+    // would ask the server for a product that no longer exists and
+    // answer a supplier's own delete with a 404.
+    const code = strip(ACTIONS);
+    expect(code).toContain("router.replace(afterDeleteHref)");
+    expect(code).toContain(
+      "await apiClient.delete(`/companies/me/products/${productId}`)",
+    );
   });
 
   it("offers no edit form while no edit screen exists", () => {
@@ -224,7 +287,8 @@ const MEDIA: ProductMediaView[] = [
   {
     id: "m-1",
     url: "/api/v1/companies/me/products/p-1/media/m-1/image",
-    thumbnailUrl: "/api/v1/companies/me/products/p-1/media/m-1/image?variant=thumb",
+    thumbnailUrl:
+      "/api/v1/companies/me/products/p-1/media/m-1/image?variant=thumb",
     contentType: "image/jpeg",
     sizeBytes: 2048,
     isMain: true,
@@ -233,7 +297,8 @@ const MEDIA: ProductMediaView[] = [
   {
     id: "m-2",
     url: "/api/v1/companies/me/products/p-1/media/m-2/image",
-    thumbnailUrl: "/api/v1/companies/me/products/p-1/media/m-2/image?variant=thumb",
+    thumbnailUrl:
+      "/api/v1/companies/me/products/p-1/media/m-2/image?variant=thumb",
     contentType: "image/png",
     sizeBytes: 4096,
     isMain: false,
@@ -255,11 +320,13 @@ const LABELS = {
   working: "جارٍ التنفيذ…",
   addImage: "إضافة صورة",
   addImageHint: "تلميح",
-        addImageLimits: "Up to {count} images, each up to {megabytes} MB. Types: {types}.",
-        addImageFull: "Maximum images reached.",
-        fileTooLarge: "Too large.",
-        fileTypeNotAllowed: "Type not accepted.",
+  addImageLimits:
+    "Up to {count} images, each up to {megabytes} MB. Types: {types}.",
+  addImageFull: "Maximum images reached.",
+  fileTooLarge: "Too large.",
+  fileTypeNotAllowed: "Type not accepted.",
   openFull: "فتح الصورة",
+  closeFull: "إغلاق",
   errorTitle: "تعذّر إتمام الطلب",
   requestIdLabel: "رقم المرجع",
   moveUp: "نقل صورة {name} رقم {index} للأعلى",
@@ -268,10 +335,13 @@ const LABELS = {
 };
 
 const refreshMock = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
+}));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 
-const { ProductMediaManager } = await import("@/components/supplier/product-media-manager");
+const { ProductMediaManager } =
+  await import("@/components/supplier/product-media-manager");
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -281,7 +351,7 @@ beforeEach(() => {
     new Response(JSON.stringify({ id: "m-3" }), {
       status: 201,
       headers: { "content-type": "application/json" },
-    })
+    }),
   );
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -298,7 +368,7 @@ function renderManager(canEdit = true, media: ProductMediaView[] = MEDIA) {
       canEdit={canEdit}
       productName="زيت زيتون"
       labels={LABELS}
-    />
+    />,
   );
 }
 
@@ -323,7 +393,7 @@ describe("product images come only from the private delivery route", () => {
   it("carries no storage key, signature or expiry in any URL", () => {
     const { container } = renderManager();
     const urls = [...container.querySelectorAll("img, a[href]")].map(
-      (node) => node.getAttribute("src") ?? node.getAttribute("href") ?? ""
+      (node) => node.getAttribute("src") ?? node.getAttribute("href") ?? "",
     );
 
     expect(urls.length).toBeGreaterThan(0);
@@ -342,7 +412,7 @@ describe("product images come only from the private delivery route", () => {
   it("builds no URL of its own — only the API's paths, origin-prefixed", () => {
     const code = strip(MANAGER);
 
-    expect(code).toContain("mediaUrl(image.url)");
+    expect(code).toContain("mediaUrl(enlargedImage.url)");
     expect(code).toContain("mediaUrl(image.thumbnailUrl)");
     expect(code).not.toContain("productMediaImagePath");
     expect(code).not.toContain("objectKey");
@@ -351,7 +421,9 @@ describe("product images come only from the private delivery route", () => {
   it("gives every image a real alt naming the product", () => {
     renderManager();
 
-    expect(screen.getByAltText("الصورة الرئيسية للمنتج زيت زيتون")).toBeInTheDocument();
+    expect(
+      screen.getByAltText("الصورة الرئيسية للمنتج زيت زيتون"),
+    ).toBeInTheDocument();
     expect(screen.getByAltText("صورة 2 للمنتج زيت زيتون")).toBeInTheDocument();
   });
 
@@ -367,8 +439,12 @@ describe("product images come only from the private delivery route", () => {
     // THIS product. There is no id input and no cross-product path.
     const code = strip(MANAGER);
 
-    expect(code).toContain("`/companies/me/products/${productId}/media/${image.id}");
-    expect(code).not.toMatch(/products\/\$\{[a-zA-Z]*[Ii]d\}\/media\/\$\{(?!image\.id)/);
+    expect(code).toContain(
+      "`/companies/me/products/${productId}/media/${image.id}",
+    );
+    expect(code).not.toMatch(
+      /products\/\$\{[a-zA-Z]*[Ii]d\}\/media\/\$\{(?!image\.id)/,
+    );
   });
 });
 
@@ -378,7 +454,9 @@ describe("uploading an image", () => {
     // the browser generates and the request arrives unparseable.
     const { container } = renderManager();
 
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
     const file = new File(["binary"], "photo.jpg", { type: "image/jpeg" });
     fireEvent.change(input, { target: { files: [file] } });
 
@@ -395,7 +473,9 @@ describe("uploading an image", () => {
 
   it("re-reads the server after a successful upload", async () => {
     const { container } = renderManager();
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
 
     fireEvent.change(input, {
       target: { files: [new File(["x"], "a.png", { type: "image/png" })] },
@@ -408,23 +488,31 @@ describe("uploading an image", () => {
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
-          error: { code: "VALIDATION_FAILED", message: "File could not be decoded as an image" },
+          error: {
+            code: "VALIDATION_FAILED",
+            message: "File could not be decoded as an image",
+          },
           requestId: "req-9",
         }),
-        { status: 400, headers: { "content-type": "application/json" } }
-      )
+        { status: 400, headers: { "content-type": "application/json" } },
+      ),
     );
 
     const { container } = renderManager();
-    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
-      target: { files: [new File(["x"], "a.txt", { type: "text/plain" })] },
-    });
+    fireEvent.change(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      {
+        target: { files: [new File(["x"], "a.txt", { type: "text/plain" })] },
+      },
+    );
 
     const alert = await screen.findByRole("alert");
 
     // The translated KEY for a known code — never the API's English
     // developer string, which names the decoder.
-    expect(within(alert).getByText("errors.codes.VALIDATION_FAILED")).toBeInTheDocument();
+    expect(
+      within(alert).getByText("errors.codes.VALIDATION_FAILED"),
+    ).toBeInTheDocument();
     expect(alert.textContent).not.toContain("decoded");
     expect(alert.textContent).toContain("req-9");
     expect(refreshMock).not.toHaveBeenCalled();
@@ -432,7 +520,9 @@ describe("uploading an image", () => {
 
   it("clears the input so the same file can be chosen again", () => {
     const { container } = renderManager();
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
 
     fireEvent.change(input, {
       target: { files: [new File(["x"], "a.png", { type: "image/png" })] },
@@ -444,7 +534,8 @@ describe("uploading an image", () => {
   it("states no numeric limit it cannot know", () => {
     // The maximum count and size are admin-configured and no endpoint
     // exposes them; a number here would be a value this app invented.
-    const messages = JSON.parse(read("messages/ar-SA.json")).supplier.products.media;
+    const messages = JSON.parse(read("messages/ar-SA.json")).supplier.products
+      .media;
 
     expect(messages.addImageHint).not.toMatch(/\d/);
     expect(strip(MANAGER)).not.toMatch(/\b(5|10|20)\s*(MB|ميغا)/);
@@ -461,7 +552,9 @@ describe("set-main and remove", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toContain("/companies/me/products/p-1/media/m-2/set-main");
+    expect(String(url)).toContain(
+      "/companies/me/products/p-1/media/m-2/set-main",
+    );
     expect(init.method).toBe("POST");
   });
 
@@ -488,7 +581,9 @@ describe("set-main and remove", () => {
     expect(screen.queryByText(LABELS.remove)).not.toBeInTheDocument();
     expect(screen.queryByText(LABELS.addImage)).not.toBeInTheDocument();
     // The images themselves stay readable.
-    expect(screen.getByAltText("الصورة الرئيسية للمنتج زيت زيتون")).toBeInTheDocument();
+    expect(
+      screen.getByAltText("الصورة الرئيسية للمنتج زيت زيتون"),
+    ).toBeInTheDocument();
   });
 
   it("shows an empty state rather than an empty grid", () => {
@@ -502,9 +597,13 @@ describe("set-main and remove", () => {
 
     for (const button of container.querySelectorAll("button")) {
       const classes = button.className;
-      expect(classes.includes("min-h-11") || classes.includes("h-11") || classes.includes("py-")).toBe(
-        true
-      );
+      expect(
+        classes.includes("min-h-11") ||
+          classes.includes("h-11") ||
+          classes.includes("min-h-nav") ||
+          classes.includes("min-h-control") ||
+          classes.includes("py-"),
+      ).toBe(true);
     }
   });
 });
@@ -514,7 +613,10 @@ describe("set-main and remove", () => {
 describe("the list and detail pages", () => {
   it("read the closed contracts, not a raw row", () => {
     expect(strip(SUPPLIER_DATA)).toContain("loadSupplierProducts");
-    expect(strip(SUPPLIER_DATA)).toContain("ProductSummary[]");
+    // A PAGE of summaries, not an array of them: the catalogue endpoint
+    // is paginated now, and a `ProductSummary[]` here would mean this
+    // app still believes it gets the whole list.
+    expect(strip(SUPPLIER_DATA)).toContain("Paginated<ProductSummary>");
     expect(strip(SUPPLIER_DATA)).toContain("ProductDetail");
   });
 
@@ -534,11 +636,35 @@ describe("the list and detail pages", () => {
   });
 
   it("puts what needs attention first and hides it when empty", () => {
+    // The vocabulary moved from the catalogue's approval status to the
+    // listing's own state — one list now, not two — but the rule did
+    // not: a supplier with nothing to fix must not be shown an empty
+    // panel telling them so.
     const code = strip(LIST);
 
-    expect(code).toContain("productNeedsAttention");
-    expect(code).toContain("attention.length > 0 ?");
-    expect(code.indexOf("needsAttention.title")).toBeLessThan(code.indexOf("allTitle"));
+    expect(code).toContain("needsAttention");
+    expect(code).toMatch(/attentionRows\.length > 0/);
+    expect(code.indexOf("needsAttention.title")).toBeLessThan(
+      code.indexOf("allTitle"),
+    );
+  });
+
+  it("asks the SERVER for each half, rather than splitting a page here", () => {
+    // THE DEFECT THIS GUARDS. The split used to be
+    // `rows.filter(productNeedsAttention)` over a list this page had
+    // all of. Under a pager that is a lie: it would describe the twenty
+    // rows on screen, not the catalogue, so a draft on page three would
+    // never reach the panel that exists to surface it.
+    const code = strip(LIST);
+
+    expect(code).toContain("needsAttention: true");
+    expect(code).toContain("needsAttention: false");
+
+    // AND THE SPLIT IS GONE. `productNeedsAttention` still colours one
+    // row's badge, which is about that row and nothing else; what must
+    // not come back is filtering a LIST with it.
+    expect(code).not.toMatch(/\.filter\([^)]*productNeedsAttention/);
+    expect(code).not.toContain("rows.filter(");
   });
 
   it("has a loading, error and empty state on the list", () => {
@@ -550,13 +676,110 @@ describe("the list and detail pages", () => {
     expect(code).toContain("<Suspense");
   });
 
-  it("invents no pager over an unpaginated endpoint", () => {
-    expect(strip(LIST)).not.toContain("page=");
-    expect(strip(LIST)).not.toContain("Pagination");
-    expect(strip(SUPPLIER_DATA)).toContain('load<ProductSummary[]>("/companies/me/products")');
+  it("draws no bar and no page-level button of its own", () => {
+    // THE LIST HAD BOTH, BRIEFLY. A dark bar carrying «كل المنتجات» and
+    // an orange «إضافة منتج» — and then the owner gave every tab a
+    // strip of its own and had the bar deleted: «احذف الشريط اللي
+    // حطيته أنت سابقًا». The action moved up into that strip, which is
+    // the one row left and is in the same place on every page.
+    const code = strip(LIST);
+
+    expect(code).not.toContain("bg-primary");
+    expect(code).not.toContain("ListHeaderBar");
+
+    // AND THE STRIP'S ACTION IS NOT REPEATED HERE. This is the thing
+    // the rule was ever about: one «إضافة منتج» on the screen, in the
+    // row that has it on every other page too.
+    expect(code).not.toContain("newProduct");
+
+    // A ROW'S OWN ACTIONS ARE A DIFFERENT MATTER — «يكون فيه زرّين فوق
+    // بعض: عرض التفاصيل وإنشاء عرض». They belong to one product, they
+    // could not live in a strip that names the page, and there are as
+    // many pairs as there are products.
+    expect(code).toContain('{t("viewDetails")}');
+    expect(code).toContain('{t("newOfferShort")}');
+
+    // The name of the list stays for a reader who cannot see the tab.
+    expect(code).toContain('<h2 className="sr-only">{t("allTitle")}</h2>');
+
+    // AND THE EMPTY LIST IS NOT A DEAD END. The strip is drawn by the
+    // layout on every page, so a supplier with nothing yet still has
+    // the button — which is why the list may now say only that it is
+    // empty.
+    expect(code).toContain("<EmptyState");
+  });
+
+  it("shows a product's own measurements in the list, from the list itself", () => {
+    // «اعرض لي المنتج بكل معلوماته» — and WITHOUT a request per row.
+    //
+    // The card draws a description, a weight, three dimensions and the
+    // package content. Those lived on the DETAIL, so this page listed
+    // the products and then fetched the detail of every one of them: a
+    // supplier with five hundred products opened the screen with five
+    // hundred and two requests. They are columns of the product row, so
+    // the summary carries them now and the list costs what it did.
+    const code = strip(LIST);
+
+    for (const label of ["weightPerUnit", "dimensions", "packageContent", "createdAt"]) {
+      expect([label, code.includes(`t("${label}")`)]).toEqual([label, true]);
+    }
+
+    // NO REQUEST PER ROW. This is the whole point of the change, and the
+    // assertion that stops it coming back.
+    expect(code).not.toContain("loadSupplierProduct(product.id)");
+    expect(code).not.toContain("products.data.map(async");
+
+    // THE CARD READS THE SUMMARY. One object per row, no second source
+    // that can be null while the first is not.
+    expect(code).toContain("const specs: { label: string; value: string }[] = [");
+    expect(code).toContain("product.weightPerUnit");
+    expect(code).toContain("{specs.length > 0 ? (");
+  });
+
+  it("pages the catalogue, and searches it on the server", () => {
+    // THIS TEST USED TO ASSERT THE OPPOSITE — «invents no pager over an
+    // unpaginated endpoint» — and it was right at the time: a pager
+    // over a list that comes back whole is a lie about what page two
+    // holds.
+    //
+    // The endpoint is paginated now, because the catalogue grows with
+    // the supplier's business and a ceiling answered wrongly: at the
+    // old five-hundred limit this page was 6.4 MB of HTML, and a
+    // supplier past it never saw their oldest products at all.
+    const code = strip(LIST);
+
+    expect(code).toContain("CataloguePagination");
+    expect(code).toContain("CatalogueSearch");
+    // THE TERM TRAVELS WITH THE PAGE. Dropping it on «next» pages out
+    // of the result set and into the catalogue without saying so.
+    expect(code).toContain('params.set("q", search)');
+    expect(code).toContain('params.set("page", String(target))');
+
+    // And the narrowing is the API's, not the browser's.
+    const data = strip(SUPPLIER_DATA);
+    expect(data).toContain('params.set("search", query.search)');
+    expect(data).toContain('params.set("page", String(query.page))');
+    expect(data).toContain("Paginated<ProductSummary>");
+  });
+
+  it("keeps no ceiling on the supplier's own catalogue", () => {
+    // A ceiling is the thing the pager replaced. If one comes back it
+    // will come back as a `take` on the list query, and it would cap
+    // the last page silently.
+    const service = strip(
+      readFileSync(
+        join(process.cwd(), "../api/src/products/products.service.ts"),
+        "utf8",
+      ),
+    );
+
+    expect(service).not.toContain("MAX_OWN_CATALOGUE");
   });
 
   it("renders every status through a translation, never the raw enum", () => {
+    // ONE VOCABULARY ON BOTH. This list and this page are the PRODUCT'S
+    // — its approval status, and nothing about an offer — and neither
+    // may put a raw enum on screen.
     for (const source of [strip(LIST), strip(DETAIL)]) {
       expect(source).toContain("status(`product.${product.approvalStatus}`)");
       // `${...}` inside the message key is the correct use; a bare
@@ -565,10 +788,12 @@ describe("the list and detail pages", () => {
     }
   });
 
-  it("shows the reviewer's rejection reason, which was written for the supplier", () => {
-    for (const source of [strip(LIST), strip(DETAIL)]) {
-      expect(source).toContain("product.rejectionReason");
-    }
+  it("shows the supplier WHY, wherever the refusal came from", () => {
+    // A rejection is correspondence a reviewer wrote FOR the supplier,
+    // and both the row and the page carry it — never leave somebody
+    // looking at a blocked thing with no sentence explaining it.
+    expect(strip(DETAIL)).toContain("product.rejectionReason");
+    expect(strip(LIST)).toContain("product.rejectionReason");
   });
 
   it("renders decimal measurements as sent, with no arithmetic", () => {
@@ -582,7 +807,12 @@ describe("the list and detail pages", () => {
 
   it("leaks no internal field", () => {
     for (const source of [LIST, DETAIL, MANAGER]) {
-      for (const forbidden of ["objectKey", "thumbnailObjectKey", "snapshot", "companyId"]) {
+      for (const forbidden of [
+        "objectKey",
+        "thumbnailObjectKey",
+        "snapshot",
+        "companyId",
+      ]) {
         expect(source, forbidden).not.toContain(forbidden);
       }
     }
@@ -599,27 +829,41 @@ describe("the list and detail pages", () => {
 
 describe("navigation and message parity", () => {
   it("turns the products nav item into a real link now that the pages exist", async () => {
-    const { SUPPLIER_NAV_DESTINATIONS } = await import("@/components/shell/supplier-nav");
-    const products = SUPPLIER_NAV_DESTINATIONS.find((d) => d.key === "products")!;
+    const { SUPPLIER_PORTAL_MAP } =
+      await import("@/components/supplier/supplier-portal-nav");
+    const { portalPages } = await import("@/components/portal/portal-nav");
+    const products = portalPages(SUPPLIER_PORTAL_MAP).find(
+      (p) => p.key === "products",
+    )!;
 
-    expect(products.built).toBe(true);
-    expect(existsSync(join(ROOT, "app", "[locale]", "supplier", "products", "page.tsx"))).toBe(true);
+    expect(products.segment).toBe("products");
+    expect(
+      existsSync(
+        join(ROOT, "app", "[locale]", "supplier", "products", "page.tsx"),
+      ),
+    ).toBe(true);
   });
 
-  it("marks a destination built only when its page exists, and vice versa", async () => {
+  it("names a destination only when its page exists", async () => {
     // The general invariant, rather than pinning one key's value: a link
-    // with no page is a 404 reached through our own menu, and a page with
-    // no link is unreachable.
-    const { SUPPLIER_NAV_DESTINATIONS } = await import("@/components/shell/supplier-nav");
+    // with no page is a 404 reached through our own menu.
+    //
+    // THE "COMING SOON" STATE IS GONE with the old top nav: the sidebar
+    // names what exists and nothing else, so every destination must
+    // resolve to a real page rather than carry a flag saying it does
+    // not.
+    const { SUPPLIER_PORTAL_MAP } =
+      await import("@/components/supplier/supplier-portal-nav");
+    const { portalPages } = await import("@/components/portal/portal-nav");
 
-    for (const destination of SUPPLIER_NAV_DESTINATIONS) {
-      const dir = destination.segment
-        ? join(ROOT, "app", "[locale]", "supplier", destination.segment)
+    for (const page of portalPages(SUPPLIER_PORTAL_MAP)) {
+      const dir = page.segment
+        ? join(ROOT, "app", "[locale]", "supplier", ...page.segment.split("/"))
         : join(ROOT, "app", "[locale]", "supplier");
 
-      expect([destination.key, existsSync(join(dir, "page.tsx"))]).toEqual([
-        destination.key,
-        destination.built,
+      expect([page.key, existsSync(join(dir, "page.tsx"))]).toEqual([
+        page.key,
+        true,
       ]);
     }
   });
@@ -632,7 +876,7 @@ describe("navigation and message parity", () => {
       typeof value !== "object" || value === null
         ? [prefix]
         : Object.entries(value as Record<string, unknown>).flatMap(([k, v]) =>
-            flatten(v, prefix ? `${prefix}.${k}` : k)
+            flatten(v, prefix ? `${prefix}.${k}` : k),
           );
 
     expect(flatten(ar.products).sort()).toEqual(flatten(en.products).sort());
@@ -652,6 +896,8 @@ describe("navigation and message parity", () => {
     const en = JSON.parse(read("messages/en-SA.json")).supplier.products;
 
     expect(en.actions.submitPrompt.toLowerCase()).toContain("automatically");
-    expect(en.nextStep.status.DRAFT.toLowerCase()).not.toContain("wait for review");
+    expect(en.nextStep.status.DRAFT.toLowerCase()).not.toContain(
+      "wait for review",
+    );
   });
 });

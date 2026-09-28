@@ -2,6 +2,7 @@ import helmet from "helmet";
 import type { NextFunction, Request, Response } from "express";
 import {
   EMBEDDABLE_IMAGE_CORP,
+  embeddableImageCorp,
   embeddableImageCorpMiddleware,
   isEmbeddableImagePath,
 } from "./embeddable-image-corp";
@@ -47,6 +48,12 @@ const IMAGE_ROUTES = [
   "/api/v1/banners/9f1c2e40-0000-4000-8000-000000000001/image",
   "/api/v1/admin/banners/9f1c2e40-0000-4000-8000-000000000002/image",
   "/api/v1/companies/me/products/1d500d70-06ea-484e-8df5-212cf54729c5/media/a4d13d48-d2bb-4cee-b55c-2c5eb8300ec3/image",
+  // The header logo. Left out when it shipped, which is why it rendered
+  // as a broken image on every page while the API answered 200 — a
+  // browser discards a subresource it fetched successfully when CORP
+  // says same-origin.
+  "/api/v1/branding/logo",
+  "/api/v1/admin/branding/logo/image",
 ];
 
 const NON_IMAGE_ROUTES = [
@@ -60,6 +67,13 @@ const NON_IMAGE_ROUTES = [
   "/api/v1/auth/login",
   "/api/v1/policies/active",
   "/api/v1/public/site-content",
+  // The JSON neighbours of the two logo routes. Both are one segment
+  // away from an entry in the list, and both return a JSON body that no
+  // page embeds — so neither may be relaxed by a pattern meant for the
+  // image beside it.
+  "/api/v1/branding",
+  "/api/v1/admin/branding",
+  "/api/v1/admin/branding/logo",
 ];
 
 describe("Cross-Origin-Resource-Policy", () => {
@@ -69,16 +83,50 @@ describe("Cross-Origin-Resource-Policy", () => {
     expect(res.headers["Cross-Origin-Resource-Policy"]).toBe("same-origin");
   });
 
-  describe("the four image routes are same-site", () => {
+  describe("every image route is embeddable by a first-party page", () => {
     it.each(IMAGE_ROUTES)("%s", (path) => {
-      expect(corpFor(path)).toBe("same-site");
-      expect(EMBEDDABLE_IMAGE_CORP).toBe("same-site");
+      // NOT `same-origin`, which is helmet's default and what breaks
+      // every image: the web app is served from a DIFFERENT ORIGIN on
+      // purpose.
+      expect(corpFor(path)).not.toBe("same-origin");
     });
 
     it("a thumbnail variant matches too — req.path excludes the query string", () => {
       // Express strips `?variant=thumb` before `req.path`, so the same
       // route with a variant is the same path.
-      expect(corpFor("/api/v1/opportunities/abc/image")).toBe("same-site");
+      expect(corpFor("/api/v1/opportunities/abc/image")).not.toBe(
+        "same-origin",
+      );
+    });
+  });
+
+  describe("which value, and why it depends on the environment", () => {
+    it("keeps the stricter header where the hosts are real domains", () => {
+      // `app.forsa.sa` -> `api.forsa.sa` is same-site, so production
+      // needs nothing looser.
+      expect(embeddableImageCorp("production")).toBe("same-site");
+      expect(EMBEDDABLE_IMAGE_CORP).toBe("same-site");
+    });
+
+    it("relaxes it everywhere else, because a dev host may be an IP", () => {
+      // AN IP ADDRESS HAS NO REGISTRABLE DOMAIN for CORP to compare,
+      // so `http://172.20.10.4:3001` embedding
+      // `http://172.20.10.4:3000/.../image` is refused with
+      // `net::ERR_BLOCKED_BY_RESPONSE.NotSameSite` — measured, on the
+      // logo, the banner and every product thumbnail at once, while
+      // the API answered 200 to all of them.
+      for (const env of ["development", "test", undefined]) {
+        expect(embeddableImageCorp(env)).toBe("cross-origin");
+      }
+    });
+
+    it("still says nothing about who may READ a private route", () => {
+      // CORP is not an access control and never was: the session
+      // guard is. A cross-site `<img>` carries no `lax` cookie, so a
+      // stranger's page gets 401 rather than a picture — which is why
+      // relaxing this header on a developer's machine costs nothing.
+      const guarded = NON_IMAGE_ROUTES[0];
+      expect(corpFor(guarded)).toBe("same-origin");
     });
   });
 
@@ -111,7 +159,7 @@ describe("Cross-Origin-Resource-Policy", () => {
     // A fifth image route added later must be added here deliberately,
     // rather than silently inheriting the strict default and rendering
     // as a broken image.
-    expect(IMAGE_ROUTES.filter(isEmbeddableImagePath)).toHaveLength(4);
+    expect(IMAGE_ROUTES.filter(isEmbeddableImagePath)).toHaveLength(6);
     expect(NON_IMAGE_ROUTES.filter(isEmbeddableImagePath)).toHaveLength(0);
   });
 });

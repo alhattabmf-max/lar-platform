@@ -1,8 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { TraderNav } from "@/components/shell/trader-nav";
+import { PortalTopNav } from "@/components/portal/portal-top-nav";
+import { portalPages } from "@/components/portal/portal-nav";
+import { TRADER_PORTAL_MAP } from "@/components/trader/trader-portal-nav";
+
+/**
+ * The sidebar reads `usePathname`, which is bound at import time — a
+ * hoisted holder lets each case set the address before it renders.
+ */
+const nav = vi.hoisted(() => ({ pathname: "/ar-SA/trader" }));
+vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname }));
 
 const ROOT = join(__dirname, "..");
 const read = (relative: string) => readFileSync(join(ROOT, relative), "utf8");
@@ -16,9 +26,13 @@ const strip = (source: string) =>
  * the rules below — which is exactly how one screen ends up with its
  * own AppShell, its own cache directive, or an edit button.
  */
-function traderPages(dir = join(ROOT, "app", "[locale]", "trader"), prefix = "trader"): string[] {
+function traderPages(
+  dir = join(ROOT, "app", "[locale]", "trader"),
+  prefix = "trader",
+): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    if (entry.isDirectory()) return traderPages(join(dir, entry.name), `${prefix}/${entry.name}`);
+    if (entry.isDirectory())
+      return traderPages(join(dir, entry.name), `${prefix}/${entry.name}`);
     return entry.name === "page.tsx" ? [`${prefix}/page.tsx`] : [];
   });
 }
@@ -31,7 +45,9 @@ const TRADER_DATA = read("lib/trader-data.ts");
 
 describe("the trader segment is guarded on the server", () => {
   it("calls requireRoleOrRedirect for the TRADER role", () => {
-    expect(strip(LAYOUT)).toContain('requireRoleOrRedirect(appLocale, "TRADER")');
+    expect(strip(LAYOUT)).toContain(
+      'requireRoleOrRedirect(appLocale, "TRADER")',
+    );
   });
 
   it("guards before rendering any child", () => {
@@ -40,11 +56,15 @@ describe("the trader segment is guarded on the server", () => {
     // The guard throws Next's redirect signal, so the body is never
     // produced for an unauthorised visitor rather than produced and
     // hidden.
-    expect(code.indexOf("requireRoleOrRedirect")).toBeLessThan(code.indexOf("return ("));
+    expect(code.indexOf("requireRoleOrRedirect")).toBeLessThan(
+      code.indexOf("return ("),
+    );
   });
 
   it("re-guards on the page itself, so moving it cannot unguard it", () => {
-    expect(strip(DASHBOARD)).toContain('requireRoleOrRedirect(appLocale, "TRADER")');
+    expect(strip(DASHBOARD)).toContain(
+      'requireRoleOrRedirect(appLocale, "TRADER")',
+    );
   });
 
   it("passes no returnTo — an untrusted one would need an allowlist", () => {
@@ -60,8 +80,29 @@ describe("the trader segment is guarded on the server", () => {
     expect(middleware).not.toContain("requireRole");
   });
 
-  it("keeps the shared shell, so branding, theme, locale and dir survive", () => {
-    expect(strip(LAYOUT)).toContain("<AppShell");
+  /**
+   * THE WORKSPACE FRAME, NOT THE STOREFRONT'S.
+   *
+   * The segment used to wrap itself in `AppShell` — the marketplace
+   * header, the category bar and the public footer. A buyer working
+   * through orders is not shopping, and this batch replaced that chrome
+   * with the control panel's: a navy rail and a white bar, the same
+   * ones the console wears. The theme and the direction still come from
+   * the locale layout above, which both shells sit inside.
+   */
+  it("wraps the segment in the portal chrome at the layout", () => {
+    // Through the portal's OWN client entry, which is where the nav map
+    // is bound. A layout that passed the map itself would be handing a
+    // Lucide icon — a function — across the server boundary, and React
+    // refuses to serialise one: every request 500s.
+    expect(strip(LAYOUT)).toContain("<TraderChrome");
+    expect(strip(read("components/trader/trader-chrome.tsx"))).toContain(
+      "<PortalChrome",
+    );
+  });
+
+  it("no longer dresses the workspace as a storefront", () => {
+    expect(strip(LAYOUT)).not.toContain("<AppShell");
   });
 });
 
@@ -71,7 +112,8 @@ describe("trader reads never come from a cache", () => {
     const requests = code.match(/apiClient\.get<[^>]*>\([^)]*\)/gs) ?? [];
 
     expect(requests.length).toBeGreaterThan(0);
-    for (const request of requests) expect(request).toContain('cache: "no-store"');
+    for (const request of requests)
+      expect(request).toContain('cache: "no-store"');
   });
 
   it("never opts a signed-in read into revalidation", () => {
@@ -89,110 +131,356 @@ describe("trader reads never come from a cache", () => {
 });
 
 describe("navigation", () => {
-  const items = [
-    { key: "dashboard", label: "الرئيسية", href: "/ar-SA/trader" },
-    { key: "orders", label: "الطلبات", href: "/ar-SA/trader/orders" },
-    { key: "notifications", label: "الإشعارات", href: null, comingSoonLabel: "قريبًا", badge: 3 },
-  ];
+  /**
+   * THE NAVIGATION THE CONSOLE WEARS, bound to the buyer's own map.
+   *
+   * The shared portal navigation, across the top: navy
+   * from the identity tokens, a lighter panel behind the current page
+   * with an accent marker down its leading edge, Lucide icons, and a
+   * drawer at phone widths. The RENDERER is shared with the console and
+   * the supplier; the DESTINATIONS are not, and cannot be — the rail
+   * draws the map it is handed and knows of no other.
+   */
+  const PAGE_LABELS: Record<string, string> = {};
+  for (const page of portalPages(TRADER_PORTAL_MAP))
+    PAGE_LABELS[page.key] = `page:${page.key}`;
+
+  const GROUP_LABELS: Record<string, string> = {};
+  for (const group of TRADER_PORTAL_MAP.groups)
+    GROUP_LABELS[group.key] = `group:${group.key}`;
+
+  const LABELS = {
+    navLabel: "تنقل لوحة التحكم",
+    closeMenu: "إغلاق القائمة",
+    openMenu: "فتح القائمة",
+    groupNames: GROUP_LABELS,
+    pageNames: PAGE_LABELS,
+  };
+
+  const MAP = TRADER_PORTAL_MAP;
+
+  /**
+   * Puts every destination in the document at once.
+   *
+   * THROUGH THE PHONE PANEL, because only one group's panel is open at
+   * a time on a wide screen — that is the design, not a limitation, and
+   * opening them in turn would only ever leave the last one mounted.
+   * The phone panel lists every group and every page together, so it is
+   * the honest way to walk the whole map.
+   */
+  async function openEveryGroup(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTestId("portal-menu-button"));
+  }
+
+  /** Opens the one group holding a page, for a case about that page. */
+  async function openGroupOf(
+    user: ReturnType<typeof userEvent.setup>,
+    pageKey: string,
+  ) {
+    const group = MAP.groups.find((g) =>
+      g.pages.some((page) => page.key === pageKey),
+    );
+    if (group) await user.click(screen.getByTestId(`nav-group-${group.key}`));
+  }
+
+  function renderNav(pathname = "/ar-SA/trader") {
+    nav.pathname = pathname;
+    return render(
+      <PortalTopNav
+        basePath="/ar-SA/trader"
+        map={TRADER_PORTAL_MAP}
+        labels={LABELS}
+        pathname={pathname}
+      />,
+    );
+  }
 
   it("is a landmark with an accessible name", () => {
-    render(<TraderNav navLabel="تنقل حساب التاجر" items={items} />);
+    renderNav();
 
-    expect(screen.getByRole("navigation", { name: "تنقل حساب التاجر" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "تنقل لوحة التحكم" }),
+    ).toBeInTheDocument();
   });
 
-  it("uses links for navigation, never buttons", () => {
-    render(<TraderNav navLabel="nav" items={items} />);
+  it("carries no portal name of its own", () => {
+    // The rail printed one in its head. The mark in the white bar above
+    // is the platform's name, and a second name beneath it was what
+    // made one product read as three.
+    renderNav();
 
-    expect(screen.getByRole("link", { name: "الرئيسية" })).toHaveAttribute(
-      "href",
-      "/ar-SA/trader"
-    );
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryByTestId("control-panel-name")).toBeNull();
   });
 
-  it("renders an unbuilt destination as inert text, not a link that 404s", () => {
-    render(<TraderNav navLabel="nav" items={items} />);
+  it("uses links for navigation, never click handlers on plain elements", () => {
+    renderNav();
 
-    expect(screen.queryByRole("link", { name: /الإشعارات/ })).not.toBeInTheDocument();
-    const notifications = screen.getByText("الإشعارات").closest("span")!;
-    expect(notifications).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByRole("link", { name: /page:dashboard/ }),
+    ).toHaveAttribute("href", "/ar-SA/trader");
   });
 
-  it("says why an item is unavailable rather than hiding it", () => {
-    // A gap in the menu is harder to understand than an item that
-    // explains itself.
-    render(<TraderNav navLabel="nav" items={items} />);
+  it("builds every href from the portal root and the segment", async () => {
+    const user = userEvent.setup();
+    renderNav();
+    await openEveryGroup(user);
 
-    expect(screen.getByText("قريبًا")).toBeInTheDocument();
-  });
-
-  it("shows an unread badge only when there is something unread", () => {
-    const { rerender } = render(<TraderNav navLabel="nav" items={items} />);
-    expect(screen.getByText("3")).toBeInTheDocument();
-
-    rerender(
-      <TraderNav
-        navLabel="nav"
-        items={[{ key: "n", label: "الإشعارات", href: null, badge: 0 }]}
-      />
-    );
-    expect(screen.queryByText("0")).not.toBeInTheDocument();
-  });
-
-  it("wraps instead of scrolling sideways at a narrow viewport", () => {
-    const { container } = render(<TraderNav navLabel="nav" items={items} />);
-    const list = container.querySelector("ul")!;
-
-    // `flex-wrap` is what keeps 360px free of horizontal overflow.
-    expect(list.className).toContain("flex-wrap");
-    expect(list.className).not.toContain("overflow-x");
-  });
-
-  it("marks up the items as a list", () => {
-    render(<TraderNav navLabel="nav" items={items} />);
-
-    expect(within(screen.getByRole("list")).getAllByRole("listitem")).toHaveLength(3);
-  });
-});
-
-describe("the dashboard shows only real data", () => {
-  const code = strip(DASHBOARD);
-
-  it("renders no invented metric or chart", () => {
-    for (const fake of ["Math.random", "chart", "sparkline", "revenue", "growth", "trend"]) {
-      expect(code.toLowerCase()).not.toContain(fake.toLowerCase());
+    for (const page of portalPages(TRADER_PORTAL_MAP)) {
+      const link = screen.getByTestId(`nav-page-${page.key}`);
+      const expected = page.segment
+        ? `/ar-SA/trader/${page.segment}`
+        : "/ar-SA/trader";
+      expect([page.key, link.getAttribute("href")]).toEqual([
+        page.key,
+        expected,
+      ]);
     }
   });
 
-  it("reads only endpoints that exist", () => {
-    expect(code).toContain("loadTraderOrders");
-    expect(code).toContain("loadUnreadNotificationCount");
+  it("has a real page behind every destination it links to", () => {
+    for (const page of portalPages(TRADER_PORTAL_MAP)) {
+      const expected = page.segment
+        ? `trader/${page.segment}/page.tsx`
+        : "trader/page.tsx";
+      expect(TRADER_PAGES, page.key).toContain(expected);
+    }
   });
 
-  it("isolates each panel behind its own Suspense boundary", () => {
-    expect((code.match(/<Suspense/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  it("names ONLY the buyer's own destinations", () => {
+    // The security line this batch had to hold: a shared renderer must
+    // not become a way for one portal's links to reach another's
+    // reader. Nothing from the console and nothing from the supplier's
+    // portal can appear here.
+    renderNav();
+
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href")).toMatch(/^\/ar-SA\/trader(\/|$)/);
+    }
   });
 
-  it("gives every panel its own error state, so one failure is not fatal", () => {
-    expect((code.match(/<ErrorState/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  it("offers no supplier-only destination", () => {
+    // A buyer has no products to list, no settlements to receive and no
+    // payout account of the supplier's kind.
+    const keys = portalPages(TRADER_PORTAL_MAP).map((page) => page.key);
+
+    for (const supplierOnly of [
+      "products",
+      "settlements",
+      "bankAccount",
+      "billing",
+    ]) {
+      expect(keys).not.toContain(supplierOnly);
+    }
   });
 
-  it("puts what needs attention before the rest", () => {
-    expect(code.indexOf("NeedsAttentionPanel")).toBeLessThan(code.indexOf("OrdersPanel"));
+  it("marks the current page for assistive technology AND for the eye", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/trader/orders");
+    await openGroupOf(user, "orders");
+
+    expect(screen.getByTestId("nav-page-orders")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // The accent underline is the BAR's affordance and is drawn on the
+    // group holding the page; inside the panel the page carries
+    // `aria-current` and full weight. Both are checked.
+    expect(screen.getByTestId("nav-page-orders").className).toContain(
+      "font-semibold",
+    );
   });
 
-  it("shows nothing at all when nothing needs attention", () => {
-    // An empty "needs attention" card would train people to ignore it.
-    expect(code).toContain("if (attention.length === 0) return null");
+  it("keeps a DETAIL screen marked as its section", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/trader/orders/abc-123");
+    await openGroupOf(user, "orders");
+
+    expect(screen.getByTestId("nav-page-orders")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
-  it("uses server-computed overdue rather than deriving it in the UI", () => {
-    expect(code).toContain("hasOverduePreparation");
+  it("gives every destination a 44px touch target", async () => {
+    const user = userEvent.setup();
+    renderNav();
+    await openEveryGroup(user);
+
+    for (const page of portalPages(TRADER_PORTAL_MAP)) {
+      expect(
+        screen.getByTestId(`nav-page-${page.key}`).className,
+        // A destination in a rail is not a control: it keeps the
+        // 44px target, from `--nav-item-height` rather than from a
+        // class added by hand.
+      ).toContain("min-h-nav");
+    }
   });
 
-  it("renders no raw HTML", () => {
+  it("offers a panel on a phone, opened and closed by one named button", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/trader");
+
+    const button = screen.getByTestId("portal-menu-button");
+    expect(button).toHaveAttribute("aria-label", "فتح القائمة");
+
+    await user.click(button);
+    expect(screen.getByTestId("portal-nav-drawer")).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-label", "إغلاق القائمة");
+
+    await user.click(button);
+    expect(screen.queryByTestId("portal-nav-drawer")).toBeNull();
+  });
+
+  it("draws nothing while the panel is shut", () => {
+    renderNav("/ar-SA/trader");
+
+    expect(screen.queryByTestId("portal-nav-drawer")).toBeNull();
+  });
+
+  it("closes the panel on Escape", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/trader");
+
+    await user.click(screen.getByTestId("portal-menu-button"));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByTestId("portal-nav-drawer")).toBeNull();
+  });
+
+  it("makes every destination a real link, not a click handler", async () => {
+    const user = userEvent.setup();
+    renderNav("/ar-SA/trader");
+
+    for (const group of MAP.groups) {
+      await user.click(screen.getByTestId(`nav-group-${group.key}`));
+      for (const page of group.pages) {
+        expect(screen.getByTestId(`nav-page-${page.key}`).tagName).toBe("A");
+      }
+    }
+  });
+
+  it("builds hrefs from the rendered locale, never a baked-in one", () => {
+    nav.pathname = "/en-SA/trader";
+    render(
+      <PortalTopNav
+        basePath="/en-SA/trader"
+        map={TRADER_PORTAL_MAP}
+        labels={LABELS}
+        pathname="/en-SA/trader"
+      />,
+    );
+
+    expect(screen.getByTestId("nav-page-dashboard")).toHaveAttribute(
+      "href",
+      "/en-SA/trader",
+    );
+  });
+
+  it("names every destination and group in both locales", () => {
+    const ar = JSON.parse(read("messages/ar-SA.json"));
+    const en = JSON.parse(read("messages/en-SA.json"));
+
+    for (const page of portalPages(TRADER_PORTAL_MAP)) {
+      expect(ar.trader.nav[page.key], page.key).toBeTruthy();
+      expect(en.trader.nav[page.key], page.key).toBeTruthy();
+    }
+    for (const group of TRADER_PORTAL_MAP.groups) {
+      expect(ar.trader.nav.group[group.key], group.key).toBeTruthy();
+      expect(en.trader.nav.group[group.key], group.key).toBeTruthy();
+    }
+    expect(ar.trader.nav.portalName).toBe("لوحة التحكم");
+    expect(en.trader.nav.portalName).toBe("Control Panel");
+    expect(ar.trader.nav.accountTypeLabel).toBe("مشتري");
+  });
+
+  it("shares the frame with the console WITHOUT sharing the session", () => {
+    const layout = strip(LAYOUT);
+    const entry = strip(read("components/trader/trader-chrome.tsx"));
+
+    expect(entry).toContain("@/components/portal/portal-chrome");
+    expect(layout).toContain("requireRoleOrRedirect");
+    // No admin loader, guard, session or sign-out crosses over.
+    expect(layout).not.toContain("admin-session");
+    expect(layout).not.toContain("getAdminSession");
+    expect(layout).not.toContain("admin-data");
+    expect(layout).not.toContain("AdminSignOut");
+  });
+});
+
+describe("the buyer's home is the market, not a dashboard", () => {
+  const code = strip(DASHBOARD);
+  const home = strip(read("components/home/home-content.tsx"));
+
+  /**
+   * «والصفحة الرئيسية للمشتري نفس محتوى الصفحة الرئيسية في واجهة
+   * الزائر.»
+   *
+   * IT WAS THREE PANELS of the buyer's own figures — what needed
+   * chasing, their latest orders, their unread count. Every one of
+   * those is a tab away, and a buyer opening the platform is opening a
+   * market. What this holds is that the two fronts really do draw the
+   * SAME thing, and that nothing was deleted to arrange it.
+   */
+  it("draws the visitor's front door, from the one component", () => {
+    expect(code).toContain("<HomeContent");
+    expect(strip(read("app/[locale]/(public)/page.tsx"))).toContain("<HomeContent");
+
+    // NOT A SECOND COPY. Two pages that agreed on the day they were
+    // written is not "the same content".
+    expect(code).not.toContain("loadOpportunities");
+    expect(code).not.toContain("OpportunityCard");
+  });
+
+  it("keeps the one thing a visitor's front has no use for", () => {
+    // The completeness banner is not content, it is a blocker being
+    // announced: a buyer whose record is incomplete cannot check out.
+    expect(code).toContain("<CompletenessBanner");
+    expect(home).not.toContain("CompletenessBanner");
+  });
+
+  it("deletes none of what the panels used to show", () => {
+    // The orders, the notifications and what needs attention are all
+    // still served and still named in the row of tabs above.
+    for (const page of [
+      "app/[locale]/trader/orders/page.tsx",
+      "app/[locale]/trader/notifications/page.tsx",
+      "app/[locale]/trader/follow-up/page.tsx",
+    ]) {
+      expect([page, existsSync(join(ROOT, page))]).toEqual([page, true]);
+    }
+    const order = read("components/trader/trader-top-nav.tsx");
+    for (const key of ["orders", "followUp"]) {
+      expect([key, order.includes(`"${key}"`)]).toEqual([key, true]);
+    }
+  });
+
+  it("still guards on the server before anything renders", () => {
+    expect(code).toContain('requireRoleOrRedirect(appLocale, "TRADER")');
+  });
+
+  it("renders no invented metric or chart, and no raw HTML", () => {
+    for (const fake of ["Math.random", "chart", "sparkline", "revenue", "growth", "trend"]) {
+      expect(code.toLowerCase()).not.toContain(fake.toLowerCase());
+      expect(home.toLowerCase()).not.toContain(fake.toLowerCase());
+    }
     expect(code).not.toContain("dangerouslySetInnerHTML");
+    expect(home).not.toContain("dangerouslySetInnerHTML");
+  });
+
+  it("isolates the offers read behind its own Suspense boundary", () => {
+    // A failed listing read degrades to the empty state rather than to
+    // an error page, and the rest of the door is drawn while it runs.
+    expect((home.match(/<Suspense/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    expect(home).toContain("<EmptyState");
+
+    // AND THE BANNER IS NOT BEHIND ONE — that is a fix, not an
+    // oversight. Measured on a hard load of the production build, in
+    // both locales: its slot held `<template id="B:0">` and the banner
+    // sat in `<div hidden id="S:0">` at the end of `<body>`, 0×0 and
+    // never revealed. Same failure the search field spent four builds
+    // in, same remedy — and its fallback was `null`, so the space was
+    // empty either way while the read ran.
+    expect(home).not.toContain("<Suspense fallback={null}>");
   });
 });
 
@@ -204,7 +492,7 @@ describe("message parity for the trader namespace", () => {
     typeof value !== "object" || value === null
       ? [prefix]
       : Object.entries(value as Record<string, unknown>).flatMap(([k, v]) =>
-          flatten(v, prefix ? `${prefix}.${k}` : k)
+          flatten(v, prefix ? `${prefix}.${k}` : k),
         );
 
   it("ships the trader namespace in both locales", () => {
@@ -252,8 +540,12 @@ describe("routing: a real segment, not a route group", () => {
     // The collision this segment exists to avoid: a route group adds no
     // URL segment, so (trader)/opportunities and (public)/opportunities
     // would both resolve to /{locale}/opportunities.
-    expect(existsSync(join(appDir, "(public)", "opportunities", "page.tsx"))).toBe(true);
-    expect(existsSync(join(appDir, "(public)", "opportunities", "[id]", "page.tsx"))).toBe(true);
+    expect(
+      existsSync(join(appDir, "(public)", "opportunities", "page.tsx")),
+    ).toBe(true);
+    expect(
+      existsSync(join(appDir, "(public)", "opportunities", "[id]", "page.tsx")),
+    ).toBe(true);
   });
 
   it("adds no compatibility redirect for a path that was never published", () => {
@@ -264,11 +556,61 @@ describe("routing: a real segment, not a route group", () => {
     expect(existsSync(join(appDir, "trader", "layout.tsx"))).toBe(true);
   });
 
-  it("does not re-wrap AppShell inside a trader page", () => {
-    // The layout supplies the chrome once; a page repeating it would
-    // nest headers, footers and skip links.
+  it("does not re-wrap the chrome inside a trader page", () => {
+    // The layout supplies it once; a page repeating it would nest
+    // sidebars, bars and skip links.
     for (const page of TRADER_PAGES) {
-      expect(strip(read(`app/[locale]/${page}`))).not.toContain("<AppShell");
+      const source = strip(read(`app/[locale]/${page}`));
+      expect(source, page).not.toContain("<AppShell");
+      expect(source, page).not.toContain("<PortalChrome");
+      expect(source, page).not.toContain("<TraderChrome");
+    }
+  });
+
+  /**
+   * ONE PRODUCT, ONE NAME FOR IT.
+   *
+   * Both company portals are called «لوحة التحكم», the same as the
+   * console — the kind of account is a secondary line in the account
+   * menu and nowhere else. The page headings used to read «لوحة
+   * التاجر» and «لوحة المورّد», which named the same screen three ways
+   * across one product.
+   */
+  it("names no portal after the kind of account that opens it", () => {
+    for (const file of ["messages/ar-SA.json", "messages/en-SA.json"]) {
+      const text = read(file);
+
+      for (const banned of [
+        "لوحة التاجر",
+        "لوحة المشتري",
+        "لوحة المورد",
+        "لوحة المورّد",
+        "Trader dashboard",
+        "Supplier dashboard",
+        "Buyer dashboard",
+      ]) {
+        expect([file, banned, text.includes(banned)]).toEqual([
+          file,
+          banned,
+          false,
+        ]);
+      }
+    }
+  });
+
+  it("calls both company portals «لوحة التحكم»", () => {
+    const ar = JSON.parse(read("messages/ar-SA.json"));
+    const en = JSON.parse(read("messages/en-SA.json"));
+
+    for (const portal of ["trader", "supplier", "admin"] as const) {
+      expect([portal, ar[portal].nav.portalName]).toEqual([
+        portal,
+        "لوحة التحكم",
+      ]);
+      expect([portal, en[portal].nav.portalName]).toEqual([
+        portal,
+        "Control Panel",
+      ]);
     }
   });
 
@@ -280,53 +622,112 @@ describe("routing: a real segment, not a route group", () => {
   });
 });
 
-describe("account pages are honestly read-only", () => {
-  const overview = strip(read("app/[locale]/trader/account/page.tsx"));
-  const company = strip(read("app/[locale]/trader/account/company/page.tsx"));
+/**
+ * «بيانات المنشأة» — no longer four read-only screens.
+ *
+ * WHAT CHANGED AND WHY. This section used to be an overview linking to
+ * four pages — company, locations, bank account, tax profile — none of
+ * which could change anything. That is why a company could not add its
+ * own branch, could not name a second contact, and why a supplier
+ * looking for «إضافة حساب بنكي» found a status panel with no button.
+ * The four are one editable section now; the rules they held that still
+ * apply are re-stated here against it.
+ *
+ * The tax profile keeps its own page: it is a different concern and is
+ * still entered only after a supplier is approved.
+ */
+describe("the company section is editable, and honest about what it is not", () => {
+  const account = strip(read("app/[locale]/trader/account/page.tsx"));
+  const section = strip(read("components/company/company-profile-section.tsx"));
+  const card = strip(read("components/company/company-record-card.tsx"));
   const panels = strip(read("components/trader/account-panels.tsx"));
 
-  it("offers no edit affordance while no write screen exists", () => {
-    // A button that opens nothing promises an action the product
-    // cannot perform.
-    for (const source of [overview, company]) {
-      expect(source).not.toMatch(/<Button\b/);
-      expect(source).not.toContain("onSubmit");
+  it("is the section the sidebar already points at, not a page of its own", () => {
+    expect(
+      TRADER_PORTAL_MAP.groups.flatMap((g) => g.pages).map((p) => p.segment),
+    ).toContain("account");
+  });
+
+  it("renders the shared section rather than a portal-specific copy", () => {
+    // A buyer and a supplier keep the same record at the same
+    // endpoints; two copies would be two places for it to drift.
+    expect(account).toContain("<CompanyProfileSection");
+    expect(strip(read("app/[locale]/supplier/account/page.tsx"))).toContain(
+      "<CompanyProfileSection",
+    );
+  });
+
+  it("KEEPS the legal name and registration number out of the company's hands", () => {
+    // They are what the platform verified the company by. Letting a
+    // company edit either from its own portal would let it become a
+    // different company after approval; both are changed by an
+    // administrator, where the change is recorded.
+    expect(card).not.toMatch(/<Input[^>]*record-legal-name/s);
+    expect(card).not.toMatch(/record-cr-number[^>]*onChange/s);
+  });
+
+  it("says who does change them", () => {
+    expect(card).toContain("lockedNotice");
+  });
+
+  /**
+   * NO COORDINATE IS EVER A FIELD — the buyer's half of the same rule
+   * the supplier section carries, restated here rather than shared so
+   * that a change to one portal cannot silently pass for the other.
+   *
+   * It used to forbid the words outright, because the position was a
+   * pasted map link. The position is now a pin on a map, so the code
+   * names the numbers; what survives is that NOBODY TYPES ONE.
+   */
+  it("asks no one to type a coordinate, anywhere in the section", () => {
+    const dir = join(ROOT, "components", "company");
+    for (const file of readdirSync(dir)) {
+      const source = strip(readFileSync(join(dir, file), "utf8"));
+      expect([file, /<Input[^>]*(latitude|longitude)/is.test(source)]).toEqual([
+        file,
+        false,
+      ]);
+      expect([file, /labels\.(latitude|longitude)/.test(source)]).toEqual([
+        file,
+        false,
+      ]);
     }
-  });
 
-  it("says plainly that the pages are view-only", () => {
-    expect(overview).toContain("readOnlyNotice");
-  });
+    // And the section itself binds no control to either number.
+    expect(/<Input[^>]*(latitude|longitude)/is.test(section)).toBe(false);
 
-  it("renders facts, never a JSON dump", () => {
-    expect(company).toContain("<FactList");
-    expect(company).not.toContain("JSON.stringify");
-    expect(company).not.toContain("<pre");
+    for (const catalogue of ["messages/ar-SA.json", "messages/en-SA.json"]) {
+      const company = JSON.stringify(JSON.parse(read(catalogue)).company);
+      expect([catalogue, /latitude|longitude/i.test(company)]).toEqual([
+        catalogue,
+        false,
+      ]);
+      expect([catalogue, company.includes("خط العرض")]).toEqual([
+        catalogue,
+        false,
+      ]);
+      expect([catalogue, company.includes("خط الطول")]).toEqual([
+        catalogue,
+        false,
+      ]);
+    }
   });
 
   it("can only ever mask an identifier, never trim a full one", () => {
-    // MaskedValue takes the visible suffix, so a whole IBAN cannot be
-    // passed in and relied upon to be hidden.
+    // The IBAN is encrypted on arrival and never comes back; the card
+    // shows the last four digits because that is all the API sends.
+    expect(card).toContain("ibanLast4");
+    expect(card).not.toContain("slice(-4)");
     expect(panels).toMatch(/last4:\s*string/);
-    expect(panels).not.toMatch(/iban/i);
-    expect(panels).not.toContain("slice(-4)");
   });
 
-  it("requires a next step beside every status", () => {
-    expect(panels).toMatch(/action:\s*string;/);
-    expect(panels).not.toMatch(/action\?:\s*string/);
+  it("re-guards on the page itself, so moving it cannot unguard it", () => {
+    expect(account).toContain('requireRoleOrRedirect(appLocale, "TRADER")');
   });
 
-  it("makes no coordinate a primary display", () => {
-    for (const source of [overview, company, panels]) {
-      expect(source).not.toContain("latitude");
-      expect(source).not.toContain("longitude");
-    }
-  });
-
-  it("gives deep pages a breadcrumb back", () => {
-    expect(company).toContain("breadcrumbLabel");
-    expect(company).toContain("backToAccount");
+  it("adds no shell of its own", () => {
+    expect(account).not.toContain("<AppShell");
+    expect(account).not.toContain("<TraderChrome");
   });
 });
 
@@ -341,7 +742,9 @@ describe("private trader routes are never statically rendered", () => {
 
   it("does not rely on each page repeating the declaration", () => {
     for (const page of TRADER_PAGES) {
-      expect(strip(read(`app/[locale]/${page}`))).not.toContain("force-dynamic");
+      expect(strip(read(`app/[locale]/${page}`))).not.toContain(
+        "force-dynamic",
+      );
     }
   });
 
@@ -372,105 +775,6 @@ describe("private trader routes are never statically rendered", () => {
   });
 });
 
-describe("the account section covers every link it offers", () => {
-  const overview = strip(read("app/[locale]/trader/account/page.tsx"));
-
-  it("has a real page behind every section it links to", () => {
-    // The overview builds hrefs from a `sections` list. A section
-    // pointing at a route with no page is a 404 the reader reaches by
-    // following our own navigation.
-    const hrefs = [...overview.matchAll(/trader\/account\/([a-z-]+)`/g)].map((m) => m[1]);
-
-    expect(hrefs.length).toBeGreaterThan(0);
-    for (const segment of hrefs) {
-      expect(TRADER_PAGES).toContain(`trader/account/${segment}/page.tsx`);
-    }
-  });
-
-  it("subjects every account page to the read-only and breadcrumb rules", () => {
-    const pages = TRADER_PAGES.filter(
-      (page) => page.startsWith("trader/account/") && page !== "trader/account/page.tsx"
-    );
-    expect(pages.length).toBeGreaterThanOrEqual(4);
-
-    for (const page of pages) {
-      const source = strip(read(`app/[locale]/${page}`));
-      expect(source, page).not.toMatch(/<Button\b/);
-      expect(source, page).not.toContain("onSubmit");
-      expect(source, page).toContain("breadcrumbLabel");
-      expect(source, page).toContain("backToAccount");
-      expect(source, page).toContain('requireRoleOrRedirect(appLocale, "TRADER")');
-      expect(source, page).not.toContain("latitude");
-      expect(source, page).not.toContain("longitude");
-      expect(source, page).not.toContain("JSON.stringify");
-      expect(source, page).not.toContain("<pre");
-    }
-  });
-});
-
-describe("the locations page speaks about delivery, not shipping origin", () => {
-  const locations = strip(read("app/[locale]/trader/account/locations/page.tsx"));
-  const ar = JSON.parse(read("messages/ar-SA.json"));
-  const en = JSON.parse(read("messages/en-SA.json"));
-
-  it("labels the city as the DELIVERY city", () => {
-    // The marketplace filter is the supplier's shipping ORIGIN. These
-    // are the trader's own branches, which is the one place in the
-    // product where "delivery city" is the correct term.
-    expect(en.trader.account.locations.city).toBe("Delivery city");
-    expect(ar.trader.account.locations.city).toContain("التسليم");
-    expect(en.trader.account.locations.city).not.toMatch(/ships? from|origin/i);
-  });
-
-  it("resolves a city to its name and never prints the raw id", () => {
-    expect(locations).toContain("cityName(location.cityId)");
-    expect(locations).not.toMatch(/\{location\.cityId\}/);
-  });
-
-  it("survives a failed reference-data read without failing the page", () => {
-    // The city list is a separate request. If it fails, the branches
-    // still render — with the city omitted, never with an id shown in
-    // its place.
-    expect(locations).toContain("if (!cities.ok) return null");
-    expect(locations).toContain("{city ? <Fact");
-  });
-
-  it("renders its own error and empty states rather than throwing", () => {
-    expect(locations).toContain("<ErrorState");
-    expect(locations).toContain("<EmptyState");
-    expect(locations).toContain("requestId={locations.error.requestId}");
-  });
-});
-
-describe("the bank-account page tells the truth about where money goes", () => {
-  const page = strip(read("app/[locale]/trader/account/bank-account/page.tsx"));
-  const en = JSON.parse(read("messages/en-SA.json"));
-
-  it("holds no bank details for a trader and does not pretend to", () => {
-    // `supplier_bank_accounts` pays SUPPLIERS out. A trader is charged
-    // by the provider at checkout, and RefundObligation is keyed to the
-    // PaymentAttempt, so a refund reverses that payment.
-    const copy = JSON.stringify(en.trader.account.bankAccount);
-    expect(copy).toMatch(/no bank account for traders/i);
-    expect(copy).toMatch(/same payment method/i);
-  });
-
-  it("reads nothing, because there is nothing stored to read", () => {
-    expect(page).not.toContain("apiClient");
-    expect(page).not.toMatch(/\bload[A-Z]\w*\(/);
-  });
-
-  it("shows no IBAN, masked or otherwise", () => {
-    expect(page).not.toMatch(/iban/i);
-    expect(page).not.toContain("MaskedValue");
-  });
-
-  it("offers no form for details the platform does not want", () => {
-    expect(page).not.toContain("<input");
-    expect(page).not.toMatch(/<Button\b/);
-  });
-});
-
 describe("the tax profile page states what is declared, not what is certified", () => {
   const page = strip(read("app/[locale]/trader/account/tax-profile/page.tsx"));
   const en = JSON.parse(read("messages/en-SA.json"));
@@ -491,8 +795,12 @@ describe("the tax profile page states what is declared, not what is certified", 
 
   it("says the VAT details are self-declared", () => {
     expect(page).toContain("selfDeclaredNotice");
-    expect(en.trader.account.taxProfile.selfDeclaredNotice).toMatch(/not verified/i);
-    expect(ar.trader.account.taxProfile.selfDeclaredNotice).toContain("لم تُوثَّق");
+    expect(en.trader.account.taxProfile.selfDeclaredNotice).toMatch(
+      /not verified/i,
+    );
+    expect(ar.trader.account.taxProfile.selfDeclaredNotice).toContain(
+      "لم تُوثَّق",
+    );
   });
 
   it("makes no tax-invoice, ZATCA or clearance claim anywhere", () => {
@@ -500,13 +808,24 @@ describe("the tax profile page states what is declared, not what is certified", 
       en: en.trader.account.taxProfile,
       ar: ar.trader.account.taxProfile,
     });
-    for (const claim of ["ZATCA", "zatca", "clearance", "Clearance", "QR", "tax invoice", "فاتورة ضريبية", "هيئة الزكاة"]) {
+    for (const claim of [
+      "ZATCA",
+      "zatca",
+      "clearance",
+      "Clearance",
+      "QR",
+      "tax invoice",
+      "فاتورة ضريبية",
+      "هيئة الزكاة",
+    ]) {
       expect(copy).not.toContain(claim);
     }
   });
 
   it("shows the VAT number only when the trader says they are registered", () => {
-    expect(page).toContain("profile.data.isVatRegistered && profile.data.vatNumber");
+    expect(page).toContain(
+      "profile.data.isVatRegistered && profile.data.vatNumber",
+    );
   });
 });
 
@@ -532,8 +851,10 @@ describe("the trader portal holds no supplier-shaped concept", () => {
 
 describe("the trader listing is the marketplace plus terms", () => {
   const list = strip(read("app/[locale]/trader/opportunities/page.tsx"));
-  const detail = strip(read("app/[locale]/trader/opportunities/[id]/page.tsx"));
-  const publicCard = strip(read("components/opportunities/opportunity-card.tsx"));
+  const detail = strip(read("components/opportunities/opportunity-detail.tsx"));
+  const publicCard = strip(
+    read("components/opportunities/opportunity-card.tsx"),
+  );
 
   it("reads the trader endpoint, never the anonymous one", () => {
     expect(strip(TRADER_DATA)).toContain("/trader/opportunities/active?");
@@ -541,23 +862,26 @@ describe("the trader listing is the marketplace plus terms", () => {
     expect(detail).not.toContain("loadOpportunityDetail");
   });
 
-  it("keeps the public card free of every commercial field", () => {
-    // The split is enforced by two components, not one with a
-    // `showTerms` flag — a flag is one wrong prop away from printing a
-    // price on the anonymous marketplace.
+  it("keeps the public card free of every TRADER-ONLY field", () => {
+    // The split is still enforced by two components rather than one
+    // with a `showTerms` flag — a flag is one wrong prop away from
+    // printing the wrong thing on the anonymous marketplace.
+    //
+    // The line MOVED: a visitor now sees price, the three quantities
+    // and progress, because that is what lets them judge an offer
+    // before creating an account. What stays trader-only is what
+    // describes the platform rather than the offer.
     for (const field of [
-      "unitPriceInclTaxAmount",
-      "targetQuantity",
       "fundedQuantity",
-      "unsoldQuantity",
-      "progressPercentage",
-      "shareQuantity",
       "sharePercentage",
       "expectedPreparationDays",
     ]) {
       expect(publicCard, field).not.toContain(field);
     }
-    expect(publicCard).not.toContain("formatMoney");
+    // The public card DOES format money now — through the shared
+    // formatter, never by printing the decimal string raw, so a visitor
+    // sees "287.50 ر.س." rather than "287.50 SAR".
+    expect(publicCard).toContain("formatMoney");
   });
 
   it("hands the WHOLE query to the API so no filter is dropped", () => {
@@ -575,19 +899,33 @@ describe("the trader listing is the marketplace plus terms", () => {
   });
 
   it("submits its filters and pages back to the TRADER listing", () => {
-    expect(list).toContain('const TRADER_OPPORTUNITIES_PATH = "trader/opportunities"');
+    expect(list).toContain(
+      'const TRADER_OPPORTUNITIES_PATH = "trader/opportunities"',
+    );
     expect(list).toContain("basePath={TRADER_OPPORTUNITIES_PATH}");
   });
 
   it("leaves the public listing on the public base path", () => {
-    const publicList = strip(read("app/[locale]/(public)/opportunities/page.tsx"));
+    const publicList = strip(
+      read("app/[locale]/(public)/opportunities/page.tsx"),
+    );
     expect(publicList).not.toContain("basePath=");
   });
 });
 
 describe("trader opportunity terms are displayed, never recomputed", () => {
-  const detail = strip(read("app/[locale]/trader/opportunities/[id]/page.tsx"));
-  const card = strip(read("components/opportunities/trader-opportunity-card.tsx"));
+  // «بطاقة عرض تفاصيل المنتج في صفحة الزائر عدّلها مثل عرض تفاصيل
+  // المنتج في صفحة المشتري» — answered by EXTRACTION, so the four
+  // cards are one component both fronts render, and the route keeps
+  // only what is its own: the loads, the 404, and the composer it
+  // hands to the purchase slot.
+  const detail = strip(read("components/opportunities/opportunity-detail.tsx"));
+  const detailPage = strip(read("app/[locale]/trader/opportunities/[id]/page.tsx"));
+  // ONE CARD FOR EVERY FRONT — «لا أريد اختلافًا في شكل بطاقة المنتج
+  // في الرئيسية وفي السوق أو أي صفحة تحمل منتجًا معروضًا». The buyer's
+  // own card is gone; the front door's card is what every listing
+  // draws, so this is the one that must obey the terms rules.
+  const card = strip(read("components/opportunities/opportunity-card.tsx"));
   const ar = JSON.parse(read("messages/ar-SA.json"));
   const en = JSON.parse(read("messages/en-SA.json"));
 
@@ -607,7 +945,8 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
     // to serialise this price through Decimal.toNumber(); both the
     // endpoint and the number-accepting formatter are gone.
     for (const source of [detail, card]) {
-      expect(source).toContain("formatMoney(opportunity.unitPriceInclTaxAmount");
+      expect(source).toContain("amount={opportunity.unitPriceInclTaxAmount}");
+      expect(source).toContain("<Money");
       expect(source).not.toContain("formatMoneyFromApiNumber");
       expect(source).not.toMatch(/toFixed\(/);
       expect(source).not.toContain("Number(");
@@ -619,7 +958,9 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
     // the other — which is exactly what let unitPriceAmount: number
     // live in the web app while the contract said otherwise.
     const data = strip(read("lib/trader-data.ts"));
-    expect(data).toContain('export type { TraderOpportunityItem, TraderOpportunityDetail }');
+    expect(data).toContain(
+      "export type { TraderOpportunityItem, TraderOpportunityDetail }",
+    );
     expect(data).not.toMatch(/^export interface TraderOpportunity /m);
     expect(card).toContain('from "@platform/types"');
   });
@@ -632,9 +973,22 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
   });
 
   it("says the price includes VAT without claiming a tax document", () => {
-    const copy = JSON.stringify({ ar: ar.trader.opportunities, en: en.trader.opportunities });
-    expect(en.trader.opportunities.detail.priceIncludesTax).toMatch(/includes VAT/i);
-    for (const claim of ["ZATCA", "zatca", "Clearance", "clearance", "tax invoice", "فاتورة ضريبية", "QR"]) {
+    const copy = JSON.stringify({
+      ar: ar.trader.opportunities,
+      en: en.trader.opportunities,
+    });
+    expect(en.trader.opportunities.detail.priceIncludesTax).toMatch(
+      /includes VAT/i,
+    );
+    for (const claim of [
+      "ZATCA",
+      "zatca",
+      "Clearance",
+      "clearance",
+      "tax invoice",
+      "فاتورة ضريبية",
+      "QR",
+    ]) {
       expect(copy, claim).not.toContain(claim);
     }
   });
@@ -643,8 +997,12 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
     // It is targetQuantity − fundedQuantity, arithmetic and not a
     // reservation. Checkout's lock is the only authority.
     expect(en.trader.opportunities.unsold).toBe("Unsold quantity");
-    expect(en.trader.opportunities.unsold).not.toMatch(/available|remaining|reserved/i);
-    expect(en.trader.opportunities.detail.unsoldCaveat).toMatch(/not a reservation/i);
+    expect(en.trader.opportunities.unsold).not.toMatch(
+      /available|remaining|reserved/i,
+    );
+    expect(en.trader.opportunities.detail.unsoldCaveat).toMatch(
+      /not a reservation/i,
+    );
     expect(ar.trader.opportunities.detail.unsoldCaveat).toContain("ليست حجزًا");
     expect(detail).toContain("unsoldCaveat");
   });
@@ -652,12 +1010,24 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
   it("describes progress as quantity SOLD, never as funding or a goal", () => {
     // targetQuantity is a supply cap. Nothing unlocks at 100% — every
     // paid order is fulfilled on its own.
-    const copy = JSON.stringify({ ar: ar.trader.opportunities, en: en.trader.opportunities });
+    const copy = JSON.stringify({
+      ar: ar.trader.opportunities,
+      en: en.trader.opportunities,
+    });
     expect(en.trader.opportunities.sold).toMatch(/sold/i);
-    for (const word of ["funded", "funding", "goal", "target reached", "تمويل", "الهدف"]) {
+    for (const word of [
+      "funded",
+      "funding",
+      "goal",
+      "target reached",
+      "تمويل",
+      "الهدف",
+    ]) {
       expect(copy, word).not.toContain(word);
     }
-    expect(en.trader.opportunities.detail.progressCaveat).toMatch(/unlocks nothing/i);
+    expect(en.trader.opportunities.detail.progressCaveat).toMatch(
+      /unlocks nothing/i,
+    );
     expect(detail).toContain("progressCaveat");
   });
 
@@ -666,7 +1036,7 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
     // supplies the branch list, and the POST happens in the client
     // component where the browser attaches Origin and the session
     // cookie.
-    expect(detail).toContain("<PurchaseComposer");
+    expect(detailPage).toContain("<PurchaseComposer");
     expect(detail).not.toContain("checkout-sessions");
     expect(detail).not.toContain("apiClient.post");
     expect(detail).not.toContain("purchaseComingSoon");
@@ -676,8 +1046,8 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
     // So there is no code path in which a location id comes from
     // anywhere but /companies/me/locations, which the API scopes to the
     // caller's company and filters to active rows.
-    expect(detail).toContain("loadTraderLocations()");
-    expect(detail).toContain("locations={locations}");
+    expect(detailPage).toContain("loadTraderLocations()");
+    expect(detailPage).toContain("locations={locations}");
   });
 
   it("passes no coordinate into the composer", () => {
@@ -692,21 +1062,29 @@ describe("trader opportunity terms are displayed, never recomputed", () => {
 
   it("answers an unknown, hidden or expired id with one 404", () => {
     // One indistinguishable answer, so probing ids confirms nothing.
-    expect(detail).toContain("result.notFound) notFound()");
+    expect(detailPage).toContain("result.notFound) notFound()");
     expect(strip(TRADER_DATA)).toContain('result.error.kind === "notFound"');
   });
 });
 
 describe("checkout and payment are keyed by the checkout session", () => {
-  const checkout = strip(read("app/[locale]/trader/checkout/[checkoutSessionId]/page.tsx"));
-  const payment = strip(read("app/[locale]/trader/payment/[checkoutSessionId]/page.tsx"));
+  const checkout = strip(
+    read("app/[locale]/trader/checkout/[checkoutSessionId]/page.tsx"),
+  );
+  const payment = strip(
+    read("app/[locale]/trader/payment/[checkoutSessionId]/page.tsx"),
+  );
 
   it("names the route parameter after the session, not an attempt", () => {
     // A payment-attempt id would change the URL identity the moment an
     // attempt was created, and a reload after a failed attempt would
     // land on a dead id.
-    expect(TRADER_PAGES).toContain("trader/checkout/[checkoutSessionId]/page.tsx");
-    expect(TRADER_PAGES).toContain("trader/payment/[checkoutSessionId]/page.tsx");
+    expect(TRADER_PAGES).toContain(
+      "trader/checkout/[checkoutSessionId]/page.tsx",
+    );
+    expect(TRADER_PAGES).toContain(
+      "trader/payment/[checkoutSessionId]/page.tsx",
+    );
     for (const source of [checkout, payment]) {
       expect(source).toContain("checkoutSessionId: string");
       expect(source).not.toContain("paymentAttemptId");
@@ -727,7 +1105,9 @@ describe("checkout and payment are keyed by the checkout session", () => {
 });
 
 describe("the checkout page displays the frozen quote and computes nothing", () => {
-  const checkout = strip(read("app/[locale]/trader/checkout/[checkoutSessionId]/page.tsx"));
+  const checkout = strip(
+    read("app/[locale]/trader/checkout/[checkoutSessionId]/page.tsx"),
+  );
   const summary = strip(read("components/checkout/checkout-summary.tsx"));
 
   it("derives no total from a price and a quantity", () => {
@@ -742,7 +1122,7 @@ describe("the checkout page displays the frozen quote and computes nothing", () 
   });
 
   it("formats every amount from its decimal string", () => {
-    expect(summary).toContain("formatMoney(");
+    expect(summary).toContain("<Money");
     expect(summary).not.toContain("formatMoneyFromApiNumber");
     expect(summary).not.toContain("Number(");
     expect(summary).not.toContain("toFixed");
@@ -766,11 +1146,18 @@ describe("the checkout page displays the frozen quote and computes nothing", () 
 });
 
 describe("what checkout offers depends on the session status alone", () => {
-  const checkout = strip(read("app/[locale]/trader/checkout/[checkoutSessionId]/page.tsx"));
+  const checkout = strip(
+    read("app/[locale]/trader/checkout/[checkoutSessionId]/page.tsx"),
+  );
   const en = JSON.parse(read("messages/en-SA.json"));
 
   it("covers every status in the contract", () => {
-    for (const status of ["LOCKED", "PAYMENT_PENDING", "EXPIRED", "ABANDONED"]) {
+    for (const status of [
+      "LOCKED",
+      "PAYMENT_PENDING",
+      "EXPIRED",
+      "ABANDONED",
+    ]) {
       expect(checkout, status).toContain(`case "${status}"`);
     }
     // PAID is handled by the type guard, which also narrows to the
@@ -792,13 +1179,15 @@ describe("what checkout offers depends on the session status alone", () => {
     expect(locked.slice(0, nextCase)).toContain("<StartPaymentButton");
     // A second attempt from PAYMENT_PENDING would be refused by the
     // server anyway; offering it is a promise the product cannot keep.
-    expect(checkout.slice(checkout.indexOf('case "PAYMENT_PENDING"'))).not.toContain(
-      "<StartPaymentButton"
-    );
+    expect(
+      checkout.slice(checkout.indexOf('case "PAYMENT_PENDING"')),
+    ).not.toContain("<StartPaymentButton");
   });
 
   it("never calls a held quantity reserved or guaranteed", () => {
-    expect(en.trader.checkout.locked.notReserved).toMatch(/not guaranteed until payment/i);
+    expect(en.trader.checkout.locked.notReserved).toMatch(
+      /not guaranteed until payment/i,
+    );
   });
 });
 
@@ -846,7 +1235,9 @@ describe("starting a payment is one idempotent operation", () => {
 });
 
 describe("the payment page waits without ever re-posting", () => {
-  const payment = strip(read("app/[locale]/trader/payment/[checkoutSessionId]/page.tsx"));
+  const payment = strip(
+    read("app/[locale]/trader/payment/[checkoutSessionId]/page.tsx"),
+  );
   const poller = strip(read("components/checkout/payment-status-poller.tsx"));
   const en = JSON.parse(read("messages/en-SA.json"));
 
@@ -865,7 +1256,9 @@ describe("the payment page waits without ever re-posting", () => {
   });
 
   it("does not start polling a session that is already settled", () => {
-    expect(poller).toMatch(/if \(isPollTerminalStatus\(initialStatus\)[^)]*\) return;/);
+    expect(poller).toMatch(
+      /if \(isPollTerminalStatus\(initialStatus\)[^)]*\) return;/,
+    );
   });
 
   it("treats LOCKED as the end of THIS wait, though not of the session", () => {
@@ -874,7 +1267,9 @@ describe("the payment page waits without ever re-posting", () => {
     // session to LOCKED while the lock is still valid. Waiting on it
     // would poll a hundred times for a change that already happened.
     expect(poller).toContain("export function isPollTerminalStatus");
-    expect(poller).toMatch(/isTerminalCheckoutStatus\(status\) \|\| status === "LOCKED"/);
+    expect(poller).toMatch(
+      /isTerminalCheckoutStatus\(status\) \|\| status === "LOCKED"/,
+    );
   });
 
   it("stops the timer and aborts in flight the moment it settles", () => {
@@ -882,7 +1277,7 @@ describe("the payment page waits without ever re-posting", () => {
     // until unmount or a dependency change.
     expect(poller).toContain("function stopNow()");
     expect(poller).toMatch(
-      /function stopNow\(\) \{[\s\S]*?clearTimeout\(timer\);[\s\S]*?controller\.abort\(\);/
+      /function stopNow\(\) \{[\s\S]*?clearTimeout\(timer\);[\s\S]*?controller\.abort\(\);/,
     );
   });
 
@@ -972,7 +1367,57 @@ describe("the payment page waits without ever re-posting", () => {
   });
 
   it("makes no claim that the browser completes the payment", () => {
-    expect(en.trader.payment.pending.description).toMatch(/confirmed by the payment provider/i);
-    expect(en.trader.payment.pending.doNotClose).toMatch(/does not affect the payment/i);
+    expect(en.trader.payment.pending.description).toMatch(
+      /confirmed by the payment provider/i,
+    );
+    expect(en.trader.payment.pending.doNotClose).toMatch(
+      /does not affect the payment/i,
+    );
+  });
+});
+
+// ---------------------------------------------------------- the photograph
+
+/**
+ * «عند تسجيل الدخول باسم المشتري لا تظهر صور المنتجات».
+ *
+ * THE PAYLOAD WAS NEVER THE PROBLEM. `TraderOpportunityItem` extends
+ * `PublicOpportunityItem` and `TraderOpportunityDetail` extends
+ * `PublicOpportunityDetail`, so `imageUrl` and `thumbnailUrl` have
+ * always reached a signed-in buyer — the API sends the same two routes
+ * to a visitor and to a trader, and both answer 200 with a PNG.
+ *
+ * The two screens simply never drew them. The anonymous marketplace
+ * card rendered `OpportunityImage`; the trader card did not, and the
+ * trader detail — the screen «متابعة الشراء» sits on — did not either.
+ * So the act of signing in made every product picture on the platform
+ * disappear, which is precisely how it was reported.
+ */
+describe("a buyer sees the product, not just its numbers", () => {
+  const card = strip(read("components/opportunities/opportunity-card.tsx"));
+  const list = strip(read("app/[locale]/trader/opportunities/page.tsx"));
+  const detail = strip(read("components/opportunities/opportunity-detail.tsx"));
+
+  it("draws the thumbnail on the buyer's card", () => {
+    expect(card).toContain("OpportunityImage");
+    expect(card).toContain("opportunity.thumbnailUrl");
+    // The list hands it the same labels the front door builds, which
+    // carry the sentence for an offer with no photograph.
+    expect(list).toContain("offerCardLabels(");
+  });
+
+  it("draws the full picture on the screen the purchase is made from", () => {
+    expect(detail).toContain("OpportunityImage");
+    expect(detail).toContain("opportunity.imageUrl");
+    expect(detail).toContain("priority");
+  });
+
+  it("uses the SAME component the marketplace does", () => {
+    // A second image component is a second no-image state, a second
+    // aspect ratio and a second way for the grid to reflow.
+    for (const source of [card, detail]) {
+      expect(source).not.toMatch(/<img\b/);
+      expect(source).toContain("opportunity-image");
+    }
   });
 });

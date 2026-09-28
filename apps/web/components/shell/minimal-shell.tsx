@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
+import { PlatformTopbar } from "./platform-topbar";
 import { getTranslations } from "next-intl/server";
 import { getBranding } from "@/lib/branding";
 import { themeStyle } from "@/lib/theme";
-import { brandName } from "@/lib/branding";
 import type { AppLocale } from "@/i18n/routing";
 import { SkipLink } from "@/components/ui/skip-link";
 
@@ -27,11 +27,9 @@ export interface MinimalShellProps {
 
 export async function MinimalShell({ locale, children }: MinimalShellProps) {
   const [branding, t] = await Promise.all([
-    getBranding(),
+    getBranding(locale),
     getTranslations({ locale, namespace: "shell" }),
   ]);
-
-  const name = brandName(branding, locale) ?? t("brandFallback");
 
   return (
     <div
@@ -40,16 +38,12 @@ export async function MinimalShell({ locale, children }: MinimalShellProps) {
     >
       <SkipLink label={t("skipToContent")} />
 
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-6xl items-center px-4 py-4">
-          <a
-            href={`/${locale}`}
-            className="text-base font-semibold text-content hover:opacity-90"
-          >
-            {name}
-          </a>
-        </div>
-      </header>
+      {/* THE PLATFORM'S ONE BAR, in its BARE form: the mark and the
+          language, and nothing else. This shell used to print the
+          tenant's NAME in text where the mark belongs, and offering
+          "sign in" on the sign-in page would be a button whose only
+          effect is reloading the page somebody is already on. */}
+      <PlatformTopbar locale={locale} branding={branding} audience="bare" />
 
       <main
         id="main-content"

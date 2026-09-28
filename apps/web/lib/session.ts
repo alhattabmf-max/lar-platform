@@ -53,10 +53,6 @@ export const getSession = cache(async (): Promise<Session | null> => {
   }
 });
 
-export async function isAuthenticated(): Promise<boolean> {
-  return (await getSession()) !== null;
-}
-
 export type PortalRole = "TRADER" | "SUPPLIER";
 
 export class UnauthenticatedError extends Error {

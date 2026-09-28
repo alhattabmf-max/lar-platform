@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
@@ -22,7 +23,35 @@ import { SettingEditor } from "@/components/admin/settings-editor";
  * boundary rather than leaving their absence to look like a gap.
  *
  * `adminWritable` is honoured per setting by the editor below.
+ *
+ * THE FOUR TYPED GROUPS ARE LINKED ABOVE. Their absence from the list
+ * below is deliberate, but an operator cannot be expected to infer that
+ * from silence — so this screen is also the way in to them.
  */
+const SETTINGS_GROUPS = [
+  { key: "financial", segment: "financial" },
+  { key: "operations", segment: "operations" },
+  { key: "securityGroup", segment: "security" },
+  { key: "mediaGroup", segment: "media" },
+] as const;
+
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.settings",
+  });
+  return { title: t("title") };
+}
+
 export default async function AdminSettingsPage({
   params,
 }: {
@@ -39,12 +68,28 @@ export default async function AdminSettingsPage({
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
-      <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-content-muted">
-        {t("scopeNotice")}
-      </p>
+
+      {/* THE TYPED GROUPS, which this screen deliberately does not edit.
+          Each has its own endpoint, its own bounds and — for four of
+          them — its own policy version. Naming them here is what stops
+          their absence from the list below reading as a gap. */}
+      <nav aria-label={t("groupsLabel")}>
+        <ul className="grid list-none gap-3 sm:grid-cols-2">
+          {SETTINGS_GROUPS.map((group) => (
+            <li key={group.segment}>
+              <Link
+                href={`/${locale}/admin/settings/${group.segment}`}
+                className="flex min-h-nav items-center rounded-card bg-surface px-card-x py-card-y shadow-card hover:opacity-[var(--state-hover-opacity)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-testid={`settings-group-${group.segment}`}
+              >
+                {t(`${group.key}.title`)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
       <Suspense fallback={<LoadingState label={common("loading")} rows={4} />}>
         <Settings locale={appLocale} />
@@ -91,6 +136,7 @@ async function Settings({ locale }: { locale: AppLocale }) {
                 working: t("working"),
                 saved: t("saved"),
                 editElsewhere: t("editElsewhere"),
+                unnamed: t("unnamed"),
                 errorTitle: states("errorTitle"),
                 requestIdLabel: states("requestIdLabel"),
               }}
@@ -103,7 +149,7 @@ async function Settings({ locale }: { locale: AppLocale }) {
           content screen, and this says where to go. */}
       <Link
         href={`/${locale}/admin/content`}
-        className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+        className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
       >
         {t("openContent")}
       </Link>

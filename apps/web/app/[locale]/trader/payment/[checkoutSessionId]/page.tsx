@@ -5,10 +5,14 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadCheckoutSession } from "@/lib/trader-data";
 import { formatDateTime } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { ErrorState } from "@/components/ui/states";
 import { ButtonLink } from "@/components/ui/button";
 import { PaymentStatusPoller } from "@/components/checkout/payment-status-poller";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.payment");
+
 
 /**
  * Where a trader waits for a payment to complete.
@@ -75,7 +79,6 @@ export default async function PaymentPage({
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
       <StatusRegion session={session} locale={appLocale} />
@@ -109,17 +112,25 @@ async function StatusRegion({
     );
   }
 
-  const total = formatMoney(session.grandTotalAmount, session.currency, locale);
   const deadline = session.paymentDeadlineAt
     ? formatDateTime(session.paymentDeadlineAt, locale)
     : null;
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-line-strong bg-surface p-4">
+    <section className="flex flex-col gap-4 rounded-card bg-surface shadow-card px-card-x py-card-y">
       <h2 className="text-base font-semibold text-content">{t("pending.title")}</h2>
 
       <p className="text-lg font-semibold text-content">
-        {total ?? <span className="text-sm font-normal text-content-muted">{t("amountUnavailable")}</span>}
+        <Money
+          amount={session.grandTotalAmount}
+          currency={session.currency}
+          locale={locale}
+          fallback={
+            <span className="text-sm font-normal text-content-muted">
+              {t("amountUnavailable")}
+            </span>
+          }
+        />
       </p>
 
       {deadline ? (

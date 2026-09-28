@@ -74,12 +74,21 @@ export class AdminInvoicingController {
     return this.platformBillingProfile.getCurrent();
   }
 
+  /**
+   * A NEW VERSION, and only ever one per request.
+   *
+   * The header is required exactly as it is on the invoice drafts above:
+   * a version is permanent, so a double press or a retried request must
+   * not append a second one.
+   */
   @Post("admin/platform-billing-profile")
   createPlatformBillingProfileVersion(
     @Body() dto: CreatePlatformBillingProfileDto,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
     @CurrentAdminSession() session: AdminSessionData,
     @Req() req: Request
   ) {
-    return this.platformBillingProfile.createNewVersion(dto, ctxFrom(session, req));
+    if (!idempotencyKey) throw new BadRequestException("Idempotency-Key header is required");
+    return this.platformBillingProfile.createNewVersion(dto, ctxFrom(session, req), idempotencyKey);
   }
 }

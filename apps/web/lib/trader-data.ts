@@ -116,7 +116,10 @@ export function loadUnreadNotificationCount(): Promise<Loaded<NotificationUnread
  */
 export interface TraderLocation {
   id: string;
-  cityId: string;
+  /** WHERE THE BRANCH IS. Never null: every branch has a region. */
+  regionId: string;
+  /** The optional refinement. Null when the branch names no city. */
+  cityId: string | null;
   name: string;
   shortAddress: string;
   contactName: string;

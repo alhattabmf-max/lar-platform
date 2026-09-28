@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
-import { ERROR_CODES } from "@platform/types";
+import {
+  DEFAULT_BANNER_IMAGE_SHAPE,
+  ERROR_CODES,
+  isBannerImageShape,
+  type BannerImageShape,
+} from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
 import { SettingsService } from "./settings.service";
 import { AuditService } from "../audit/audit.service";
@@ -19,6 +24,14 @@ export interface BannerPolicyConfig {
    * an interval-overlap limit — see banner-window.util.ts.
    */
   maxConcurrentLiveBannersPerPlacement: number;
+
+  /**
+   * The SHAPE a banner image must have — minimum dimensions and the
+   * accepted aspect-ratio band. Part of the policy rather than
+   * constants in a component, so an administrator can change the band
+   * once and both the browser and the server follow.
+   */
+  imageShape: BannerImageShape;
 }
 
 const KEY = "promotional_banner_policy";
@@ -31,6 +44,7 @@ const DEFAULT_POLICY: BannerPolicyConfig = {
   maxPixels: 8_000_000,
   allowedTypes: [...SUPPORTED_TYPES],
   maxConcurrentLiveBannersPerPlacement: 3,
+  imageShape: DEFAULT_BANNER_IMAGE_SHAPE,
 };
 
 const BOUNDS = {
@@ -40,6 +54,10 @@ const BOUNDS = {
   maxSizeBytes: { min: 50 * 1024, max: 20 * 1024 * 1024 },
   maxPixels: { min: 250_000, max: 40_000_000 },
   maxConcurrentLiveBannersPerPlacement: { min: 1, max: 10 },
+  // A banner narrower than this is not a strip, and one wider than this
+  // is a hairline. The band is deliberately generous inside those two.
+  minWidth: { min: 400, max: 8000 },
+  minHeight: { min: 80, max: 2000 },
 };
 
 interface ActorContext {
@@ -60,11 +78,15 @@ export class BannerPolicyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
   ) {}
 
   async getPolicy(): Promise<BannerPolicyConfig> {
-    return this.settings.getJsonSafe(KEY, (v) => this.validate(v), DEFAULT_POLICY);
+    return this.settings.getJsonSafe(
+      KEY,
+      (v) => this.validate(v),
+      DEFAULT_POLICY,
+    );
   }
 
   async setPolicy(value: BannerPolicyConfig, ctx: ActorContext): Promise<void> {
@@ -72,11 +94,13 @@ export class BannerPolicyService {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
-        "Banner policy value is outside the allowed bounds"
+        "Banner policy value is outside the allowed bounds",
       );
     }
 
-    const before = await this.prisma.systemSetting.findUnique({ where: { key: KEY } });
+    const before = await this.prisma.systemSetting.findUnique({
+      where: { key: KEY },
+    });
 
     await this.prisma.systemSetting.upsert({
       where: { key: KEY },
@@ -107,7 +131,7 @@ export class BannerPolicyService {
     if (
       !this.inBounds(
         v.maxConcurrentLiveBannersPerPlacement,
-        BOUNDS.maxConcurrentLiveBannersPerPlacement
+        BOUNDS.maxConcurrentLiveBannersPerPlacement,
       )
     ) {
       return null;
@@ -116,21 +140,63 @@ export class BannerPolicyService {
       !Array.isArray(v.allowedTypes) ||
       v.allowedTypes.length === 0 ||
       !v.allowedTypes.every(
-        (t) => typeof t === "string" && (SUPPORTED_TYPES as readonly string[]).includes(t)
+        (t) =>
+          typeof t === "string" &&
+          (SUPPORTED_TYPES as readonly string[]).includes(t),
       )
     ) {
       return null;
     }
 
+    const imageShape = this.validateShape(v.imageShape);
+    if (imageShape === null) return null;
+
     return {
       maxSizeBytes: v.maxSizeBytes as number,
       maxPixels: v.maxPixels as number,
       allowedTypes: v.allowedTypes as string[],
-      maxConcurrentLiveBannersPerPlacement: v.maxConcurrentLiveBannersPerPlacement as number,
+      maxConcurrentLiveBannersPerPlacement:
+        v.maxConcurrentLiveBannersPerPlacement as number,
+      imageShape,
     };
   }
 
-  private inBounds(value: unknown, bounds: { min: number; max: number }): boolean {
+  /**
+   * The shape block, or null.
+   *
+   * A MISSING block is not a failure: rows written before this existed
+   * carry none, and refusing them would turn every stored policy into a
+   * malformed one overnight. It falls back to the shipped default,
+   * which is the same trade the whole policy makes.
+   */
+  /**
+   * The shape block, or null.
+   *
+   * A MISSING block is not a failure: rows written before this existed
+   * carry none, and refusing them would turn every stored policy into a
+   * malformed one overnight. It falls back to the shipped default,
+   * which is the same trade the whole policy makes.
+   *
+   * The structural check is the SHARED one from @platform/types, so the
+   * browser and this service cannot disagree about what a valid band
+   * is. Only the operational bounds — how small a minimum this
+   * deployment will accept — are applied here.
+   */
+  private validateShape(value: unknown): BannerImageShape | null {
+    if (value === undefined || value === null)
+      return DEFAULT_BANNER_IMAGE_SHAPE;
+    if (!isBannerImageShape(value)) return null;
+
+    if (!this.inBounds(value.minWidth, BOUNDS.minWidth)) return null;
+    if (!this.inBounds(value.minHeight, BOUNDS.minHeight)) return null;
+
+    return value;
+  }
+
+  private inBounds(
+    value: unknown,
+    bounds: { min: number; max: number },
+  ): boolean {
     return (
       typeof value === "number" &&
       Number.isInteger(value) &&

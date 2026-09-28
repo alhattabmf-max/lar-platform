@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminRefund, loadRefundProviders } from "@/lib/admin-data";
 import { formatDateTime } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ErrorState } from "@/components/ui/states";
@@ -28,6 +29,23 @@ import { RefundAttemptForm } from "@/components/admin/refund-attempt-form";
  * means the decision awarded nothing under that head, which is not the
  * same as zero and must not print as `0.00`.
  */
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.refunds",
+  });
+  return { title: t("detailTitle") };
+}
+
 export default async function AdminRefundDetailPage({
   params,
 }: {
@@ -58,8 +76,6 @@ export default async function AdminRefundDetailPage({
   }
 
   const refund = result.data;
-  const amount = formatMoney(refund.amount, refund.currency, appLocale);
-
   // The service refuses a new attempt on an obligation that is already
   // settled, so the form is drawn only where it can work.
   const canAttempt = refund.status === "PENDING_EXECUTION" || refund.status === "FAILED";
@@ -67,7 +83,14 @@ export default async function AdminRefundDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-content">{amount ?? t("title")}</h1>
+        <h1 className="text-2xl font-semibold text-content">
+          <Money
+            amount={refund.amount}
+            currency={refund.currency}
+            locale={appLocale}
+            fallback={t("title")}
+          />
+        </h1>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge
             label={vocab(`refundStatus.${refund.status}`)}
@@ -107,8 +130,12 @@ export default async function AdminRefundDetailPage({
               <div className="flex flex-wrap gap-2">
                 <dt className="text-content-muted">{t("productRefund")}</dt>
                 <dd className="text-content">
-                  {formatMoney(refund.productRefundAmountInclTax, refund.currency, appLocale) ??
-                    "—"}
+                  <Money
+                    amount={refund.productRefundAmountInclTax}
+                    currency={refund.currency}
+                    locale={appLocale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
                 </dd>
               </div>
             ) : null}
@@ -116,7 +143,12 @@ export default async function AdminRefundDetailPage({
               <div className="flex flex-wrap gap-2">
                 <dt className="text-content-muted">{t("shippingRefund")}</dt>
                 <dd className="text-content">
-                  {formatMoney(refund.shippingRefundAmount, refund.currency, appLocale) ?? "—"}
+                  <Money
+                    amount={refund.shippingRefundAmount}
+                    currency={refund.currency}
+                    locale={appLocale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
                 </dd>
               </div>
             ) : null}
@@ -126,7 +158,7 @@ export default async function AdminRefundDetailPage({
                 <dd>
                   <Link
                     href={`/${appLocale}/admin/orders/${refund.masterOrderId}`}
-                    className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                    className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                   >
                     {t("openOrder")}
                   </Link>
@@ -212,7 +244,7 @@ export default async function AdminRefundDetailPage({
       ) : (
         // Never a dead end: when no attempt can be started the reason is
         // stated rather than the form silently vanishing.
-        <p className="rounded-lg border border-line bg-surface p-4 text-sm text-content-muted">
+        <p className="rounded-card bg-surface shadow-card px-card-x py-card-y text-sm text-content-muted">
           {t("noAttemptPossible")}
         </p>
       )}

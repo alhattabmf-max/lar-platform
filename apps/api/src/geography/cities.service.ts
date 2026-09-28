@@ -5,6 +5,7 @@ import type { AdminCityItem } from "@platform/types";
 import { AuditService } from "../audit/audit.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
+import { SENTINEL_CITY_ID } from "./sentinel.constants";
 import type { CreateCityDto } from "./dto/create-city.dto";
 import type { UpdateCityDto } from "./dto/update-city.dto";
 
@@ -32,6 +33,18 @@ export class CitiesService {
    */
   async listAll(): Promise<AdminCityItem[]> {
     const rows = await this.prisma.city.findMany({
+      // THE SENTINEL IS HIDDEN FROM THE CONSOLE TOO.
+      //
+      // It is «غير محدد», the placeholder that existed only because
+      // `company_locations.city_id` was once NOT NULL. That column is
+      // nullable now, so nothing needs it — and a row on the
+      // reference-data screen invites somebody to switch it on, which
+      // would put it in every city picker on the platform.
+      //
+      // THE ROW IS NOT DELETED. Historical records may still point at
+      // it, and reference data this platform once wrote is not
+      // something a screen change should remove.
+      where: { id: { not: SENTINEL_CITY_ID } },
       select: {
         id: true,
         regionId: true,
@@ -58,9 +71,34 @@ export class CitiesService {
     }));
   }
 
-  async listActive() {
+  /**
+   * The cities a branch form may offer beneath a region.
+   *
+   * THE SENTINEL IS EXCLUDED BY ID, not only by its inactive flag —
+   * switching it on by accident would otherwise put «غير محدد» in
+   * every city picker on the platform.
+   */
+  /**
+   * The active cities, optionally NARROWED TO ONE REGION.
+   *
+   * WHY THE NARROWING EXISTS. A city picker only ever shows the cities
+   * of the region beside it, and the marketplace filter used to receive
+   * every active city so it could do that narrowing in the browser.
+   * Every one of them was serialised twice into the page — once as
+   * markup, once into the RSC payload — and the whole list travelled on
+   * a page that would display at most one region's worth.
+   *
+   * UNFILTERED IS STILL SUPPORTED, because the admin reference screen
+   * genuinely lists them all. What changed is that a caller which needs
+   * one region can say so.
+   */
+  async listActive(regionId?: string) {
     return this.prisma.city.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        id: { not: SENTINEL_CITY_ID },
+        ...(regionId ? { regionId } : {}),
+      },
       include: { region: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });

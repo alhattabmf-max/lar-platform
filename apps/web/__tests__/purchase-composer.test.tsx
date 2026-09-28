@@ -24,6 +24,7 @@ const OPPORTUNITY = "55555555-5555-5555-5555-555555555555";
 const SESSION = "22222222-2222-2222-2222-222222222222";
 const RIYADH = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const JEDDAH = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const TABUK = "33333333-3333-4333-8333-333333333333";
 const FOREIGN = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 
 const push = vi.fn();
@@ -31,8 +32,29 @@ const router = { push, refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const LOCATIONS = [
-  { id: RIYADH, name: "Riyadh branch", cityName: "Riyadh", shortAddress: "King Fahd Road" },
-  { id: JEDDAH, name: "Jeddah branch", cityName: "Jeddah", shortAddress: "Al Andalus Street" },
+  {
+    id: RIYADH,
+    name: "Riyadh branch",
+    regionName: "Riyadh Region",
+    cityName: "Riyadh",
+    shortAddress: "King Fahd Road",
+  },
+  {
+    id: JEDDAH,
+    name: "Jeddah branch",
+    regionName: "Makkah Region",
+    cityName: "Jeddah",
+    shortAddress: "Al Andalus Street",
+  },
+  // A BRANCH RECORDED ON A REGION AND NO CITY, which is an ordinary
+  // branch. Its line used to print only an address.
+  {
+    id: TABUK,
+    name: "Tabuk branch",
+    regionName: "Tabuk Region",
+    cityName: null,
+    shortAddress: "Prince Fahd Road",
+  },
 ];
 
 function renderComposer(overrides: Partial<React.ComponentProps<typeof PurchaseComposer>> = {}) {
@@ -105,6 +127,53 @@ describe("one branch fills itself in", () => {
     expect((rows[0] as HTMLInputElement).readOnly).toBe(true);
   });
 
+  it("in the compact card, the branch row IS the quantity control", async () => {
+    // «الكمية ماخذة مساحة كبيرة ومكررة في مربع مواقع التسليم؛ نكتفي
+    // بالحقل اللي في خانة مواقع التسليم ونغير منه الكمية.»
+    //
+    // THE TOTAL AND A LONE BRANCH ARE ONE NUMBER. The total already
+    // mirrored DOWN into a single allocation and nothing mirrored back,
+    // because the top field was always there and was authoritative.
+    // Hiding it without the return mirror would have submitted whatever
+    // the total happened to be when the page loaded — a money bug that
+    // no assertion in this file would have caught, because every other
+    // case types into the top field.
+    const user = userEvent.setup();
+    post.mockResolvedValue(sessionResponse());
+
+    renderComposer({ locations: [LOCATIONS[0]], compact: true });
+
+    // The stepper is gone; the row's own field is editable in its place.
+    const row = screen.getAllByLabelText(/Branch 1 — Quantity/)[0] as HTMLInputElement;
+    expect(row.readOnly).toBe(false);
+
+    await user.clear(row);
+    await user.type(row, "16");
+    await user.click(submitButton());
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    // BOTH figures follow the one field. A total of 4 with an allocation
+    // of 16 is the mismatch the read-only was guarding against, and it
+    // is impossible here because they are the same state.
+    expect(bodyOf(post.mock.calls[0])).toEqual({
+      opportunityId: OPPORTUNITY,
+      quantity: 16,
+      allocations: [{ companyLocationId: RIYADH, quantity: 16 }],
+    });
+  });
+
+  it("keeps the top field, and the read-only row, when it is NOT compact", () => {
+    // The compact form is one of three cards on the buyer's detail
+    // page. Standing alone, the composer is the whole screen and keeps
+    // both controls — with the row read-only, as it always was.
+    renderComposer({ locations: [LOCATIONS[0]] });
+
+    expect((screen.getAllByLabelText(/Branch 1 — Quantity/)[0] as HTMLInputElement).readOnly).toBe(
+      true,
+    );
+    expect(totalField()).toBeInTheDocument();
+  });
+
   it("offers no remove button when only one row exists", () => {
     renderComposer({ locations: [LOCATIONS[0]] });
     expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
@@ -155,6 +224,8 @@ describe("several branches split the quantity", () => {
     const user = userEvent.setup();
     renderComposer();
 
+    // Three branches, so two more rows exhaust the list.
+    await user.click(screen.getByRole("button", { name: "Add another branch" }));
     await user.click(screen.getByRole("button", { name: "Add another branch" }));
 
     expect(screen.queryByRole("button", { name: "Add another branch" })).toBeNull();
@@ -344,7 +415,7 @@ describe("branch rules", () => {
     const selects = screen.getAllByLabelText("Branch") as HTMLSelectElement[];
     const offered = [...selects[0].options].map((o) => o.value);
 
-    expect(offered).toEqual([RIYADH, JEDDAH]);
+    expect(offered).toEqual([RIYADH, JEDDAH, TABUK]);
     expect(offered).not.toContain(FOREIGN);
     expect(screen.queryByLabelText(/location id/i)).toBeNull();
   });
@@ -371,14 +442,35 @@ describe("branch rules", () => {
   it("shows the branch name, city and short address — and no coordinate", () => {
     renderComposer();
 
-    expect(screen.getByText(/Delivery city: Riyadh · King Fahd Road/)).toBeTruthy();
+    expect(
+      screen.getByText(/Delivery region: Riyadh Region — Riyadh · King Fahd Road/),
+    ).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/24\.7|46\.6|latitude|longitude/i);
   });
 
-  it("calls it the DELIVERY city, not the shipping origin", () => {
+  /**
+   * A BRANCH RECORDED ON A REGION AND NO CITY still says where it is.
+   * The line used to show the city alone, so such a branch printed only
+   * its address — and two branches on the same street would have been
+   * indistinguishable.
+   */
+  it("names the region for a branch that has no city", async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(screen.getByRole("button", { name: "Add another branch" }));
+    const selects = screen.getAllByLabelText("Branch") as HTMLSelectElement[];
+    await user.selectOptions(selects[1], TABUK);
+
+    expect(
+      screen.getByText(/Delivery region: Tabuk Region · Prince Fahd Road/),
+    ).toBeTruthy();
+  });
+
+  it("calls it the DELIVERY region, not the shipping origin", () => {
     // The marketplace filter is the supplier's origin. These are the
     // trader's own branches.
-    expect(messages.trader.compose.cityLabel).toBe("Delivery city");
+    expect(messages.trader.compose.regionLabel).toBe("Delivery region");
     expect(messages.marketplace.card.city).toBe("Ships from");
   });
 });

@@ -5,7 +5,10 @@ import { AdminBannerImageController } from "../admin/banners/admin-banner-image.
 import { ImageVariant } from "./dto/image-variant.dto";
 import type { BannerService } from "./banner.service";
 import type { BannerImageService } from "./banner-image.service";
-import type { ImageDeliveryService, ImageTarget } from "../common/media/image-delivery.service";
+import type {
+  ImageDeliveryService,
+  ImageTarget,
+} from "../common/media/image-delivery.service";
 
 /**
  * Variant selection on both image routes.
@@ -16,6 +19,8 @@ import type { ImageDeliveryService, ImageTarget } from "../common/media/image-de
  * ETag, which caches would then treat as authoritative. Worth pinning
  * without an HTTP layer.
  */
+
+const AR = "ar-SA" as const;
 
 const IMAGE = {
   id: "b1",
@@ -47,29 +52,49 @@ function makeResponse(): Response & FakeResponse {
 function makeDelivery() {
   const targets: ImageTarget[] = [];
   const serve = jest.fn(
-    async (target: ImageTarget, _conditional?: { ifNoneMatch?: string; ifModifiedSince?: string }) => {
+    async (
+      target: ImageTarget,
+      _conditional?: { ifNoneMatch?: string; ifModifiedSince?: string },
+    ) => {
       targets.push(target);
       return {
         status: 200 as const,
         headers: { ETag: `"${target.etag}"` },
         body: Buffer.from("x"),
       };
-    }
+    },
   );
-  return { delivery: { serve } as unknown as ImageDeliveryService, targets, serve };
+  return {
+    delivery: { serve } as unknown as ImageDeliveryService,
+    targets,
+    serve,
+  };
 }
 
 describe("public banner image route", () => {
   function make(image: typeof IMAGE | null = IMAGE) {
-    const banners = { findLiveImage: jest.fn().mockResolvedValue(image) } as unknown as BannerService;
+    const banners = {
+      findLiveImage: jest.fn().mockResolvedValue(image),
+    } as unknown as BannerService;
     const { delivery, targets, serve } = makeDelivery();
-    return { controller: new BannerController(banners, delivery), targets, serve, banners };
+    return {
+      controller: new BannerController(banners, delivery),
+      targets,
+      serve,
+      banners,
+    };
   }
 
   it("serves the MAIN variant by default", async () => {
     const { controller, targets } = make();
 
-    await controller.getImage("b1", {}, undefined, undefined, makeResponse());
+    await controller.getImage(
+      "b1",
+      { locale: AR },
+      undefined,
+      undefined,
+      makeResponse(),
+    );
 
     expect(targets[0].objectKey).toBe(IMAGE.imageObjectKey);
     expect(targets[0].etag).toBe("etag-main");
@@ -78,7 +103,13 @@ describe("public banner image route", () => {
   it("serves the THUMB variant when asked", async () => {
     const { controller, targets } = make();
 
-    await controller.getImage("b1", { variant: ImageVariant.thumb }, undefined, undefined, makeResponse());
+    await controller.getImage(
+      "b1",
+      { variant: ImageVariant.thumb, locale: AR },
+      undefined,
+      undefined,
+      makeResponse(),
+    );
 
     expect(targets[0].objectKey).toBe(IMAGE.imageThumbnailKey);
     expect(targets[0].etag).toBe("etag-thumb");
@@ -88,22 +119,42 @@ describe("public banner image route", () => {
     const { controller } = make(null);
 
     await expect(
-      controller.getImage("b1", {}, undefined, undefined, makeResponse())
+      controller.getImage(
+        "b1",
+        { locale: AR },
+        undefined,
+        undefined,
+        makeResponse(),
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it("resolves visibility through the LIVE lookup, never a raw find", async () => {
     const { controller, banners } = make();
 
-    await controller.getImage("b1", {}, undefined, undefined, makeResponse());
+    await controller.getImage(
+      "b1",
+      { locale: AR },
+      undefined,
+      undefined,
+      makeResponse(),
+    );
 
-    expect(banners.findLiveImage).toHaveBeenCalledWith("b1");
+    // The LOCALE travels with it: an image request can only ever resolve
+    // to the language the caller asked for, never the other one.
+    expect(banners.findLiveImage).toHaveBeenCalledWith("b1", AR);
   });
 
   it("forwards both conditional headers to the delivery service", async () => {
     const { controller, serve } = make();
 
-    await controller.getImage("b1", {}, '"abc"', "Wed, 20 Aug 2026 10:00:00 GMT", makeResponse());
+    await controller.getImage(
+      "b1",
+      { locale: AR },
+      '"abc"',
+      "Wed, 20 Aug 2026 10:00:00 GMT",
+      makeResponse(),
+    );
 
     expect(serve.mock.calls[0][1]).toEqual({
       ifNoneMatch: '"abc"',
@@ -112,13 +163,27 @@ describe("public banner image route", () => {
   });
 
   it("sends no body on a 304", async () => {
-    const banners = { findLiveImage: jest.fn().mockResolvedValue(IMAGE) } as unknown as BannerService;
+    const banners = {
+      findLiveImage: jest.fn().mockResolvedValue(IMAGE),
+    } as unknown as BannerService;
     const delivery = {
-      serve: jest.fn().mockResolvedValue({ status: 304, headers: { ETag: '"x"' }, body: null }),
+      serve: jest
+        .fn()
+        .mockResolvedValue({
+          status: 304,
+          headers: { ETag: '"x"' },
+          body: null,
+        }),
     } as unknown as ImageDeliveryService;
     const res = makeResponse();
 
-    await new BannerController(banners, delivery).getImage("b1", {}, '"x"', undefined, res);
+    await new BannerController(banners, delivery).getImage(
+      "b1",
+      { locale: AR },
+      '"x"',
+      undefined,
+      res,
+    );
 
     expect(res.status).toHaveBeenCalledWith(304);
     expect(res.send).not.toHaveBeenCalled();
@@ -142,13 +207,19 @@ describe("admin banner image route", () => {
   it("serves MAIN by default and THUMB on request", async () => {
     const { controller, targets } = make();
 
-    await controller.getImage("b1", {}, undefined, undefined, makeResponse());
     await controller.getImage(
       "b1",
-      { variant: ImageVariant.thumb },
+      { locale: AR },
       undefined,
       undefined,
-      makeResponse()
+      makeResponse(),
+    );
+    await controller.getImage(
+      "b1",
+      { variant: ImageVariant.thumb, locale: AR },
+      undefined,
+      undefined,
+      makeResponse(),
     );
 
     expect(targets[0].objectKey).toBe(IMAGE.imageObjectKey);
@@ -159,18 +230,32 @@ describe("admin banner image route", () => {
   it("uses the admin lookup, which applies NO live-window filter", async () => {
     const { controller, images } = make();
 
-    await controller.getImage("b1", {}, undefined, undefined, makeResponse());
+    await controller.getImage(
+      "b1",
+      { locale: AR },
+      undefined,
+      undefined,
+      makeResponse(),
+    );
 
     // A draft or scheduled banner must be previewable; the admin
     // session is the access boundary, not the schedule.
-    expect(images.findAdminImage).toHaveBeenCalledWith("b1");
+    // The language travels with it, so an admin preview resolves to the
+    // artwork the screen asked for and never the other language.
+    expect(images.findAdminImage).toHaveBeenCalledWith("b1", AR);
   });
 
   it("404s for a banner with no image", async () => {
     const { controller } = make(null);
 
     await expect(
-      controller.getImage("b1", {}, undefined, undefined, makeResponse())
+      controller.getImage(
+        "b1",
+        { locale: AR },
+        undefined,
+        undefined,
+        makeResponse(),
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -178,7 +263,7 @@ describe("admin banner image route", () => {
     const { controller } = make();
     const res = makeResponse();
 
-    await controller.getImage("b1", {}, undefined, undefined, res);
+    await controller.getImage("b1", { locale: AR }, undefined, undefined, res);
 
     expect(JSON.stringify(res.set.mock.calls)).not.toContain("banners/b1/");
   });

@@ -22,7 +22,6 @@ interface RequestContext {
   userAgent?: string;
 }
 
-const TOTP_ISSUER = "PROJECT_NAME Admin";
 
 /**
  * Rate-limit tracker key for an email identity — hashed rather than
@@ -108,7 +107,7 @@ export class AdminAuthService {
     const ticket = await this.requireTicket(ticketId, "AWAITING_2FA_SETUP");
     const admin = await this.prisma.adminUser.findUniqueOrThrow({ where: { id: ticket.adminUserId } });
 
-    const enrollment = generateTotpEnrollment(admin.email, TOTP_ISSUER);
+    const enrollment = generateTotpEnrollment(admin.email, this.env.ADMIN_TOTP_ISSUER);
     const recovery = generateRecoveryCodes();
     const encrypted = encryptSecret(enrollment.secret, this.env.ADMIN_TOTP_ENCRYPTION_KEY);
 

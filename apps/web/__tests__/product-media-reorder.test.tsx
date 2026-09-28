@@ -52,6 +52,7 @@ const LABELS = {
         fileTooLarge: "Too large.",
         fileTypeNotAllowed: "Type not accepted.",
   openFull: "فتح",
+  closeFull: "إغلاق",
   errorTitle: "تعذّر",
   requestIdLabel: "المرجع",
   moveUp: "نقل صورة {name} رقم {index} للأعلى",
@@ -119,7 +120,10 @@ describe("reorder is operable by keyboard alone", () => {
   it("gives every control a 44px target and a descriptive name", () => {
     renderManager();
 
-    expect(up(2).className).toContain("min-h-11");
+    // The height comes from the shared button — 32px, decided
+    // centrally — not from a class on this control.
+    expect(up(2).className).not.toContain("min-h-11");
+    expect(up(2).className).toContain("min-h-control");
     expect(down(1).getAttribute("aria-label")).toContain("زيت");
     expect(down(1).getAttribute("aria-label")).toContain("1");
   });

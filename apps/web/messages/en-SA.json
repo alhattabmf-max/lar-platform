@@ -1,29 +1,93 @@
 {
   "shell": {
     "brandFallback": "The Platform",
+    "platformNameFallback": "Azier Plus",
     "skipToContent": "Skip to main content",
     "primaryNavLabel": "Primary navigation",
     "switchLanguage": "العربية",
     "footerNote": "A business-to-business platform.",
-    "navOpportunities": "Opportunities",
+    "navOpportunities": "Products",
     "navPolicies": "Policies",
-    "footerNavLabel": "Site links"
+    "footerNavLabel": "Site links",
+    "header": {
+      "signIn": "Sign in",
+      "register": "Register",
+      "language": "Language",
+      "switchLocale": "Switch to Arabic",
+      "signOut": "Sign out",
+      "signingOut": "Signing out…",
+      "notifications": "Notifications",
+      "notificationsUnread": "{count, plural, one {# unread} other {# unread}}",
+      "account": "My account",
+      "myRecord": "My details",
+      "signOutShort": "Sign out"
+    },
+    "nav": {
+      "label": "Categories",
+      "home": "Home",
+      "openCategory": "Show {name} subcategories",
+      "toggle": "Menu",
+      "viewAll": "Browse products",
+      "allInCategory": "All products",
+      "search": "Search and filter",
+      "searchClose": "Close filters",
+      "searchShort": "Search"
+    },
+    "footer": {
+      "about": "About us",
+      "faq": "FAQ",
+      "contact": "Contact us",
+      "terms": "Terms and conditions",
+      "privacy": "Privacy policy",
+      "products": "Products",
+      "policies": "Policies"
+    },
+    "search": {
+      "label": "Search products",
+      "placeholder": "Search by product name or description",
+      "submit": "Search",
+      "resultsFor": "Results for \"{term}\"",
+      "noResults": "Nothing found for \"{term}\"",
+      "noResultsHint": "Try a shorter word, or clear the search to browse every offer.",
+      "clear": "Clear the search"
+    },
+    "logoAlt": "Platform logo",
+    "goHome": "Go to homepage",
+    "localeName": {
+      "ar-SA": "العربية",
+      "en-SA": "English"
+    },
+    "footerSocialLabel": "The platform's social accounts",
+    "footerSocial": {
+      "x": "X",
+      "linkedin": "LinkedIn",
+      "instagram": "Instagram",
+      "youtube": "YouTube",
+      "tiktok": "TikTok",
+      "snapchat": "Snapchat",
+      "facebook": "Facebook",
+      "whatsapp": "WhatsApp"
+    },
+    "bottomNav": {
+      "label": "Quick navigation",
+      "account": "Account",
+      "market": "Products",
+      "close": "Close"
+    }
   },
   "home": {
-    "title": "Wholesale buying opportunities",
-    "description": "Browse the opportunities on offer and see the product, the shipping origin city and the closing date. Commercial terms appear once you sign in with a trader account.",
-    "browseOpportunities": "Browse opportunities",
+    "title": "Wholesale buying offers",
+    "description": "Browse the available offers and see the product, the shipping region and the closing date. Prices and quantities are shown to everyone; registration is required to complete a purchase.",
+    "browseOpportunities": "Browse products",
     "bannersLabel": "Announcements",
     "featuredTitle": "Closing soonest",
-    "viewAll": "View all opportunities",
+    "viewAll": "View all offers",
     "policiesTitle": "Policies and terms",
-    "policiesDescription": "Read the published policies before creating an account.",
     "readPolicies": "Read the policies"
   },
   "auth": {
     "login": {
       "title": "Sign in",
-      "description": "Use your commercial registration number and password.",
       "crNumber": "Commercial registration number",
       "password": "Password",
       "submit": "Sign in",
@@ -32,7 +96,6 @@
     },
     "forgotPassword": {
       "title": "Recover access",
-      "description": "Enter your email address and we will send recovery instructions.",
       "email": "Email address",
       "submit": "Send recovery instructions",
       "sent": "If that address belongs to an account, recovery instructions are on their way.",
@@ -41,7 +104,6 @@
     },
     "resetPassword": {
       "title": "Set a new password",
-      "description": "Choose a new password for your account.",
       "newPassword": "New password",
       "confirmPassword": "Confirm new password",
       "submit": "Save new password",
@@ -65,69 +127,63 @@
     }
   },
   "register": {
-    "titleTrader": "Register as a trader",
-    "titleSupplier": "Register as a supplier",
-    "description": "Create your company account. You will sign in afterwards with your commercial registration number.",
     "crNumber": "Commercial registration number",
     "legalName": "Legal company name",
     "email": "Email address",
     "password": "Password",
-    "mobile1": "Primary mobile",
-    "mobile2": "Secondary mobile",
-    "city": "City",
-    "cityPlaceholder": "Select a city",
-    "shortAddress": "Short address",
+    "mobile1": "Contact number",
     "submit": "Create account",
-    "haveAccount": "Already have an account? Sign in",
+    "haveAccount": "Already have an account?",
     "conflict": {
       "signIn": "Sign in instead",
       "recoverAccess": "Recover access"
     },
     "policies": {
-      "legend": "Policies",
+      "legend": "Policies and terms",
       "unavailable": "Policies could not be loaded. Registration cannot be completed right now.",
-      "readFull": "Read the full policy text"
+      "openButton": "Policies and terms",
+      "consent": "I have read and agree to the terms and conditions and the privacy policy",
+      "dialogTitle": "Policies and terms",
+      "close": "Close",
+      "version": "Version"
     },
-    "location": {
-      "legend": "Company location",
-      "description": "We need your company's coordinates to plan fulfilment.",
-      "useMyLocation": "Use my current location",
-      "captured": "Location captured.",
-      "accuracy": "accurate to about {metres} m",
-      "requiredNotice": "A location is required before you can create the account.",
-      "errors": {
-        "unsupported": "This browser cannot provide your location. Enter the coordinates manually below.",
-        "insecureContext": "Location is only available over a secure connection. Enter the coordinates manually below.",
-        "permissionDenied": "Location access was blocked. You can allow it in your browser settings, or enter the coordinates manually below.",
-        "positionUnavailable": "Your location could not be determined. Try again, or enter the coordinates manually below.",
-        "timeout": "Finding your location took too long. Try again, or enter the coordinates manually below.",
-        "unknown": "Your location could not be retrieved. Enter the coordinates manually below."
-      },
-      "manual": {
-        "show": "Enter coordinates manually",
-        "hide": "Hide manual entry",
-        "description": "Enter the latitude and longitude of your company's location.",
-        "latitude": "Latitude",
-        "longitude": "Longitude",
-        "invalid": "Enter a latitude between -90 and 90 and a longitude between -180 and 180."
-      }
+    "title": "Create an account",
+    "accountType": {
+      "legend": "Account type",
+      "trader": "Buyer",
+      "traderHint": "I buy from the products on offer.",
+      "supplier": "Supplier",
+      "supplierHint": "I list my products for sale.",
+      "required": "Choose an account type before continuing."
+    },
+    "signIn": "Sign in",
+    "validation": {
+      "email": "Enter a valid email address.",
+      "passwordTooShort": "The password must be at least {min} characters."
     }
   },
   "marketplace": {
-    "title": "Opportunities",
-    "description": "Every opportunity on offer right now. Filters and sorting apply to the whole list, not only to the page you are looking at.",
+    "title": "Offers",
+    "description": "Every offer available right now. Filters and sorting apply to the whole list, not only to the page you are looking at.",
     "bannersLabel": "Announcements",
-    "resultCount": "{count, plural, =0 {No matching opportunities} one {# opportunity} other {# opportunities}}",
+    "resultCount": "{count, plural, =0 {No matching offers} one {# offer} other {# offers}}",
     "filters": {
-      "regionLabel": "Filter opportunities",
+      "regionLabel": "Filter offers",
       "city": "Shipping origin city",
-      "anyCity": "All cities",
+      "anyCity": "All cities in the region",
       "category": "Category",
       "anyCategory": "All categories",
       "categoryExactMatchHint": "The category is matched exactly: choosing a parent category does not include its subcategories.",
       "sort": "Sort",
       "apply": "Apply",
-      "clear": "Clear filters"
+      "clear": "Clear filters",
+      "region": "Shipping origin region",
+      "anyRegion": "All regions",
+      "anyBranch": "All branches",
+      "open": "Filters",
+      "applied": "Applied filters",
+      "close": "Close",
+      "show": "Show results"
     },
     "sort": {
       "newest": "Newest",
@@ -141,29 +197,85 @@
       "closingSoon": "Closing soon",
       "scheduled": "Scheduled",
       "noImage": "No image available",
-      "viewDetails": "View details"
+      "viewDetails": "View details",
+      "viewDetailsFor": "View details for {name}",
+      "region": "Region",
+      "targetQuantity": "Target quantity",
+      "remainingQuantity": "Remaining quantity",
+      "minimumOrder": "Minimum order",
+      "priceInclTax": "incl. VAT",
+      "priceUnavailable": "Price unavailable",
+      "sold": "Sold of available quantity",
+      "stockLeft": "In stock: {count}",
+      "soldOut": "Out of stock",
+      "directBadge": "Direct sale",
+      "groupBadge": "Group offer"
     },
     "empty": {
-      "title": "No opportunities are on offer",
+      "title": "No offers are available right now",
       "description": "Nothing has been published yet. Check back later."
     },
     "emptyFiltered": {
-      "title": "No matching opportunities",
+      "title": "No matching offers",
       "description": "Nothing matches the selected filters. Try widening or clearing them."
     },
     "detail": {
       "breadcrumbLabel": "Breadcrumb",
-      "backToList": "Back to opportunities",
+      "backToList": "Back to offers",
       "region": "Region",
       "opens": "Opens",
       "noDescription": "No description was provided for this product.",
-      "closed": "This opportunity's window has closed."
+      "closed": "This offer's window has closed.",
+      "statsTitle": "Quantities",
+      "purchaseTitle": "Purchase",
+      "quantityLabel": "Quantity",
+      "increase": "Increase quantity",
+      "decrease": "Decrease quantity",
+      "registerToBuy": "Register to buy",
+      "signIn": "Sign in",
+      "visitorNotice": "Prices and quantities are shown to everyone. Registration is required only to complete a purchase.",
+      "productDetailsTitle": "Product details",
+      "shippingTitle": "Shipping and preparation",
+      "openInPortal": "Open this offer in my portal",
+      "productLabel": "Product and commercial terms",
+      "deliveryLabel": "Shipping and dates",
+      "packageLabel": "Package specifications",
+      "buyNow": "Buy now",
+      "gallery": "More photographs",
+      "galleryItem": "Photograph {index} of {name}",
+      "taxonomy": "Category",
+      "priceIncludesTax": "Price includes VAT.",
+      "shareQuantity": "Minimum purchase and step",
+      "preparationTime": "Expected preparation time",
+      "preparationDays": "{days} days",
+      "unsoldCaveat": "The unsold quantity is arithmetic, not a reservation. The quantity is confirmed when you start a purchase.",
+      "progressCaveat": "This is the share of the available quantity that has sold. Reaching it unlocks nothing — every paid order is fulfilled on its own.",
+      "remainingTime": "Time remaining",
+      "packageContent": "Package content",
+      "weightPerUnit": "Weight per selling unit",
+      "dimensions": "Dimensions",
+      "cm": "cm",
+      "length": "Length",
+      "width": "Width",
+      "height": "Height"
     },
     "traderTerms": {
       "title": "Commercial terms",
       "description": "Price, quantities and share size are available to trader accounts after signing in. They are not shown to visitors.",
       "signIn": "Sign in",
       "register": "Create an account"
+    },
+    "progress": {
+      "soldLabel": "Sold",
+      "remaining": "{percent}% remaining",
+      "endsAt": "Offer ends: {date}",
+      "ariaLabel": "{percent}% of the available quantity sold"
+    },
+    "banner": {
+      "previous": "Previous image",
+      "next": "Next image",
+      "goTo": "Go to image {index}",
+      "alt": "Promotional banner"
     }
   },
   "policies": {
@@ -174,7 +286,7 @@
     "published": "Published",
     "mandatory": "Mandatory",
     "documents": {
-      "terms_of_service": "Terms of Service",
+      "terms_of_service": "Terms and conditions",
       "privacy_policy": "Privacy Policy"
     },
     "empty": {
@@ -184,31 +296,40 @@
   },
   "trader": {
     "nav": {
-      "label": "Trader account navigation",
+      "label": "Control panel navigation",
       "dashboard": "Home",
-      "opportunities": "Opportunities",
-      "orders": "Orders",
+      "opportunities": "Marketplace",
+      "orders": "My orders",
       "notifications": "Notifications",
-      "disputes": "Disputes",
-      "account": "Account",
+      "account": "Company details",
       "comingSoon": "Coming soon",
-      "replacements": "Replacements"
+      "portalName": "Control Panel",
+      "accountTypeLabel": "Buyer",
+      "accountMenu": "Account menu",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "collapseMenu": "Collapse menu",
+      "expandMenu": "Expand menu",
+      "switchLocale": "Switch to Arabic",
+      "notificationsLabel": "Notifications",
+      "group": {
+        "market": "Marketplace",
+        "orders": "Orders and follow-up",
+        "account": "Account and settings"
+      },
+      "followUp": "Follow-up"
     },
     "dashboard": {
-      "title": "Trader dashboard",
-      "signedInAs": "Signed in as {company}",
-      "browseOpportunities": "Browse opportunities",
+      "title": "Overview",
+      "browseOpportunities": "Browse products",
       "viewOrders": "View orders",
-      "account": "Account details",
       "needsAttention": {
         "title": "Needs attention",
-        "description": "Orders past their expected preparation time that have not shipped.",
         "progress": "{delivered} of {total} delivered"
       },
       "orders": {
         "title": "Recent orders",
         "total": "{count, plural, =0 {No orders} one {# order} other {# orders}}",
-        "delivered": "{delivered} of {total} delivered",
         "emptyTitle": "No orders yet",
         "emptyDescription": "Your first purchase will appear here."
       },
@@ -282,6 +403,7 @@
         "FULFILLED": "Fulfilled"
       },
       "allocation": {
+        "AWAITING_FUNDING": "Awaiting the target",
         "AWAITING_PREPARATION": "Awaiting preparation",
         "PREPARING": "Being prepared",
         "READY_TO_SHIP": "Ready to ship",
@@ -303,16 +425,16 @@
         "READY_TO_SHIP": "Ready to ship",
         "SHIPPED": "Shipped",
         "DELIVERED": "Delivered",
-        "FAILED": "Replacement failed"
+        "FAILED": "Return failed"
       }
     },
     "opportunities": {
-      "title": "Opportunities",
-      "description": "Opportunities available to buy, with pricing and commercial terms.",
-      "resultCount": "{count} opportunities",
-      "emptyTitle": "No opportunities",
-      "emptyDescription": "There are no opportunities available right now.",
-      "emptyFilteredDescription": "No opportunities match the current filters. Try widening them.",
+      "title": "Products",
+      "description": "Products available to buy, with price and commercial terms.",
+      "resultCount": "{count} products",
+      "emptyTitle": "No products",
+      "emptyDescription": "There are no products available right now.",
+      "emptyFilteredDescription": "No products match the current filters. Try widening them.",
       "unitPrice": "Unit price",
       "priceUnavailable": "Price unavailable",
       "sold": "Sold of available quantity",
@@ -320,7 +442,7 @@
       "sharePurchaseStep": "Bought in multiples of {quantity} {unit}",
       "detail": {
         "breadcrumbLabel": "Breadcrumb",
-        "backToList": "Back to opportunities",
+        "backToList": "Back to products",
         "termsLabel": "Commercial terms",
         "priceIncludesTax": "Price includes VAT.",
         "shareQuantity": "Minimum purchase and step",
@@ -328,7 +450,22 @@
         "preparationDays": "{days} days",
         "deliveryLabel": "Shipping and dates",
         "unsoldCaveat": "The unsold quantity is arithmetic, not a reservation. The quantity is confirmed when you start a purchase.",
-        "progressCaveat": "This is the share of the available quantity that has sold. Reaching it unlocks nothing — every paid order is fulfilled on its own."
+        "progressCaveat": "This is the share of the available quantity that has sold. Reaching it unlocks nothing — every paid order is fulfilled on its own.",
+        "productLabel": "Product and commercial terms",
+        "packageLabel": "Package specifications",
+        "taxonomy": "Category",
+        "weightPerUnit": "Weight per selling unit",
+        "dimensions": "Dimensions",
+        "length": "Length",
+        "width": "Width",
+        "height": "Height",
+        "packageContent": "Package content",
+        "remainingTime": "Time remaining",
+        "buyNow": "Buy now",
+        "cm": "cm",
+        "gallery": "More photographs",
+        "galleryItem": "Photograph {index} of {name}",
+        "unavailable": "—"
       }
     },
     "checkout": {
@@ -346,7 +483,7 @@
       "destinationsLabel": "Delivery locations",
       "destinationQuantity": "Quantity",
       "destinationShipping": "Shipping",
-      "browseOpportunities": "Browse opportunities",
+      "browseOpportunities": "Browse products",
       "locked": {
         "expiresAt": "The quantity hold expires at {at}.",
         "notReserved": "The quantity is not guaranteed until payment completes successfully.",
@@ -366,18 +503,18 @@
       },
       "expired": {
         "title": "The hold expired",
-        "description": "The quantity hold for this order expired and it can no longer be completed. Start again from the opportunity."
+        "description": "The quantity hold on this order has expired and it can no longer be completed. Start again from the product page."
       },
       "abandoned": {
         "title": "Order cancelled",
-        "description": "This order was cancelled and the quantity released. Start again from the opportunity."
+        "description": "This order was cancelled and its quantity released. Start again from the product page."
       }
     },
     "payment": {
       "title": "Payment",
       "description": "Waiting for the payment to be confirmed.",
       "amountUnavailable": "Unavailable",
-      "browseOpportunities": "Browse opportunities",
+      "browseOpportunities": "Browse products",
       "pending": {
         "title": "Waiting for confirmation",
         "deadline": "Payment must complete before {at}.",
@@ -433,7 +570,8 @@
         "ALLOCATION_UNKNOWN_LOCATION": "That branch is not available to choose.",
         "ALLOCATION_SUM_MISMATCH": "The branch quantities ({allocated}) do not add up to the quantity requested ({quantity})."
       },
-      "stepNoUnit": "Bought in multiples of {quantity}."
+      "stepNoUnit": "Bought in multiples of {quantity}.",
+      "regionLabel": "Delivery region"
     },
     "orders": {
       "title": "Orders",
@@ -441,9 +579,8 @@
       "resultCount": "{count} orders",
       "emptyTitle": "No orders",
       "emptyDescription": "You have not placed an order yet.",
-      "browseOpportunities": "Browse opportunities",
+      "browseOpportunities": "Browse products",
       "needsAttention": "Needs attention",
-      "needsAttentionDescription": "Preparation is past its due date and nothing has shipped.",
       "allOrders": "All other orders",
       "currentPage": "Page {page}",
       "total": "Amount",
@@ -467,6 +604,7 @@
       "openDispute": "Open a dispute for this shipment",
       "disputeWindowCloses": "A dispute can be opened until {at}.",
       "next": {
+        "AWAITING_FUNDING": "The offer has not reached its target yet. Preparation begins when it does.",
         "AWAITING_PREPARATION": "The supplier has not started preparing yet. Nothing is needed from you.",
         "PREPARING": "The supplier is preparing this shipment. Nothing is needed from you.",
         "READY_TO_SHIP": "Ready, waiting to be handed to the carrier.",
@@ -480,7 +618,8 @@
         "confirm": "Yes, it arrived",
         "cancel": "Cancel",
         "submitting": "Confirming…"
-      }
+      },
+      "deliveryRegion": "Delivery region"
     },
     "documents": {
       "title": "Order documents",
@@ -549,11 +688,11 @@
       "next": {
         "OPEN": "Waiting for the supplier to respond within the deadline.",
         "SUPPLIER_RESPONDED": "The supplier has responded and the platform is reviewing the dispute.",
-        "AWAITING_REPLACEMENT": "A replacement was ordered — follow it on the replacements page.",
+        "AWAITING_REPLACEMENT": "A replacement was ordered — follow it on the follow-up page.",
         "RESOLVED_ACCEPTED": "Closed in your favour and refunded in full to the same payment method.",
         "RESOLVED_PARTIAL": "Closed with a partial refund to the same payment method.",
         "RESOLVED_REJECTED": "Closed with no refund. Contact support if something has changed.",
-        "RESOLVED_REPLACED": "Closed with a replacement — follow it on the replacements page."
+        "RESOLVED_REPLACED": "Closed with a replacement — follow it on the follow-up page."
       },
       "open": {
         "title": "Open a dispute",
@@ -634,15 +773,14 @@
       }
     },
     "replacements": {
-      "title": "Replacements",
-      "description": "Replacements you are owed following dispute decisions.",
+      "title": "Returns",
+      "description": "Returns you are owed following dispute decisions.",
       "breadcrumbLabel": "Breadcrumb",
-      "backToList": "Back to replacements",
-      "resultCount": "{count} replacements",
-      "emptyTitle": "No replacements",
-      "emptyDescription": "You are not owed any replacements right now.",
-      "itemTitle": "Replacement of {quantity}",
-      "createdAt": "Created",
+      "backToList": "Back to returns",
+      "resultCount": "{count} returns",
+      "emptyTitle": "No returns",
+      "emptyDescription": "You are not owed any returns right now.",
+      "itemTitle": "Return of {quantity}",
       "preparationStartedAt": "Preparation started",
       "readyToShipAt": "Ready to ship",
       "shippedAt": "Shipped",
@@ -655,20 +793,21 @@
       "viewOrder": "View order",
       "viewDispute": "View dispute",
       "next": {
-        "AWAITING_PREPARATION": "The supplier has not started preparing the replacement yet.",
-        "PREPARING": "The supplier is preparing the replacement.",
+        "AWAITING_PREPARATION": "The supplier has not started preparing the return yet.",
+        "PREPARING": "The supplier is preparing the return.",
         "READY_TO_SHIP": "Ready, waiting to be handed to the carrier.",
         "SHIPPED": "On its way. Confirm receipt when it arrives.",
-        "DELIVERED": "The replacement arrived and this is complete.",
-        "FAILED": "The replacement could not be sent. Contact support about the options."
+        "DELIVERED": "The return arrived and this is complete.",
+        "FAILED": "The return could not be sent. Contact support about the options."
       },
       "confirmDelivery": {
-        "label": "Confirm the replacement arrived",
-        "prompt": "Confirm you received the replacement? This cannot be undone.",
+        "label": "Confirm the return arrived",
+        "prompt": "Confirm you received the return? This cannot be undone.",
         "confirm": "Yes, it arrived",
         "cancel": "Cancel",
         "submitting": "Confirming…"
-      }
+      },
+      "createdAt": "Created"
     },
     "notifications": {
       "title": "Notifications",
@@ -718,24 +857,49 @@
         "REPLACEMENT_FAILED": "View replacement",
         "SETTLEMENT_EXECUTED": "View settlement"
       }
+    },
+    "followUp": {
+      "title": "Follow-up",
+      "disputes": "Disputes",
+      "returns": "Returns",
+      "productReports": "Product reports"
+    },
+    "actionRequired": {
+      "title": "Action required",
+      "clear": "Nothing needs action right now.",
+      "countLabel": "cases needing action"
     }
   },
   "supplier": {
     "nav": {
-      "label": "Supplier account navigation",
+      "label": "Control panel navigation",
       "dashboard": "Home",
       "orders": "Orders",
-      "opportunities": "Listings",
-      "products": "Products",
-      "settlements": "Payouts",
-      "disputes": "Disputes",
-      "replacements": "Replacements",
+      "products": "My products",
+      "opportunities": "My offers",
       "notifications": "Notifications",
-      "account": "Account",
-      "comingSoon": "Coming soon"
+      "account": "Company details",
+      "comingSoon": "Coming soon",
+      "portalName": "Control Panel",
+      "accountTypeLabel": "Supplier",
+      "accountMenu": "Account menu",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "collapseMenu": "Collapse menu",
+      "expandMenu": "Expand menu",
+      "switchLocale": "Switch to Arabic",
+      "notificationsLabel": "Notifications",
+      "bankAccount": "Bank account",
+      "locations": "Branches",
+      "group": {
+        "catalogue": "Products",
+        "orders": "Orders and follow-up",
+        "account": "Account and settings"
+      },
+      "followUp": "Follow-up"
     },
     "dashboard": {
-      "title": "Supplier home",
+      "title": "Dashboard",
       "signedInAs": "Signed in as {company}",
       "goToAccount": "Account details",
       "listSeparator": ", ",
@@ -747,7 +911,7 @@
           "payout": "Payout readiness",
           "preparation": "Preparation deadlines",
           "disputes": "Disputes",
-          "replacements": "Replacements"
+          "replacements": "Returns"
         },
         "payout": {
           "label": "Your payouts cannot be transferred yet",
@@ -767,28 +931,91 @@
         "replacements": {
           "label": "{count, plural, one {One replacement is waiting to be sent} other {# replacements are waiting to be sent}}",
           "action": "Prepare the replacement and send it to the same address, then record the shipment.",
-          "link": "Open replacements"
+          "link": "Open returns"
         }
       },
       "fulfilment": {
         "title": "Fulfilment",
-        "totalOrders": "Total orders",
-        "awaitingPreparation": "Shipments awaiting preparation",
-        "emptyTitle": "No orders yet",
-        "emptyDescription": "The first order placed on your products will appear here."
+        "viewOrders": "View orders",
+        "status": {
+          "AWAITING_FUNDING": "Awaiting the target",
+          "AWAITING_PREPARATION": "Awaiting preparation",
+          "PREPARING": "Preparing",
+          "READY_TO_SHIP": "Ready to ship",
+          "SHIPPED": "Shipped",
+          "DELIVERED": "Delivered"
+        }
       },
       "settlements": {
-        "title": "Latest payout",
-        "latestAmount": "Net amount",
-        "outcome": "Outcome",
-        "executedAt": "Transferred on",
-        "total": "Payouts to date",
-        "emptyTitle": "No payouts yet",
-        "emptyDescription": "Payouts appear here once the first settlement completes."
+        "title": "Settlement movement",
+        "transferred": "Transferred this period",
+        "lastTransfer": "Last transfer",
+        "none": "No transfer has been made yet",
+        "viewAll": "View settlements"
       },
       "notifications": {
         "title": "Notifications",
         "unread": "{count, plural, =0 {No unread notifications} one {One unread notification} other {# unread notifications}}"
+      },
+      "lastUpdated": "Last updated",
+      "refresh": "Refresh",
+      "periodLabel": "Period",
+      "periods": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+        "ytd": "Year to date"
+      },
+      "cards": {
+        "paidOrders": "Paid order value",
+        "paidOrdersCompare": "Against the previous period",
+        "unsettled": "Unsettled payables",
+        "unsettledNote": "Not all of it is transferable yet",
+        "buyers": "Buying establishments",
+        "newBuyers": "new buyer(s)",
+        "noNewBuyers": "No new buyers this period",
+        "opportunities": "Active listings",
+        "endingSoon": "ending soon",
+        "noneEndingSoon": "None ending soon",
+        "noComparison": "No comparison"
+      },
+      "sales": {
+        "title": "Sales movement",
+        "subtitle": "Paid order value",
+        "refunded": "Refunded",
+        "refundsSeparate": "Refunds are shown separately",
+        "empty": "No sales in this period.",
+        "thousands": "k",
+        "bucket": {
+          "daily": "Day",
+          "weekly": "Week"
+        }
+      },
+      "listings": {
+        "title": "My current listings",
+        "viewAll": "Browse products",
+        "allInCategory": "All products",
+        "manage": "Manage listing",
+        "empty": "No listings are running.",
+        "of": "of",
+        "fundedNote": "Counted on paid quantities",
+        "endsIn": "ends in",
+        "endsToday": "ends today",
+        "day": "day",
+        "days": "days",
+        "noRegion": "No region"
+      },
+      "attention": {
+        "title": "Needs your attention",
+        "orders": "orders awaiting preparation",
+        "ordersAction": "Prepare orders",
+        "disputes": "disputes need your reply",
+        "disputesAction": "Reply now",
+        "replacements": "A return awaiting action",
+        "replacementsAction": "Prepare replacement",
+        "clear": "Nothing needs your attention right now.",
+        "actionRequired": "Action required",
+        "countLabel": "cases needing action"
       }
     },
     "status": {
@@ -842,13 +1069,15 @@
         "TAX_RATE_NOT_CONFIGURED": "The tax configuration required to publish is not available",
         "PURCHASE_QUANTITY_NOT_COMPATIBLE": "The target quantity does not divide into whole shares",
         "PRODUCT_SUSPENDED": "The linked product is suspended",
-        "PRODUCT_CLOSED": "The linked product is permanently closed"
+        "PRODUCT_CLOSED": "The linked product is permanently closed",
+        "LOCATION_REGION_INACTIVE": "The shipping location's region is no longer active"
       },
       "order": {
         "IN_FULFILLMENT": "In fulfilment",
         "FULFILLED": "Fulfilled"
       },
       "allocation": {
+        "AWAITING_FUNDING": "Awaiting the target",
         "AWAITING_PREPARATION": "Awaiting preparation",
         "PREPARING": "Being prepared",
         "READY_TO_SHIP": "Ready to ship",
@@ -897,29 +1126,16 @@
       "title": "Account",
       "breadcrumbLabel": "Breadcrumb",
       "backToAccount": "Back to account",
-      "readOnlyNotice": "These pages are view-only for now.",
       "readiness": {
         "title": "Payout readiness",
-        "label": "Status",
-        "readyStatus": "Your details are complete",
-        "readyAction": "The platform can transfer what you are owed after each settlement.",
-        "notReadyStatus": "Your details are incomplete",
-        "notReadyAction": "Complete the items below so the platform can transfer what you are owed.",
-        "missing": {
-          "bankAccount": "A verified bank account",
-          "taxProfile": "Tax profile",
-          "invoicingProfile": "Billing legal name"
-        }
+        "label": "Status"
       },
       "company": {
         "title": "Company details",
         "description": "Legal name, commercial registration number and verification status.",
-        "identity": "Legal identity",
         "legalName": "Legal name",
         "crNumber": "Commercial registration number",
-        "verification": "Verification status",
-        "email": "Email",
-        "emailVerification": "Email status"
+        "email": "Email"
       },
       "bankAccount": {
         "title": "Bank account",
@@ -927,10 +1143,6 @@
         "emptyTitle": "No bank account",
         "emptyDescription": "No bank account has been recorded for your company yet, and payouts cannot be transferred until one is recorded and verified.",
         "statusLabel": "Verification status",
-        "holder": "Account holder name",
-        "iban": "IBAN",
-        "ibanSrLabel": "IBAN ending in",
-        "verifiedAt": "Verified on",
         "rejectionReason": "Reason for rejection",
         "action": {
           "PENDING_VERIFICATION": "The account is under review by the platform team; nothing is needed from you right now.",
@@ -942,13 +1154,7 @@
       "billing": {
         "title": "Billing and tax",
         "description": "The legal name the platform's internal commission documents are issued to, and your VAT registration status.",
-        "invoicingTitle": "Billing details",
-        "invoicingLegalName": "Billing legal name",
-        "invoicingEmptyTitle": "No billing details recorded",
-        "invoicingEmptyDescription": "Payouts cannot be transferred until a billing legal name is recorded. Contact support to complete it.",
         "taxTitle": "Tax registration",
-        "taxEmptyTitle": "No tax profile recorded",
-        "taxEmptyDescription": "Payouts cannot be transferred until a tax profile is recorded. Contact support to complete it.",
         "vatRegistered": "VAT registration",
         "vatYes": "Registered",
         "vatNo": "Not registered",
@@ -977,7 +1183,8 @@
       "thumbnailAlt": "Image of {name}",
       "needsAttention": {
         "title": "Needs attention",
-        "description": "Products that are not finished, or that need a correction before they can be used in any listing."
+        "description": "Products not finished yet, or needing correction before they go on offer.",
+        "more": "{count, plural, one {# more product needs} other {# more products need}} your attention. Handle these first."
       },
       "statusTitle": "Approval state",
       "statusLabel": "Status",
@@ -986,12 +1193,11 @@
       "weightPerUnit": "Weight per unit",
       "dimensions": "Dimensions (length × width × height)",
       "packageContent": "Package content",
-      "createdAt": "Created on",
       "nextStep": {
         "status": {
           "DRAFT": "Complete the product's details, add a main image, then send it for approval. It is checked automatically and approved straight away if it passes.",
           "PENDING_REVIEW": "This product is under administrative review. It cannot be edited or archived until the review finishes.",
-          "APPROVED": "This product is approved and listings can be built on it. Any later edit re-runs the automatic checks before saving.",
+          "APPROVED": "The product passed the automatic checks and is on offer. Any later edit re-runs the checks before saving.",
           "REJECTED": "Review the reason, correct the details or the images, then send the product for approval again.",
           "SUSPENDED": "The platform has suspended this product. You may correct its details, but reactivating it is a separate administrative decision and does not happen automatically.",
           "CLOSED": "This product has been permanently closed and cannot be edited. You can only archive it."
@@ -1004,12 +1210,14 @@
         "archive": "Archive product",
         "archivePrompt": "Archiving cannot be undone from your account, and the product can no longer be edited or sent for approval. Continue?",
         "working": "Working…",
-        "edit": "Edit product details"
+        "edit": "Edit product details",
+        "delete": "Delete product",
+        "deletePrompt": "The product, all of its offers and all of its pictures will be deleted permanently. This cannot be undone.",
+        "deleting": "Deleting…"
       },
       "media": {
         "heading": "Product images",
         "empty": "No images. The product needs a main image before it can be approved.",
-        "imageAlt": "Image {index} of {name}",
         "mainImageAlt": "Main image of {name}",
         "mainBadge": "Main image",
         "setMain": "Make this the main image",
@@ -1024,7 +1232,9 @@
         "addImageLimits": "Up to {count} images, each no larger than {megabytes} MB. Accepted formats: {types}.",
         "addImageFull": "This product has the maximum number of images. Remove one before adding another.",
         "fileTooLarge": "The file is larger than the {megabytes} MB limit.",
-        "fileTypeNotAllowed": "That file type is not accepted. Accepted formats: {types}."
+        "fileTypeNotAllowed": "That file type is not accepted. Accepted formats: {types}.",
+        "imageAlt": "Image {index} of {name}",
+        "closeFull": "Close"
       },
       "newProduct": "Add a product",
       "backToProduct": "Back to the product",
@@ -1070,12 +1280,6 @@
           "packaging": "Package contents",
           "dimensions": "Weight and dimensions"
         },
-        "sectionHints": {
-          "identity": "Name and description in Arabic and English.",
-          "classification": "The product's category and the unit it is sold by.",
-          "packaging": "Optional: what one unit contains, such as 6 boxes.",
-          "dimensions": "Shipping details. Weight in kilograms, dimensions in centimetres."
-        },
         "fields": {
           "taxonomyNodeId": "Category",
           "salesUnitId": "Selling unit from the list",
@@ -1093,11 +1297,6 @@
           "packageContentUnitNameAr": "Arabic content unit",
           "packageContentUnitNameEn": "English content unit"
         },
-        "hints": {
-          "salesUnitId": "Optional. Choosing one fills both names automatically, and you can clear the selection while keeping the names.",
-          "packageGroup": "Optional, but the three fields are one group: fill in all of them, or leave all of them empty.",
-          "snapshotNames": "These two names are copied onto every listing and order and are never read from the list again, so you can edit them."
-        },
         "placeholderTaxonomy": "Choose a category",
         "placeholderSalesUnit": "No selection",
         "optional": "(optional)",
@@ -1108,35 +1307,54 @@
         "errorSummaryTitle": "Check the following fields",
         "checkSummaryTitle": "This product does not pass the automatic checks yet",
         "noChanges": "You have not made any changes yet."
-      }
+      },
+      "newOffer": "Create an offer on this product",
+      "newOfferShort": "Create an offer",
+      "viewDetails": "View details",
+      "hasLiveOffer": "Has a live offer",
+      "mediaCount": "Images",
+      "offersTitle": "This product's offers",
+      "offersEmpty": "There is no offer on this product yet.",
+      "offerLiveAlready": "This product has a live offer. Create a new one after it ends.",
+      "offerNotSellable": "An offer cannot be created on this product in its current state.",
+      "createdAt": "Created on",
+      "openOffer": "Offer",
+      "openOfferNumbered": "Offer {number}",
+      "newDirectShort": "Direct sale",
+      "search": {
+        "label": "Search your products",
+        "placeholder": "Product name",
+        "apply": "Search",
+        "clear": "Clear search",
+        "emptyTitle": "No product by that name",
+        "emptyDescription": "Nothing in your catalogue matched “{term}”. Try a shorter word."
+      },
+      "resultCount": "{count, plural, =0 {No products} one {# product} other {# products}}"
     },
     "opportunities": {
-      "title": "Listings",
-      "description": "Your listings offered to traders, and the state of each one.",
+      "title": "My offers",
+      "description": "The offers you have put in front of traders, and the state of each.",
       "breadcrumbLabel": "Breadcrumb",
-      "backToList": "Back to listings",
-      "emptyTitle": "No listings",
-      "emptyDescription": "No listing has been created on your products yet.",
-      "allTitle": "All listings",
-      "allHandled": "Every one of your listings is in the section above.",
+      "backToList": "Back to offers",
+      "emptyTitle": "No offers",
+      "emptyDescription": "You have not created an offer yet. Open one of your products and offer it.",
+      "allTitle": "All offers",
+      "allHandled": "Every offer of yours is listed above.",
       "needsAttention": {
-        "title": "Needs attention",
-        "description": "Listings that are not published yet, or whose publication stopped for a reason that needs correcting."
+        "title": "Needs attention"
       },
       "statusTitle": "State",
       "statusLabel": "Status",
       "termsTitle": "Commercial terms",
       "taxTitle": "Price and tax breakdown",
-      "taxFrozenNotice": "These figures are frozen at first publication and are never recalculated afterwards.",
       "scheduleTitle": "Dates",
       "originTitle": "Ships from",
       "descriptionTitle": "Description",
       "unitPrice": "Unit price",
-      "pricePerUnit": "{price} per {unit}",
       "unitPriceExclTax": "Unit price excluding tax",
       "unitTax": "Tax per unit",
       "taxRate": "Tax rate",
-      "totalValue": "Total value including tax",
+      "totalValue": "Target quantity value, VAT included",
       "targetQuantity": "Target quantity",
       "funded": "Sold",
       "fundedOfTarget": "{funded} of {target}",
@@ -1152,55 +1370,57 @@
       "blockedAt": "Publication stopped on",
       "shipsFromCity": "City",
       "shipsFromRegion": "Region",
-      "originNotFrozenYet": "The shipping origin is frozen at first publication, and this listing has not been published yet.",
+      "originNotFrozenYet": "The shipping origin is fixed at first publication, and this product has not been published yet.",
       "nextStep": {
         "status": {
-          "DRAFT": "Review the terms, then publish the listing to make it available to traders.",
-          "SCHEDULED": "The listing is published and will go live on its start date. Nothing is needed from you now.",
-          "ACTION_REQUIRED": "Publication of this listing stopped. Correct the reason shown, then publish again.",
-          "ACTIVE": "The listing is live. Watch the quantity sold; you can extend it by three days once, before it ends.",
-          "PAUSED": "The platform has paused this listing. Contact support for the details.",
-          "FUNDED": "The target quantity is fully sold. Follow this listing's orders from the orders page.",
-          "EXPIRED": "This listing has ended. You can create a new one on the same product.",
-          "CANCELLED": "This listing was cancelled and is no longer offered."
+          "DRAFT": "Review the details, then publish the offer so traders can see it.",
+          "SCHEDULED": "The offer is published and opens on its start date. Nothing is needed from you now.",
+          "ACTION_REQUIRED": "Publication of this offer stopped. Fix the stated reason, then publish again.",
+          "ACTIVE": "The offer is live for traders. Follow the quantity sold; you may extend it by three days once before it ends.",
+          "PAUSED": "The platform paused this offer. Contact support for the details.",
+          "FUNDED": "The target quantity is complete. Follow this offer's orders from the orders page.",
+          "EXPIRED": "This offer has ended. You can create a new offer on the same product.",
+          "CANCELLED": "This offer was cancelled and is no longer shown."
         }
       },
       "reasonFix": {
-        "SUPPLIER_NOT_VERIFIED": "Listings cannot be published until your company is verified. Contact support to complete verification.",
-        "PRODUCT_NOT_APPROVED": "Open the linked product, send it for approval again, then publish this listing.",
-        "PRODUCT_ARCHIVED": "The linked product is archived and cannot be sold. Create a listing on another product.",
-        "LOCATION_INACTIVE": "The shipping location is no longer active. Edit the listing to ship from an active location.",
-        "LOCATION_CITY_INACTIVE": "The shipping location's city is no longer active on the platform. Edit the listing to ship from another city.",
-        "SUPPLIER_NOT_FINANCIALLY_READY": "Complete your bank and billing details on the account page, then publish this listing again.",
+        "SUPPLIER_NOT_VERIFIED": "Offers cannot be published before your company is verified. Contact support to complete verification.",
+        "PRODUCT_NOT_APPROVED": "The product did not pass the automatic check. Correct the product's details, then publish again.",
+        "PRODUCT_ARCHIVED": "This product is archived and cannot be sold.",
+        "LOCATION_INACTIVE": "The linked branch is no longer active. Edit the offer to ship from an active branch.",
+        "LOCATION_CITY_INACTIVE": "The branch's city is no longer active on the platform. Edit the offer to ship from another city.",
+        "SUPPLIER_NOT_FINANCIALLY_READY": "Complete your bank account and billing details from the account page, then publish the offer again.",
         "TAX_RATE_NOT_CONFIGURED": "This is on the platform's side and there is nothing for you to correct. Try again later or contact support.",
         "PURCHASE_QUANTITY_NOT_COMPATIBLE": "Change the target quantity to a number that divides into whole shares, then publish again.",
         "PRODUCT_SUSPENDED": "The linked product is suspended by the platform. Reactivating it is a separate administrative decision.",
-        "PRODUCT_CLOSED": "The linked product is permanently closed. Create a listing on another product."
+        "PRODUCT_CLOSED": "This product is permanently closed.",
+        "LOCATION_REGION_INACTIVE": "The branch's region is no longer active on the platform. Edit the offer to ship from a branch in another region."
       },
       "actions": {
-        "publish": "Publish listing",
-        "publishPrompt": "The publication conditions are checked, and if they pass the listing becomes available to traders (or scheduled until its start date). Continue?",
-        "extend": "Extend by three days",
-        "extendPrompt": "A listing can be extended by three days exactly once, and the extension cannot be undone. Continue?",
+        "publish": "Publish offer",
+        "publishPrompt": "Publication conditions are checked, and if they pass the offer becomes visible to traders (or scheduled until its start date). Continue?",
+        "closeAtReached": "Close at what was reached",
+        "closeAtReachedPrompt": "The offer closes on the quantity already sold, preparation starts from this moment, and no further purchase is accepted. This cannot be undone. Continue?",
+        "extend": "Extend the offer",
+        "extendPrompt": "An offer can be extended once only, by the number of days the platform sets, and an extension cannot be undone. Continue?",
         "delete": "Delete draft",
         "deletePrompt": "This record will be deleted permanently and cannot be recovered. Continue?",
         "working": "Working…",
-        "edit": "Edit the listing"
+        "edit": "Edit offer",
+        "editDetails": "Edit the product's details",
+        "stop": "Stop direct sale",
+        "stopPrompt": "New sales on this listing will stop. Paid orders are unaffected and nobody is refunded. Continue?"
       },
-      "newOpportunity": "Add a listing",
-      "backToOpportunity": "Back to the listing",
+      "newOpportunity": "Create offer",
+      "backToOpportunity": "Back to the offer",
       "new": {
-        "title": "Add a listing",
-        "description": "Choose the product, the selling terms and the window, then publish it.",
-        "nextStepsTitle": "Steps",
-        "step1": "Save the listing. It is saved as a draft and traders do not see it.",
-        "step2": "Review the terms and dates before publishing.",
-        "step3": "Publish it. The conditions are checked, and publication can be refused for a reason shown to you along with how to correct it."
+        "title": "Create offer",
+        "nextStepsTitle": "Steps"
       },
       "edit": {
-        "title": "Edit the listing",
+        "title": "Edit offer",
         "lockedTitle": "This listing cannot be edited right now",
-        "blockedTitle": "Publication of this listing stopped",
+        "blockedTitle": "Publication of this offer stopped",
         "fixedElsewhere": "This reason cannot be corrected from this form. Follow the step above, then publish again."
       },
       "validation": {
@@ -1221,12 +1441,6 @@
           "window": "Dates",
           "description": "Description"
         },
-        "sectionHints": {
-          "what": "The product on offer and the location it ships from.",
-          "terms": "Unit price including tax, and the quantity offered.",
-          "window": "How long the listing is offered to traders, and how long preparation takes after a sale.",
-          "description": "An optional description shown with the listing."
-        },
         "fields": {
           "productId": "Product",
           "fulfillmentLocationId": "Shipping location",
@@ -1238,15 +1452,10 @@
           "descriptionAr": "Arabic description",
           "descriptionEn": "English description"
         },
-        "hints": {
-          "boundsUnknown": "The duration and quantity limits are set by the platform; if they are not met, saving returns a message naming the limit.",
-          "frozenAtPublish": "The tax breakdown and the share size are calculated by the platform and frozen at first publication. Nothing is calculated here.",
-          "bounds": "The listing window runs between {minHours} hours and {maxDays} days, and the target quantity between {minQuantity} and {maxQuantity}."
-        },
         "placeholderProduct": "Choose a product",
         "placeholderLocation": "Choose a location",
         "noProducts": "There is no approved product to list. Get a product approved first from the products page.",
-        "submitCreate": "Save the listing",
+        "submitCreate": "Publish product",
         "submitEdit": "Save changes",
         "submitting": "Saving…",
         "cancelPrompt": "You have unsaved changes. Leave without saving them?",
@@ -1258,7 +1467,50 @@
           "quantityTooHigh": "The target quantity is above the maximum allowed ({maxQuantity}).",
           "durationTooShort": "The listing window is shorter than the minimum ({minHours} hours).",
           "durationTooLong": "The listing window is longer than the maximum ({maxDays} days)."
-        }
+        },
+        "searchProduct": "Type to search for a product",
+        "noMatchingProduct": "No approved product by that name"
+      },
+      "pricePerUnitSuffix": "per {unit}",
+      "soldOfTarget": "Sold of target",
+      "viewDetails": "View details",
+      "priceInclTax": "VAT included",
+      "perUnit": "per {unit}",
+      "noImage": "No image available",
+      "totalValueNote": "Not revenue earned",
+      "offeredToTraders": "This offer is live for traders",
+      "extendOnce": "One extension only, before the offer closes",
+      "decisionWindow": {
+        "title": "The offer ended before reaching its target",
+        "body": "{funded} of {target} {unit} were sold. You have a limited window to choose one of two things: close the offer at what was reached, or extend it once.",
+        "silence": "If the window elapses without a choice, the offer ends automatically and every buyer is refunded in full.",
+        "remaining": "Time left:",
+        "closesAt": "Window closes"
+      },
+      "startAt": "Start date",
+      "endAt": "End date",
+      "descriptionLabel": "Description",
+      "pricePerUnit": "{price} per {unit}",
+      "productTitle": "Product",
+      "openProduct": "Open the product page",
+      "chooseProduct": "Choose a product to offer",
+      "liveOffer": {
+        "title": "This product has a live offer",
+        "note": "A second offer is not published while the current one runs. You can save this offer as a draft and publish it after that one ends.",
+        "open": "Open the live offer"
+      },
+      "direct": {
+        "title": "Direct sale",
+        "short": "Direct sale",
+        "description": "A fixed-price sale from stock, with no closing date."
+      },
+      "stock": {
+        "title": "Stock",
+        "field": "Stock offered",
+        "hint": "It cannot go below what has sold plus what is held in open baskets.",
+        "save": "Update stock",
+        "saving": "Saving…",
+        "notANumber": "Enter a whole number greater than zero."
       }
     },
     "documents": {
@@ -1299,8 +1551,7 @@
       "allHandled": "Every one of your orders is in the sections above.",
       "showingRecent": "Showing your 50 most recent orders.",
       "overdue": {
-        "title": "Past the preparation deadline",
-        "description": "Shipments whose preparation deadline has passed and that have not shipped."
+        "title": "Past the preparation deadline"
       },
       "awaiting": {
         "title": "Awaiting preparation"
@@ -1340,7 +1591,8 @@
       "allocationNextStep": {
         "SHIPPED": "The shipment is on its way. The trader confirms receipt; nothing is needed from you now.",
         "DELIVERED": "The shipment was delivered. Its payout follows once the dispute window closes."
-      }
+      },
+      "region": "Region"
     },
     "disputes": {
       "title": "Disputes",
@@ -1353,8 +1605,7 @@
       "allHandled": "Every dispute is in the section above.",
       "showingRecent": "Showing the 50 most recent disputes.",
       "awaiting": {
-        "title": "Waiting for your response",
-        "description": "Disputes you have not answered yet. Responding within the deadline protects your position when the decision is made."
+        "title": "Waiting for your response"
       },
       "statusTitle": "State",
       "statusLabel": "Status",
@@ -1366,7 +1617,6 @@
       "decisionType": "Decision",
       "decidedAt": "Decided on",
       "evidenceTitle": "Attachments",
-      "evidenceNotice": "Only your company's own attachments appear here, as metadata; they cannot be opened.",
       "evidenceEmpty": "Your company has uploaded no attachment.",
       "evidenceUnknownType": "File",
       "openedAt": "Opened on",
@@ -1396,26 +1646,24 @@
       }
     },
     "replacements": {
-      "title": "Replacements",
+      "title": "Returns",
       "description": "The replacements you owe, and the state of each one.",
       "breadcrumbLabel": "Breadcrumb",
       "backToList": "Back to replacements",
       "detailTitle": "Replacement obligation",
       "quantityLine": "Quantity required: {quantity}",
-      "emptyTitle": "No replacements",
+      "emptyTitle": "No returns",
       "emptyDescription": "You owe no replacement.",
-      "allTitle": "All replacements",
+      "allTitle": "All returns",
       "allHandled": "Every replacement is in the section above.",
       "showingRecent": "Showing the 50 most recent records.",
       "awaiting": {
-        "title": "Waiting on you",
-        "description": "Replacements that have not shipped yet."
+        "title": "Waiting on you"
       },
       "openDetail": "Open the details",
       "statusTitle": "State",
       "statusLabel": "Status",
       "destinationTitle": "Where to send it",
-      "destinationNotice": "A replacement goes to the same destination as the original shipment.",
       "timelineTitle": "Dates",
       "quantity": "Quantity",
       "locationName": "Location",
@@ -1424,7 +1672,6 @@
       "address": "Address",
       "contactName": "Contact name",
       "contactPhone": "Contact number",
-      "createdAt": "Created on",
       "preparationStartedAt": "Preparation started",
       "readyToShipAt": "Ready to ship",
       "shippedAt": "Shipped on",
@@ -1442,7 +1689,8 @@
         "SHIPPED": "The replacement is on its way. The trader confirms receipt; nothing is needed from you now.",
         "DELIVERED": "The replacement was delivered and the obligation is complete.",
         "FAILED": "This replacement could not be completed. Contact support for the next steps."
-      }
+      },
+      "createdAt": "Created on"
     },
     "settlements": {
       "title": "Payouts",
@@ -1457,7 +1705,6 @@
       "outcomeTitle": "Settlement outcome",
       "statusLabel": "Outcome",
       "basisTitle": "How it was calculated",
-      "basisNotice": "These figures are frozen when the order is created and are never recalculated, which is what makes them reconcilable.",
       "executedAt": "Transferred on",
       "city": "City",
       "productAmountExclTax": "Goods value excluding tax",
@@ -1473,7 +1720,8 @@
       "outcomeNextStep": {
         "EXECUTED": "The amount was transferred to your recorded bank account.",
         "ZERO_BALANCE": "Nothing was owed on this shipment and no amount was transferred. This is a correct outcome, not an error."
-      }
+      },
+      "region": "Region"
     },
     "notifications": {
       "title": "Notifications",
@@ -1507,11 +1755,113 @@
         "REPLACEMENT_FAILED": "A replacement could not be completed",
         "SETTLEMENT_EXECUTED": "A payout was transferred"
       }
+    },
+    "listings": {
+      "form": {
+        "fields": {
+          "nameAr": "Product name in Arabic",
+          "nameEn": "Product name in English",
+          "descriptionAr": "Description in Arabic",
+          "descriptionEn": "Description in English",
+          "image": "Product image",
+          "category": "Main category",
+          "taxonomyNodeId": "Sub-category",
+          "salesUnitNameAr": "Selling unit in Arabic",
+          "salesUnitNameEn": "Selling unit in English",
+          "unitPriceAmount": "Sales unit price",
+          "targetQuantity": "Target quantity",
+          "fulfillmentLocationId": "Supplier branch",
+          "expectedPreparationDays": "Preparation time (days)",
+          "weightPerUnit": "Weight (kg)",
+          "lengthCm": "Length (cm)",
+          "widthCm": "Width (cm)",
+          "heightCm": "Height (cm)",
+          "packageContentQuantity": "Quantity",
+          "packageContentUnitNameAr": "Unit in Arabic",
+          "packageContentUnitNameEn": "Unit in English",
+          "offerDurationDays": "Offer duration (days)",
+          "directStock": "Stock offered"
+        },
+        "placeholderCategory": "Choose the main category",
+        "placeholderBranch": "Choose the sub-category",
+        "placeholderLocation": "Choose a branch",
+        "errorSummaryTitle": "Check the following fields",
+        "requestIdLabel": "Request id",
+        "submit": "Add product",
+        "submitting": "Adding…",
+        "cancel": "Cancel",
+        "errors": {
+          "required": "This field is required",
+          "tooLong": "At most {max} characters",
+          "notANumber": "Enter a valid number",
+          "notPositive": "Must be greater than zero",
+          "notAnInteger": "Enter a whole number",
+          "tooLarge": "At most {max}",
+          "tooPrecise": "At most {scale} decimal places",
+          "tooShort": "At least {hours} hours",
+          "belowMin": "At least {min}",
+          "aboveMax": "At most {max}",
+          "packageGroupIncomplete": "Fill all three package content fields, or leave them empty",
+          "imageTooLarge": "The image may be at most {mb} MB"
+        },
+        "sections": {
+          "item": "Product details",
+          "selling": "Sales unit and package content",
+          "shipping": "Weight and dimensions",
+          "offerTerms": "Selling terms",
+          "offerTiming": "Offer and preparation time",
+          "directTiming": "Preparation",
+          "directTerms": "Direct sale terms"
+        },
+        "placeholders": {
+          "nameAr": "أدخل اسم المنتج بالعربية",
+          "nameEn": "Enter product name in English",
+          "descriptionAr": "أدخل وصف المنتج بالعربية",
+          "descriptionEn": "Enter product description in English",
+          "salesUnitNameAr": "مثال: كرتون",
+          "salesUnitNameEn": "e.g. Carton",
+          "unitPriceAmount": "Enter the price",
+          "targetQuantity": "Number of sales units",
+          "packageContentQuantity": "Enter the quantity",
+          "packageContentUnitNameAr": "مثال: قطعة",
+          "packageContentUnitNameEn": "e.g. Piece",
+          "weightPerUnit": "Enter the weight",
+          "lengthCm": "Enter the length",
+          "widthCm": "Enter the width",
+          "heightCm": "Enter the height"
+        },
+        "image": {
+          "choose": "Choose an image",
+          "previewHere": "The preview appears here"
+        },
+        "priceCurrency": "SAR",
+        "priceTaxNote": "Tax included",
+        "packageExample": "Example: one carton holding 24 pieces",
+        "shippingNote": "Weight and dimensions of the sales unit after packaging",
+        "requiredNote": "Required fields",
+        "submitOffer": "Publish offer",
+        "submittingOffer": "Publishing…",
+        "offerWindowNote": "The period starts the moment the offer is published",
+        "saved": {
+          "productTitle": "The product was saved; its image was not uploaded",
+          "openProduct": "Open the saved product",
+          "offerTitle": "The offer was saved and is not published yet",
+          "openOffer": "Open the saved offer",
+          "draftTitle": "The offer was saved as a draft"
+        },
+        "submitDraft": "Save as draft",
+        "submittingDraft": "Saving…",
+        "directWindowNote": "A direct sale stays listed until you stop it — it has no closing date.",
+        "submitDirect": "Publish direct sale",
+        "submittingDirect": "Publishing…"
+      }
+    },
+    "followUp": {
+      "title": "Follow-up"
     }
   },
   "unauthorized": {
     "title": "Access not available",
-    "description": "Your account cannot open this page.",
     "goHome": "Go to the home page",
     "signInAsAnother": "Sign in with another account"
   },
@@ -1528,7 +1878,11 @@
     "navLabel": "Pagination",
     "previous": "Previous",
     "next": "Next",
-    "status": "Page {page} of {lastPage}"
+    "status": "Page {page} of {lastPage}",
+    "first": "First page",
+    "last": "Last page",
+    "pageNumber": "Page {page}",
+    "range": "Showing {from}–{to} of {total}"
   },
   "states": {
     "emptyTitle": "Nothing here yet",
@@ -1564,20 +1918,40 @@
       "INVALID_WEBHOOK_SIGNATURE": "Invalid signature.",
       "INVALID_FULFILLMENT_TRANSITION": "That fulfilment transition is not allowed.",
       "UNKNOWN_CARRIER": "Unknown carrier.",
-      "PRODUCT_TECHNICAL_CHECK_FAILED": "This product does not pass the automatic checks yet. Review the items listed, then try again."
+      "PRODUCT_TECHNICAL_CHECK_FAILED": "This product does not pass the automatic checks yet. Review the items listed, then try again.",
+      "BRAND_LOGO_TOO_LARGE": "The logo file is larger than {maxMb} MB. Export a smaller file and upload it again.",
+      "BRAND_LOGO_TOO_MANY_PIXELS": "The logo has more pixels than the platform accepts. Scale the image down and upload it again.",
+      "BRAND_LOGO_TYPE_UNSUPPORTED": "That file type is not supported. Use PNG or WebP.",
+      "BRAND_LOGO_TOO_SMALL": "The image is smaller than {minWidth}×{minHeight} pixels. Use a larger version of the logo.",
+      "BRANCH_LOCATION_UNREADABLE": "The branch location could not be read from that link. Check that it opens the place in Google Maps, or paste the latitude and longitude separated by a comma.",
+      "VERIFICATION_UNDER_REVIEW": "Your verification request is being reviewed; these details cannot be changed until it is decided.",
+      "VERIFICATION_NOT_SUBMITTABLE": "A verification request cannot be sent from your current state.",
+      "VERIFICATION_NOT_UNDER_REVIEW": "There is no verification request under review for this company.",
+      "TAXONOMY_TOO_DEEP": "A main category takes two levels of branches, no more.",
+      "TAXONOMY_HAS_CHILDREN": "A category with branches cannot be deleted. Move or delete the branches first.",
+      "TAXONOMY_HAS_PRODUCTS": "A category products are classified under cannot be deleted.",
+      "CR_NUMBER_TAKEN": "That commercial registration number is already registered. If it is yours, sign in or recover your password.",
+      "EMAIL_TAKEN": "That email address is already registered. If it is yours, sign in or recover your password.",
+      "MOBILE_TAKEN": "That mobile number is already registered to another company. Use a different number.",
+      "VAT_NUMBER_TAKEN": "That tax registration number is already registered to another company. Check the number or contact support.",
+      "PRODUCT_ALREADY_HAS_LIVE_OFFER": "This product already has a live offer, so a second one cannot be published until it ends.",
+      "PRODUCT_HAS_LIVE_OFFER": "A product a buyer can reach cannot be edited. Stop the offer first — or ask an administrator to stop it — then correct the product and publish a new offer.",
+      "BUYER_CHECKOUT_IN_PROGRESS": "A buyer is checking out on this offer right now. The lock expires on its own — try again shortly.",
+      "BUYER_ALREADY_PAID": "A buyer has paid on this offer, and what was sold is never deleted. Pause it, or cancel it with a refund, instead.",
+      "CHECKOUT_LOCK_EXPIRED": "This checkout has expired. Start a new one to see the quantity still available."
     }
   },
   "admin": {
     "nav": {
-      "portalName": "Admin console",
-      "label": "Admin navigation",
+      "portalName": "Control Panel",
+      "label": "Control panel navigation",
       "signOut": "Sign out",
       "twoFactorMissing": "Two-factor not enabled",
       "footerNote": "Internal operations console. Every action here is written to the audit log.",
       "dashboard": "Overview",
       "companies": "Companies",
       "products": "Products",
-      "opportunities": "Opportunities",
+      "opportunities": "Listed products",
       "orders": "Orders",
       "disputes": "Disputes",
       "refunds": "Refunds",
@@ -1585,18 +1959,37 @@
       "bankAccounts": "Bank accounts",
       "invoicing": "Invoicing",
       "catalogue": "Reference data",
-      "banners": "Banners",
-      "branding": "Brand and colours",
+      "banners": "Promotional banners",
+      "branding": "Identity, colours and logo",
       "content": "Site content",
       "settings": "Settings",
       "adminUsers": "Admin accounts",
       "audit": "Audit log",
-      "outbox": "Notifications and integrations"
+      "outbox": "Notifications and integrations",
+      "roleLabel": "System administrator",
+      "accountMenu": "Account menu",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "collapseMenu": "Collapse menu",
+      "expandMenu": "Expand menu",
+      "group": {
+        "market": "Market",
+        "orders": "Orders and customer service",
+        "finance": "Finance",
+        "content": "Content and identity",
+        "system": "System and integrations",
+        "security": "Administration and security"
+      },
+      "switchLocale": "Switch to Arabic",
+      "taxonomy": "Categories",
+      "policies": "Policies"
     },
     "actions": {
       "confirm": "Confirm",
       "cancel": "Cancel",
-      "working": "Working…"
+      "working": "Working…",
+      "required": "(required)",
+      "save": "Save"
     },
     "filters": {
       "regionLabel": "Search and filter",
@@ -1605,7 +1998,8 @@
       "searchSupplier": "Search by supplier name",
       "any": "All",
       "apply": "Apply",
-      "clear": "Clear filters"
+      "clear": "Clear filters",
+      "export": "Export to Excel"
     },
     "money": {
       "platformCurrency": "SAR"
@@ -1618,7 +2012,6 @@
       "signIn": "Sign in",
       "working": "Working…",
       "verifyTitle": "Two-factor verification",
-      "verifyDescription": "Enter the code shown in your authenticator app.",
       "code": "Verification code",
       "codeHint": "Six digits, changing every thirty seconds.",
       "verify": "Verify",
@@ -1627,7 +2020,6 @@
       "recoveryCode": "Recovery code",
       "recoveryHint": "Each code works once and is then invalidated.",
       "setupTitle": "Set up two-factor authentication",
-      "setupDescription": "Add the key below to your authenticator app, then enter the code it shows.",
       "setupSecret": "Secret key",
       "setupSecretHint": "Copy the key and enter it manually in the app.",
       "setupRecoveryTitle": "Recovery codes",
@@ -1637,7 +2029,8 @@
       "back": "Back",
       "errorTitle": "Could not complete that",
       "requestIdLabel": "Reference",
-      "required": "(required)"
+      "required": "(required)",
+      "switchLocale": "Switch to Arabic"
     },
     "dashboard": {
       "title": "Overview",
@@ -1645,10 +2038,8 @@
       "needsAttention": "Needs attention",
       "deliveryTitle": "Notification delivery",
       "twoFactorTitle": "Your account has no two-factor authentication",
-      "twoFactorDescription": "This account signs in with a password alone. Enable two-factor from the admin accounts page.",
       "queues": {
         "suppliers": "Suppliers awaiting verification",
-        "products": "Products awaiting review",
         "bankAccounts": "Bank accounts awaiting review",
         "disputes": "Open disputes",
         "refunds": "Refunds awaiting execution"
@@ -1674,7 +2065,6 @@
       "verificationStatus": "Verification status",
       "ownerEmail": "Owner email",
       "userCount": "Users",
-      "createdAt": "Registered",
       "actionsColumn": "Actions",
       "approve": "Verify",
       "approvePrompt": "“{name}” will be verified and able to list and sell on the platform.",
@@ -1683,12 +2073,58 @@
       "rejectReason": "Reason for refusal",
       "rejectReasonHint": "The company receives this text and it is what they will act on to correct their application. At least five characters.",
       "emptyTitle": "No matching companies",
-      "emptyDescription": "Try adjusting the search or filters."
+      "emptyDescription": "Try adjusting the search or filters.",
+      "rowActions": "Actions for {name}",
+      "viewDetails": "View details",
+      "tabsLabel": "Company type",
+      "tab": {
+        "traders": "Buyers",
+        "suppliers": "Suppliers"
+      },
+      "tableCaptionTraders": "Buyer companies",
+      "tableCaptionSuppliers": "Supplier companies",
+      "orderCount": "Orders",
+      "productCount": "Products",
+      "opportunityCount": "Listed products",
+      "copyEmail": "Copy the email address",
+      "copiedEmail": "Email address copied",
+      "operationalStatus": "Operational status",
+      "operational": {
+        "ACTIVE": "Active",
+        "NOT_ACTIVE": "Not active",
+        "SUSPENDED": "Suspended"
+      },
+      "registeredFrom": "Registered from",
+      "registeredTo": "Registered to",
+      "copyCrNumber": "Copy the commercial registration",
+      "copiedCrNumber": "Commercial registration copied",
+      "detailTitle": "Company detail",
+      "users": {
+        "title": "Sign-in accounts",
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "password": "Password",
+        "actions": "Actions",
+        "passwordSet": "Set",
+        "passwordPending": "Not set yet",
+        "suspendedByCompany": "Because the company is suspended",
+        "emailVerified": "Email verified",
+        "emailUnverified": "Email not verified",
+        "empty": "This company has no sign-in accounts.",
+        "resetPassword": "Send a reset link",
+        "resetPasswordPrompt": "A password reset link goes to the account holder’s own email — the same link they request themselves. You cannot see or set the password.",
+        "revokeSessions": "End all sessions",
+        "revokeSessionsPrompt": "The account holder is signed out on every device immediately. Nothing else changes, and they can sign in again with their current password.",
+        "exportFile": "sign-in-accounts",
+        "exportAction": "Export the user list",
+        "createdAt": "Added"
+      },
+      "createdAt": "Registered"
     },
     "products": {
       "title": "Products",
       "description": "The review queue, then the whole catalogue.",
-      "queueTitle": "Awaiting review",
       "directoryTitle": "All products",
       "tableCaption": "List of products",
       "name": "Product",
@@ -1700,10 +2136,11 @@
       "mainImageNo": "No",
       "submittedAt": "Submitted",
       "updatedAt": "Last updated",
+      "dates": "Dates",
       "archived": "Archived",
       "actionsColumn": "Actions",
       "approve": "Approve",
-      "approvePrompt": "“{name}” will be approved and can then be listed in opportunities.",
+      "approvePrompt": "«{name}» will be approved and become listable.",
       "reject": "Reject",
       "rejectPrompt": "“{name}” will be rejected, and the reason will be shown to the supplier on their own screen.",
       "rejectReason": "Reason for rejection",
@@ -1713,14 +2150,28 @@
       "suspendReason": "Reason for suspension",
       "close": "Close",
       "closePrompt": "“{name}” will be closed permanently.",
+      "deleteForever": "Delete permanently",
+      "deleteReason": "Reason for permanent deletion",
+      "deletePrompt": "«{name}» and every offer and image it has will be erased. This cannot be undone.",
+      "deleteHint": "Deletion is refused if any buyer has reached this product — closing is the answer then.",
       "closeReason": "Reason for closing",
-      "cascadeHint": "This may cascade to opportunities that list the product. At least five characters.",
+      "cascadeHint": "This may affect how the product is shown to traders. At least five characters.",
       "reactivate": "Reactivate",
       "reactivatePrompt": "“{name}” will return to approved.",
-      "queueEmptyTitle": "No products awaiting review",
       "queueEmptyDescription": "The queue is empty.",
       "emptyTitle": "No matching products",
-      "emptyDescription": "Try adjusting the search or filters."
+      "emptyDescription": "Try adjusting the search or filters.",
+      "detailTitle": "Product details",
+      "liveOffers": "Live offers",
+      "liveOfferNotice": "This product carries {count} published offer(s) buyers can reach. Editing is allowed here — and a published offer does not change, because it renders from the snapshot frozen when it was published. What you edit shows in the record and in every offer published from now on.",
+      "imagesEmpty": "This product has no images.",
+      "saveEdit": "Save changes",
+      "editSaved": "Saved and recorded in the audit log.",
+      "editNoChange": "Nothing changed to save.",
+      "imageSetMain": "Make main",
+      "imageRemove": "Remove",
+      "stateColumn": "State",
+      "createdAt": "Added"
     },
     "reports": {
       "title": "Product reports",
@@ -1747,13 +2198,11 @@
       "emptyDescription": "Nothing has been filed under this filter."
     },
     "opportunities": {
-      "title": "Opportunities",
-      "description": "Monitoring opportunities listed on the platform.",
-      "monitorOnlyNotice": "Administrators monitor opportunities; they do not create or edit them. Price, quantities and share terms belong to the supplier alone.",
-      "tableCaption": "List of opportunities",
+      "title": "Listed products",
+      "description": "Monitoring the products listed on the platform.",
+      "tableCaption": "List of listed products",
       "status": "Status",
       "statusColumn": "Status",
-      "createdAt": "Created",
       "unitPrice": "Unit price",
       "unitPriceExclTax": "Unit price excluding tax",
       "unitTax": "Unit tax",
@@ -1761,9 +2210,11 @@
       "funding": "Funding",
       "fundedOfTarget": "{funded} of {target}",
       "window": "Listing window",
+      "windowFrom": "From",
+      "windowTo": "to",
       "open": "Open",
       "openDetail": "View detail",
-      "detailTitle": "Opportunity detail",
+      "detailTitle": "Listed product details",
       "commercialTitle": "Commercial terms",
       "salesUnit": "Selling unit",
       "fulfillmentCity": "Fulfilment city",
@@ -1773,21 +2224,34 @@
       "blockedReasonLabel": "Blocking reason",
       "actionsTitle": "Actions",
       "pause": "Pause",
-      "pausePrompt": "The opportunity will be paused and will stop accepting new buyers.",
+      "pausePrompt": "The product will be paused and will stop accepting new buyers.",
       "pauseReasonField": "Reason for pausing",
       "pauseReasonHint": "This text is shown to the supplier. At least five characters.",
       "resume": "Resume",
-      "resumePrompt": "The opportunity will be listed again until the end of its window.",
-      "cancelOpportunity": "Cancel opportunity",
-      "cancelPrompt": "Cancellation is permanent: the opportunity closes to any new purchase and every active hold in a buyer's basket is released.",
+      "resumePrompt": "The product returns to offer until the end of its period.",
+      "cancelOpportunity": "Cancel listing",
+      "cancelPrompt": "Cancellation is final: the product closes to any new purchase and every existing hold in buyers' baskets is released.",
       "cancelReasonField": "Reason for cancelling",
-      "cancelReasonHint": "This text is stored on the opportunity. At least five characters.",
-      "actionRequiredNotice": "This opportunity needs action from the supplier. An administrator cannot republish it on their behalf.",
-      "noActionsAvailable": "No action is available on this opportunity in its current state.",
-      "cannotResumeExpired": "This opportunity cannot be resumed because its listing window has ended.",
-      "backToList": "Back to opportunities",
-      "emptyTitle": "No matching opportunities",
-      "emptyDescription": "Try adjusting the filters."
+      "cancelReasonHint": "This text is saved on the product. At least five characters.",
+      "cancelAndRefund": "Stop the offer and refund",
+      "cancelAndRefundPrompt": "The offer is cancelled for good and everyone who paid is refunded in full — exactly as an offer that ended short, but now and by hand. This cannot be undone.",
+      "cancelAndRefundReasonField": "Reason for stopping and refunding",
+      "cancelAndRefundReasonHint": "Saved on the offer and recorded in the audit log. At least five characters.",
+      "cancelNeedsRefundNotice": "This offer has paid purchases on it, so it cannot be cancelled without returning the money. Use \"Stop the offer and refund\".",
+      "actionRequiredNotice": "This product needs action from the supplier; an administrator cannot publish it on their behalf.",
+      "noActionsAvailable": "No action is available on this product in its current state.",
+      "cannotResumeExpired": "The listing cannot be resumed because its period has ended.",
+      "backToList": "Back to listed products",
+      "emptyTitle": "No matching products",
+      "emptyDescription": "Try adjusting the filters.",
+      "fulfillmentRegion": "Delivery region",
+      "createdAt": "Created",
+      "supplier": "Supplier",
+      "editTitle": "Edit offer",
+      "editSaved": "Saved.",
+      "editNoChange": "Nothing changed.",
+      "deleteForever": "Delete permanently",
+      "deletePrompt": "This offer will be deleted permanently. The product itself is untouched. This cannot be undone."
     },
     "orders": {
       "title": "Orders",
@@ -1826,7 +2290,22 @@
       "createCommissionDraft": "Create commission invoice draft",
       "createCommissionDraftPrompt": "A commission invoice draft will be created for this order.",
       "emptyTitle": "No matching orders",
-      "emptyDescription": "Try adjusting the filters."
+      "emptyDescription": "Try adjusting the filters.",
+      "billingOverride": "Supply the buyer’s billing details",
+      "billingOverridePrompt": "For older orders only — ones where the buyer’s tax details were never captured at purchase, and no billing document can be raised without them. The buyer’s own current details are copied verbatim; you type no VAT number and no legal name. If the order already has captured details, the server refuses and nothing changes.",
+      "billingOverrideReason": "Why you are supplying them",
+      "billingOverrideHint": "At least 5 characters. Stored in the audit log, and the only explanation for why this override exists.",
+      "adjustmentColumn": "Adjustment",
+      "adjustmentOpen": "Add an adjustment",
+      "adjustmentLegend": "An adjustment on this draft — the original draft is not altered",
+      "adjustmentAmount": "Amount",
+      "adjustmentDescription": "Why",
+      "adjustmentReference": "Reference",
+      "adjustmentReferenceOptional": "optional",
+      "adjustmentSubmit": "Save the adjustment",
+      "adjustmentSaved": "Adjustment added.",
+      "adjustmentErrorAmount": "The amount must be a number greater than zero.",
+      "adjustmentErrorDescription": "A reason is required."
     },
     "disputes": {
       "title": "Disputes",
@@ -1866,13 +2345,21 @@
       "waitingForSupplier": "A decision cannot be issued before the supplier responds or their response deadline passes.",
       "noFurtherDecision": "This case takes no further decision.",
       "emptyTitle": "No matching disputes",
-      "emptyDescription": "Try adjusting the filters."
+      "emptyDescription": "Try adjusting the filters.",
+      "detailTitle": "Dispute detail",
+      "replacementConfirm": "Confirm the replacement delivered",
+      "replacementConfirmPrompt": "The replacement is recorded as delivered to the buyer and the obligation closes. Do this on the buyer’s behalf only when you have confirmed delivery yourself.",
+      "replacementConfirmReason": "Why you are confirming on the buyer’s behalf",
+      "replacementConfirmHint": "At least 5 characters. Stored in the audit log as the explanation for the platform stepping in.",
+      "replacementMarkFailed": "Record the replacement as failed",
+      "replacementMarkFailedPrompt": "The replacement is recorded as never delivered, which opens a second decision on this dispute: a full or partial refund. This cannot be undone.",
+      "replacementMarkFailedReason": "Why you are recording it as failed",
+      "replacementMarkFailedHint": "At least 5 characters. A decision against the supplier that closes the replacement and opens a refund path; stored in the audit log."
     },
     "refunds": {
       "title": "Refunds",
       "description": "Money owed back to buyers, and the attempts to send it.",
       "tableCaption": "List of refunds",
-      "createdAt": "Raised",
       "amount": "Amount",
       "status": "Status",
       "source": "Source",
@@ -1900,7 +2387,9 @@
       "working": "Working…",
       "required": "(required)",
       "emptyTitle": "No matching refunds",
-      "emptyDescription": "Try adjusting the filters."
+      "emptyDescription": "Try adjusting the filters.",
+      "detailTitle": "Refund detail",
+      "createdAt": "Raised"
     },
     "settlements": {
       "title": "Settlements",
@@ -1930,23 +2419,17 @@
       "status": "Verification status",
       "submittedAt": "Submitted",
       "rejectionReason": "Reason for refusal",
-      "approve": "Approve",
-      "approvePrompt": "This account becomes the payout destination for “{company}”, replacing any previously approved account.",
-      "reject": "Reject",
-      "rejectPrompt": "The bank account for “{company}” will be refused, and the reason will reach the supplier.",
-      "rejectReason": "Reason for refusal",
-      "rejectReasonHint": "The supplier reads this and decides whether to resubmit with a different document or a different account. At least five characters.",
       "queueEmptyTitle": "No accounts awaiting review",
       "queueEmptyDescription": "The queue is empty.",
       "emptyTitle": "No matching accounts",
-      "emptyDescription": "Try adjusting the search or filters."
+      "emptyDescription": "Try adjusting the search or filters.",
+      "reviewOnCompany": "Review this account with the company's verification request"
     },
     "adminUsers": {
       "title": "Admin accounts",
       "description": "Your account, and the rest of the administration team.",
       "ownAccountTitle": "Your account",
       "directoryTitle": "Team accounts",
-      "creationNotice": "Administrator accounts cannot be created here. They are created with the bootstrap command on the server, so that one compromised session is never enough to mint a second permanent account.",
       "tableCaption": "List of admin accounts",
       "email": "Email",
       "status": "Status",
@@ -1954,7 +2437,6 @@
       "twoFactorOn": "Enabled",
       "twoFactorOff": "Not enabled",
       "recoveryCodes": "Recovery codes left",
-      "createdAt": "Created",
       "actionsColumn": "Actions",
       "you": "You",
       "disable": "Disable",
@@ -1986,14 +2468,13 @@
       "errorTitle": "Could not complete that",
       "requestIdLabel": "Reference",
       "emptyTitle": "No matching accounts",
-      "emptyDescription": "Try adjusting the search or filters."
+      "emptyDescription": "Try adjusting the search or filters.",
+      "createdAt": "Created"
     },
     "audit": {
       "title": "Audit log",
       "description": "What changed, who changed it, and why.",
-      "scopeNotice": "This log shows the event, its actor and its reason — not copies of the values before and after, and not request metadata such as network address. Viewing the log does not create an entry in it.",
       "tableCaption": "Audit log entries",
-      "createdAt": "When",
       "actorType": "Actor",
       "action": "Event",
       "entity": "Entity",
@@ -2001,7 +2482,11 @@
       "reason": "Reason",
       "requestId": "Request id",
       "emptyTitle": "No matching entries",
-      "emptyDescription": "Try adjusting the filters."
+      "emptyDescription": "Try adjusting the filters.",
+      "changed": "What changed",
+      "valueYes": "Yes",
+      "valueNo": "No",
+      "createdAt": "When"
     },
     "outbox": {
       "title": "Notifications and integrations",
@@ -2019,25 +2504,21 @@
       "backlog": "Backlog",
       "integrationsTitle": "Integrations",
       "integrationsCaption": "External integration status",
-      "healthNotice": "No integration reports as healthy, because a real connectivity check has not been built yet. Showing a healthy status without testing would be an unverified claim.",
       "integration": "Integration",
       "provider": "Provider",
       "mode": "Mode",
       "configState": "Configuration",
-      "healthState": "Connectivity"
+      "healthState": "Connectivity",
+      "relayBacklog": "Mail relay backlog",
+      "noPending": "Nothing pending"
     },
     "catalogue": {
       "title": "Reference data",
       "description": "Categories, selling units, regions and cities.",
-      "taxonomyTitle": "Categories",
-      "taxonomyHint": "The categories products are filed under, and the ones offered for the site's top menu.",
       "salesUnitsTitle": "Selling units",
-      "salesUnitsHint": "The units a product is sold by, such as carton or tonne.",
       "regionsTitle": "Regions",
       "citiesTitle": "Cities",
       "region": "Region",
-      "underParent": "Under: {parent}",
-      "unknownParent": "Unknown category",
       "addLegend": "Add an item",
       "nameAr": "Arabic name",
       "nameEn": "English name",
@@ -2052,33 +2533,34 @@
       "inactive": "Inactive",
       "notDeleteNotice": "None of these can be deleted. Deactivating hides an item from the pickers without touching the records that point at it.",
       "working": "Working…",
-      "required": "(required)"
+      "required": "(required)",
+      "geographyTitle": "Regions and cities",
+      "addRegion": "Add a region",
+      "addCity": "Add a city",
+      "deactivateRegionPrompt": "Switching this region off stops branches being added there and puts its listings into «needs action». Continue?",
+      "deactivateCityPrompt": "This city will no longer be offered as a choice. Existing branches and listings are unaffected. Continue?",
+      "regionInactiveNotice": "Not offered — its region is switched off",
+      "noCities": "No cities under this region.",
+      "cityCount": "{count, plural, =0 {No cities} one {One city} other {# cities}}",
+      "activePill": "Active",
+      "inactivePill": "Inactive"
     },
     "banners": {
       "title": "Banners",
-      "description": "Promotional banners on the home page and the opportunities page.",
-      "imageNotice": "A banner’s image is uploaded from its own card below. The server checks the content type and size and refuses anything that does not match.",
+      "description": "Promotional banners on the home page and the products page.",
       "placements": {
         "PUBLIC_HOME": "Home page",
-        "PUBLIC_OPPORTUNITIES": "Opportunities page"
+        "PUBLIC_OPPORTUNITIES": "Products page"
       },
       "createLegend": "Add a banner",
-      "titleAr": "Arabic title",
-      "titleEn": "English title",
-      "bodyAr": "Arabic body",
-      "bodyEn": "English body",
       "linkUrl": "Link",
       "linkHint": "The server checks the link against an allowlist of hosts and refuses anything outside it.",
       "create": "Add",
-      "moveUp": "Move “{title}” up",
-      "moveDown": "Move “{title}” down",
       "saveOrder": "Save order",
       "orderChanged": "Order changed and not yet saved.",
       "orderSaved": "Order saved.",
       "activate": "Activate",
       "deactivate": "Deactivate",
-      "hasImage": "Has image",
-      "noImage": "No image",
       "scheduleFrom": "Starts",
       "scheduleTo": "Ends",
       "saveSchedule": "Save schedule",
@@ -2088,15 +2570,33 @@
       "required": "(required)",
       "uploadImage": "Upload image",
       "replaceImage": "Replace image",
-      "removeImage": "Remove image",
       "imageTypes": "JPEG, PNG or WebP",
-      "removeImagePrompt": "Remove this banner’s image?"
+      "imageShapeHint": "Preferred {preferred}, accepted {min} to {max}, at least {minWidth}x{minHeight} pixels.",
+      "shapeTooSmall": "This image is {width}x{height} pixels, smaller than the {minWidth}x{minHeight} minimum. Choose a larger one.",
+      "shapeTooTall": "This image is {ratio} ({width}x{height} pixels), taller than allowed. Accepted {min} to {max}, preferred {preferred}.",
+      "shapeTooWide": "This image is {ratio} ({width}x{height} pixels), wider than allowed. Accepted {min} to {max}, preferred {preferred}.",
+      "cropPreviewTitle": "How this will appear on the site",
+      "cropPreviewNote": "The edges are cropped to fill the frame. Check that what matters is inside the preview before saving.",
+      "confirmUpload": "Save image",
+      "artworkFor": "Banner image — {locale}",
+      "noArtwork": "No image",
+      "missingArtwork": "Missing: {locales}",
+      "activateNeedsBoth": "Cannot activate until both languages have artwork.",
+      "delete": "Delete",
+      "deleteAt": "Delete banner {position}",
+      "deletePrompt": "The banner and its images will be deleted permanently. This cannot be undone.",
+      "deleteConfirm": "Delete permanently",
+      "moveUpAt": "Move banner {position} up",
+      "moveDownAt": "Move banner {position} down",
+      "locale": {
+        "ar-SA": "Arabic",
+        "en-SA": "English"
+      }
     },
     "branding": {
-      "title": "Brand and colours",
-      "description": "The site's name and description, and its brand colours.",
+      "title": "Identity, colours and logo",
+      "description": "The site's name and description, its brand colours, and the header logo for each language.",
       "identityTitle": "Site identity",
-      "identityReadOnlyNotice": "The name, description and logos are shown here for reference only. The logo fields are URLs that every visitor's browser loads and that are embedded in invoices and outgoing mail, so changing them stays an operational task with its own review.",
       "identityNotConfigured": "Site identity has not been configured yet.",
       "nameAr": "Arabic name",
       "nameEn": "English name",
@@ -2104,7 +2604,6 @@
       "shortDescriptionEn": "English short description",
       "updatedAt": "Last updated",
       "themeTitle": "Brand colours",
-      "themeHint": "Saving a draft changes nothing for visitors. Publishing is what applies the colours to the site.",
       "colors": {
         "primary": "Primary",
         "secondary": "Secondary",
@@ -2127,12 +2626,40 @@
       "confirm": "Confirm",
       "cancel": "Cancel",
       "saved": "Saved.",
-      "working": "Working…"
+      "working": "Working…",
+      "logosTitle": "Header logos",
+      "logoUploadFor": "Upload the {locale} logo",
+      "logoReplace": "Replace the {locale} logo",
+      "logoPresent": "Present",
+      "logoMissing": "No logo",
+      "logoPublish": "Publish both",
+      "logoPublished": "Published",
+      "logoUnpublished": "Not published",
+      "logoPublishNeedsBoth": "Cannot publish until both languages have a logo.",
+      "logoDelete": "Delete both logos",
+      "logoDeletePrompt": "Both logos and their files will be deleted permanently. This cannot be undone.",
+      "logoDeleteConfirm": "Delete permanently",
+      "logoConstraints": "PNG or WebP, at least {minWidth}×{minHeight} pixels and at most {maxMb} MB. Transparency is supported.",
+      "logoLocale": {
+        "ar-SA": "Arabic",
+        "en-SA": "English"
+      },
+      "logoStageUpload": "The logo file could not be uploaded.",
+      "logoStageSave": "The file arrived but its record could not be saved. Try again.",
+      "logoStagePreview": "The {locale} logo preview could not be displayed.",
+      "logoStagePublish": "The logo pair could not be published.",
+      "logoStageDelete": "The logo pair could not be deleted.",
+      "logoPreviewFailedHint": "The image is stored on the server but the browser could not display it. Upload it again; if it happens repeatedly the problem is in how the image is delivered, not in the file.",
+      "logoPublishNeedsPreview": "Publishing needs both previews to load first.",
+      "logoDraftNotice": "There are unpublished changes. Press “Publish both logos” to make them visible to visitors.",
+      "identitySave": "Save the identity",
+      "identitySaved": "Platform identity saved.",
+      "identityErrorName": "A name is required in both Arabic and English — public pages show the reader’s language with no fallback.",
+      "identityHint": "The name appears in the top bar and the footer heading; the description on the line beneath it."
     },
     "content": {
       "title": "Site content",
       "description": "Home page wording and the categories in the top menu.",
-      "textOnlyNotice": "Every value here is rendered as text only — no HTML and no Markdown. The menu is built from existing categories, so a destination cannot be typed by hand.",
       "taxonomyUnavailable": "Categories could not be loaded, so the top menu cannot be edited right now. The home page wording is still editable.",
       "contentLegend": "Home page wording",
       "navLegend": "Top menu categories",
@@ -2144,7 +2671,10 @@
         "heroDescription": "Hero description",
         "featuredTitle": "Featured section title",
         "policiesTitle": "Policies section title",
-        "policiesDescription": "Policies section description"
+        "policiesDescription": "Policies page description",
+        "aboutBody": "About page body",
+        "faqBody": "FAQ page body",
+        "contactBody": "Contact page body"
       },
       "navHint": "Add up to eight categories and order them. Category names are read from the catalogue at render time, so renaming a category renames the menu item automatically.",
       "navAdd": "Add",
@@ -2157,12 +2687,12 @@
       "navMissing": "Category unavailable (deleted or deactivated)",
       "save": "Save",
       "saved": "Saved.",
-      "working": "Working…"
+      "working": "Working…",
+      "required": "(required)"
     },
     "settings": {
       "title": "Settings",
       "description": "General settings editable from this screen.",
-      "scopeNotice": "This is a short, explicit allow-list, not a window onto the settings table. Rate limits, session duration, tax, commission, shipping tariffs, payment and fulfilment each have their own endpoint with its own bounds and review, and are not edited here.",
       "value": "Value",
       "notSet": "Not set",
       "yes": "Yes",
@@ -2174,7 +2704,122 @@
       "saved": "Saved.",
       "working": "Working…",
       "emptyTitle": "No settings",
-      "emptyDescription": "No setting is registered in the allow-list."
+      "emptyDescription": "No setting is registered in the allow-list.",
+      "version": "Version {version}",
+      "unit": {
+        "basisPoints": "basis points",
+        "percent": "percent",
+        "sar": "SAR",
+        "minutes": "minutes",
+        "hours": "hours",
+        "days": "days",
+        "seconds": "seconds",
+        "units": "units",
+        "attempts": "attempts",
+        "bytes": "bytes",
+        "pixels": "pixels"
+      },
+      "financial": {
+        "title": "Financial settings"
+      },
+      "commission": {
+        "title": "Platform commission",
+        "rateBasisPoints": "Commission rate"
+      },
+      "commissionTax": {
+        "title": "Tax on commission",
+        "ratePercent": "Tax rate",
+        "ruleCode": "Rule code",
+        "ruleVersion": "Rule version"
+      },
+      "tax": {
+        "title": "Default VAT rate",
+        "ratePercent": "Rate"
+      },
+      "shareTiers": {
+        "title": "Share tiers",
+        "ceiling": "Value ceiling incl. tax",
+        "share": "Share size",
+        "openEnded": "No ceiling",
+        "addTier": "Add tier",
+        "removeTier": "Remove",
+        "emptyTitle": "No tiers"
+      },
+      "shippingTariff": {
+        "title": "Shipping tariff",
+        "sameCity": "Same city",
+        "sameRegion": "Same region, different city",
+        "differentRegion": "Different region"
+      },
+      "groupsLabel": "Settings groups",
+      "operations": {
+        "title": "Operating settings"
+      },
+      "securityGroup": {
+        "title": "Security and payouts"
+      },
+      "mediaGroup": {
+        "title": "Media policy"
+      },
+      "checkout": {
+        "title": "Checkout",
+        "lockDurationMinutes": "Quantity lock duration",
+        "abuseThresholdCount": "Attempts before throttling",
+        "abuseWindowMinutes": "Attempt counting window",
+        "cooldownMinutes": "Cooldown"
+      },
+      "payment": {
+        "title": "Payment",
+        "attemptTimeout": "Payment attempt timeout"
+      },
+      "fulfillment": {
+        "title": "Fulfilment",
+        "lateThreshold": "Late threshold",
+        "criticalThreshold": "Critical late threshold"
+      },
+      "opportunity": {
+        "title": "Listing rules",
+        "minDurationHours": "Minimum listing duration",
+        "maxDurationDays": "Maximum listing duration",
+        "minTargetQuantity": "Minimum target quantity",
+        "maxTargetQuantity": "Maximum target quantity",
+        "showScheduledPublicly": "Show scheduled listings publicly",
+        "extensionDays": "Length of one extension"
+      },
+      "loginRateLimit": {
+        "title": "Sign-in attempt limit",
+        "limit": "Attempts",
+        "ttlSeconds": "Within"
+      },
+      "twoFaRateLimit": {
+        "title": "Two-factor attempt limit",
+        "limit": "Attempts",
+        "ttlSeconds": "Within"
+      },
+      "sessionDuration": {
+        "title": "Admin session duration",
+        "seconds": "Duration"
+      },
+      "payoutHold": {
+        "title": "Payout hold period",
+        "days": "Duration"
+      },
+      "mediaPolicy": {
+        "title": "Product images",
+        "maxSizeBytes": "Maximum image size",
+        "maxImagesPerProduct": "Maximum images per product",
+        "maxPixels": "Maximum pixels",
+        "allowedTypes": "Allowed formats"
+      },
+      "unnamed": "Setting",
+      "names": {
+        "emailVerification": "Email verification on registration",
+        "companyVerification": "Company verification mode",
+        "homepageContent": "Homepage content",
+        "bannerPolicy": "Promotional banner policy",
+        "faqItems": "Frequently asked questions",
+        "headerNav": "Header navigation links"
+      }
     },
     "invoicing": {
       "title": "Invoicing",
@@ -2187,13 +2832,29 @@
       "vatYes": "Yes",
       "vatNo": "No",
       "vatNumber": "VAT number",
-      "createdAt": "Issued",
       "notConfiguredTitle": "No billing profile configured",
       "notConfiguredDescription": "No invoice document can be issued until the platform's legal details are recorded.",
       "versioningNotice": "The billing profile is versioned, never edited. A change creates a new version and earlier ones stay exactly as they were, because documents already issued were computed against them and must remain reproducible.",
       "draftsTitle": "Invoice drafts",
-      "draftsDescription": "Invoice drafts are raised per order, from the order's own page.",
-      "openOrders": "Go to orders"
+      "openOrders": "Go to orders",
+      "city": "City",
+      "shortAddress": "Short national address",
+      "address": "Address",
+      "formTitleCreate": "Set up the billing profile",
+      "formTitleNew": "Issue a new version",
+      "formIntroCreate": "The platform’s details as the seller on commission documents.",
+      "formIntroNew": "The current version stays as it is; a new one is added and becomes the one in force.",
+      "create": "Save billing profile",
+      "newVersion": "Issue version {version}",
+      "working": "Saving…",
+      "saved": "Billing profile saved.",
+      "required": "(required)",
+      "errorLegalName": "A legal name is required, up to 300 characters.",
+      "errorCrNumber": "A commercial registration number is required.",
+      "errorVatNumber": "The VAT number must be exactly 15 digits.",
+      "errorAddress": "A city and a short national address are required — both appear on commission documents.",
+      "cityPlaceholder": "Choose a city",
+      "createdAt": "Issued"
     },
     "vocab": {
       "accountType": {
@@ -2216,14 +2877,6 @@
         "USER": "User",
         "ADMIN": "Administrator"
       },
-      "productApproval": {
-        "DRAFT": "Draft",
-        "PENDING_REVIEW": "Awaiting review",
-        "APPROVED": "Approved",
-        "REJECTED": "Rejected",
-        "SUSPENDED": "Suspended",
-        "CLOSED": "Closed"
-      },
       "opportunityStatus": {
         "DRAFT": "Draft",
         "SCHEDULED": "Scheduled",
@@ -2244,13 +2897,15 @@
         "TAX_RATE_NOT_CONFIGURED": "Tax rate not configured",
         "PURCHASE_QUANTITY_NOT_COMPATIBLE": "Purchase quantity not compatible",
         "PRODUCT_SUSPENDED": "Product suspended",
-        "PRODUCT_CLOSED": "Product closed"
+        "PRODUCT_CLOSED": "Product closed",
+        "LOCATION_REGION_INACTIVE": "The delivery location's region is not active"
       },
       "orderStatus": {
         "IN_FULFILLMENT": "In fulfilment",
         "FULFILLED": "Fulfilled"
       },
       "allocationStatus": {
+        "AWAITING_FUNDING": "Awaiting the target",
         "AWAITING_PREPARATION": "Awaiting preparation",
         "PREPARING": "Preparing",
         "READY_TO_SHIP": "Ready to ship",
@@ -2370,7 +3025,900 @@
         "NOT_CHECKED": "Not checked",
         "HEALTHY": "Healthy",
         "UNHEALTHY": "Unhealthy"
+      },
+      "productState": {
+        "DRAFT": "Draft",
+        "PENDING_REVIEW": "Not published",
+        "APPROVED": "Active",
+        "REJECTED": "Not published",
+        "SUSPENDED": "Paused",
+        "CLOSED": "Closed"
+      },
+      "companyUserRole": {
+        "OWNER": "Owner"
+      },
+      "companyUserStatus": {
+        "ACTIVE": "Active",
+        "SUSPENDED": "Suspended",
+        "DISABLED": "Disabled"
       }
+    },
+    "faq": {
+      "addLegend": "Add a question",
+      "questionAr": "Question in Arabic",
+      "questionEn": "Question in English",
+      "answerAr": "Answer in Arabic",
+      "answerEn": "Answer in English",
+      "add": "Add",
+      "save": "Save order",
+      "saved": "Questions saved",
+      "moveUp": "Move question up",
+      "moveDown": "Move question down",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "remove": "Delete",
+      "removePrompt": "Delete this question permanently? You can deactivate it instead to keep its text.",
+      "empty": "No questions yet.",
+      "active": "Shown",
+      "inactive": "Hidden",
+      "full": "The maximum number of questions has been reached.",
+      "title": "Frequently asked questions",
+      "description": "Questions and answers shown on the FAQ page, in the order you set."
+    },
+    "help": {
+      "open": "Help",
+      "title": "Help",
+      "close": "Close help",
+      "empty": "No guide is available for this page yet."
+    },
+    "breadcrumbs": {
+      "label": "Breadcrumb"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search…",
+      "reset": "Reset",
+      "export": "Export",
+      "regionLabel": "Search and filter",
+      "filtersPanelLabel": "Filter options",
+      "rowsPerPage": "Show",
+      "rowsPerPageUnit": "rows per page",
+      "searching": "Searching…",
+      "noMatch": "No match"
+    },
+    "error": {
+      "title": "This page could not be displayed",
+      "description": "Something went wrong while loading this page. The rest of the control panel is unaffected. Try again, and if it keeps happening send the reference below.",
+      "retry": "Try again"
+    },
+    "companyDetail": {
+      "basics": "Basic details",
+      "updatedAt": "Last updated",
+      "users": "Users",
+      "noUsers": "No users",
+      "userEmail": "Email",
+      "userRole": "Role",
+      "userStatus": "Status",
+      "userPassword": "Password",
+      "userActions": "Actions",
+      "userStatusValue": {
+        "ACTIVE": "Active",
+        "SUSPENDED": "Suspended",
+        "DISABLED": "Disabled"
+      },
+      "suspendedByCompany": "Suspended by the company's suspension",
+      "passwordSet": "Password created",
+      "passwordPending": "Awaiting password creation",
+      "sendReset": "Send password reset link",
+      "resetPrompt": "A single-use, expiring link will be sent to {email}. The password is never shown to you and never written to the log.",
+      "resetSent": "Link sent.",
+      "revokeSessions": "End the user's sessions",
+      "revokePrompt": "Every session for {email} ends immediately and they will have to sign in again.",
+      "revoked": "Sessions ended.",
+      "locations": "Branches and locations",
+      "noLocations": "No branches",
+      "locationName": "Name",
+      "locationAddress": "Short address",
+      "locationContact": "Contact",
+      "locationDefault": "Default",
+      "contacts": "Contacts",
+      "noContacts": "No contacts",
+      "yes": "Yes",
+      "no": "No",
+      "footprint": "Products, orders and financial records",
+      "footprintNote": "Counts only; the records themselves are read in their own sections, with their own filters and permissions.",
+      "countProducts": "Products",
+      "countOpportunities": "Listed products",
+      "countOrdersTrader": "Orders as buyer",
+      "countOrdersSupplier": "Orders as supplier",
+      "countBankAccounts": "Bank accounts",
+      "countProductReports": "Product reports",
+      "countCheckoutSessions": "Checkout sessions",
+      "countPolicyAcceptances": "Policy acceptances",
+      "activity": "Administrative activity",
+      "noActivity": "No activity",
+      "activityAction": "Action",
+      "activityActor": "Actor",
+      "activityReason": "Reason",
+      "activityAt": "When",
+      "reasonLabel": "Reason",
+      "reasonHint": "At least five characters. Written to the audit trail.",
+      "save": "Save",
+      "saved": "Saved.",
+      "dangerTitle": "Sensitive operations",
+      "crTitle": "Commercial registration",
+      "crLockedNotice": "A verified company's commercial registration cannot be changed from the ordinary edit — it is what was verified, and changing it is the separate action below.",
+      "crChange": "Change the commercial registration",
+      "suspend": "Suspend the company",
+      "suspendPrompt": "“{name}” will be suspended, its active users suspended with it and their sessions ended. Existing orders, invoices and records are untouched.",
+      "reactivate": "Reactivate the company",
+      "reactivatePrompt": "“{name}” returns to the state it was in before the suspension, and only the users that the company's suspension moved come back — a user suspended for an unrelated reason is left alone.",
+      "deleteTitle": "Remove the company from the platform for good",
+      "deleteWarning": "This action cannot be undone.",
+      "deleteBlocked": "Removal is refused because records must be kept:",
+      "deleteConfirmationLabel": "Confirmation",
+      "deleteAction": "Remove permanently",
+      "totpHint": "From the authenticator app on your administrator account.",
+      "blocker": {
+        "ACTIVE_OR_FUNDED_PRODUCTS": "Active or funded products",
+        "LIVE_ORDERS": "Orders still running",
+        "OPEN_DISPUTES": "Open disputes",
+        "AMOUNTS_DUE_OR_HELD": "Amounts due or held",
+        "INCOMPLETE_REFUNDS": "Refunds not completed",
+        "INCOMPLETE_SETTLEMENTS": "Settlements not completed",
+        "FINANCIAL_RECORDS": "Financial records that must survive",
+        "PRODUCT_REPORTS": "Reports on products"
+      },
+      "registeredAt": "Registered on",
+      "owner": "Owner",
+      "rejectReasonHint": "At least five characters. It reaches the supplier as the reason for the refusal, and is written to the audit trail.",
+      "noBranches": "No branches recorded",
+      "totalPurchases": "Purchases",
+      "supplierPayable": "Supplier payable",
+      "disputes": "Disputes",
+      "resetPromptGeneric": "A single-use, expiring link will be sent to {email}. The password is never shown to you, never written to the log, and administrators cannot set one.",
+      "revokePromptGeneric": "Every session for {email} ends immediately.",
+      "revokeWarning": "This signs the user out mid-task and they will have to sign in again.",
+      "currentValue": "Current value",
+      "newValue": "New value",
+      "statusTitle": "Company status",
+      "statusCurrent": "Current status",
+      "suspendEffects": "Suspension blocks the company's users from signing in and stops new operations, and ends their sessions. Existing orders, invoices and records are untouched.",
+      "deleteIrreversible": "Removal is permanent and cannot be undone.",
+      "deleteBlockedShort": "Removal is unavailable — linked records must be kept",
+      "showBlockers": "Show what blocks removal",
+      "hideBlockers": "Hide what blocks removal",
+      "auditTitle": "Audit trail",
+      "auditBefore": "Before",
+      "auditAfter": "After",
+      "auditViewAll": "View the full trail",
+      "exportAudit": "company-audit",
+      "exportAction": "Export to Excel",
+      "exportEmpty": "There are no records to export",
+      "role": {
+        "OWNER": "Owner",
+        "MANAGER": "Manager",
+        "STAFF": "Staff"
+      },
+      "ownerEmail": "Owner email",
+      "breadcrumbCurrent": "Current company",
+      "breadcrumbMarketplace": "Marketplace",
+      "breadcrumbLabel": "Breadcrumb",
+      "detailsTitle": "Company details",
+      "editData": "Edit details",
+      "phones": "Contact numbers",
+      "noPhones": "No numbers recorded",
+      "mobile1": "First contact number",
+      "mobile2": "Second contact number",
+      "branchesTitle": "Branches",
+      "branchName": "Branch name",
+      "branchCity": "City",
+      "branchAddress": "Short national address",
+      "branchPhone": "Contact number",
+      "branchLocation": "Location",
+      "branchContact": "Contact person",
+      "openLocation": "Open location",
+      "addBranch": "Add a branch",
+      "editBranch": "Edit the branch",
+      "mapUrl": "Google Maps link",
+      "mapUrlHint": "Paste the location link from Google Maps — a share link works too.",
+      "activityTitle": "Activity summary",
+      "auditDetails": "Details",
+      "noAudit": "No actions recorded",
+      "suspendTitle": "Suspend the company",
+      "suspendReason": "Reason for suspension",
+      "reactivateTitle": "Reactivate the company",
+      "deleteReason": "Reason for removal",
+      "crNumberHint": "It cannot be changed for a verified company, and cannot duplicate another company's.",
+      "mapUrlRejected": "That is not a Google Maps location link.",
+      "operational": {
+        "ACTIVE": "Active",
+        "NOT_ACTIVE": "Not active",
+        "SUSPENDED": "Suspended"
+      },
+      "cityNoMatch": "No city by that name",
+      "cityPlaceholder": "Search for a city",
+      "branchRegion": "Region",
+      "regionPlaceholder": "Search for a region",
+      "regionNoMatch": "No region by that name",
+      "branchCityOptional": "City (optional)",
+      "bankTitle": "Bank account",
+      "bankState": "State",
+      "bankActive": "In force",
+      "bankPending": "Awaiting review",
+      "bankHolder": "Account holder",
+      "bankName": "Bank",
+      "bankIban": "IBAN",
+      "noBankAccount": "No bank account has been submitted.",
+      "loginPasswordSet": "Password set",
+      "loginPasswordPending": "Password not set",
+      "loginEmailVerified": "Email verified",
+      "loginEmailUnverified": "Email unverified"
+    },
+    "companyWorkbook": {
+      "exportAction": "Export to Excel",
+      "templateAction": "Download the template",
+      "importAction": "Import from Excel",
+      "previewTitle": "Import preview",
+      "previewFile": "File",
+      "previewTotal": "Rows in file",
+      "previewValid": "Valid rows",
+      "previewRejected": "Rejected rows",
+      "previewDuplicates": "Duplicates",
+      "previewNothing": "No row can be imported. Correct the file and upload it again.",
+      "previewPartial": "Only the valid rows will be imported; the rejected rows are left out. You can download the error file, correct it and upload again.",
+      "previewAll": "Every row is valid and will be imported.",
+      "rowsTitle": "Rejected rows",
+      "rowNumber": "Row",
+      "rowReason": "Reason",
+      "downloadErrors": "Download the error file",
+      "commitAction": "Import",
+      "cancel": "Cancel",
+      "working": "Working…",
+      "doneTitle": "Import finished",
+      "doneCreated": "Companies created",
+      "doneSkipped": "Rows skipped",
+      "doneInvited": "Invitations sent",
+      "close": "Close",
+      "errorTitle": "The operation could not be completed",
+      "requestIdLabel": "Reference:",
+      "unknownReason": "Unknown reason",
+      "reasons": {
+        "MISSING_CRNUMBER": "The commercial registration is missing",
+        "MISSING_LEGALNAME": "The legal name is missing",
+        "MISSING_ACCOUNTTYPE": "The account type is missing",
+        "MISSING_OWNEREMAIL": "The owner's email is missing",
+        "MISSING_PRIMARYMOBILE1": "The first mobile number is missing",
+        "MISSING_PRIMARYMOBILE2": "The second mobile number is missing",
+        "INVALID_CR_FORMAT": "The commercial registration must be ten digits",
+        "INVALID_EMAIL": "That is not a valid email address",
+        "INVALID_ACCOUNT_TYPE": "The account type must be TRADER or SUPPLIER",
+        "INVALID_PRIMARYMOBILE1": "The first mobile number is not valid",
+        "INVALID_PRIMARYMOBILE2": "The second mobile number is not valid",
+        "DUPLICATE_CR_IN_FILE": "This commercial registration appears twice in the file",
+        "DUPLICATE_EMAIL_IN_FILE": "This email address appears twice in the file",
+        "CR_ALREADY_REGISTERED": "This commercial registration is already on the platform",
+        "EMAIL_ALREADY_REGISTERED": "This email address is already on the platform"
+      },
+      "exportEmpty": "There are no records to export"
+    },
+    "overview": {
+      "title": "Overview",
+      "periodLabel": "Period",
+      "period": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+        "ytd": "This year"
+      },
+      "comparison": "Compared with the previous period",
+      "lastUpdated": "Last updated:",
+      "refresh": "Refresh",
+      "paidOrders": "Total value of paid orders",
+      "paidOrderCount": "{count} paid orders",
+      "platformRevenue": "Platform revenue",
+      "averageCommission": "Average commission {percent}%",
+      "noCommission": "No commission in this period",
+      "supplierPayable": "Supplier payables",
+      "pendingSettlements": "{count} settlements pending",
+      "refunded": "Refunded",
+      "refundRate": "{percent}% of sales",
+      "noRefundRate": "No sales to compare against",
+      "paymentSuccess": "Payment success rate",
+      "activeOpportunities": "Active products",
+      "endingSoon": "{count} ending soon",
+      "activeSuppliers": "Active suppliers",
+      "activeBuyers": "Active buyers",
+      "financialPerformance": "Financial performance",
+      "companyGrowth": "New company growth",
+      "buyers": "Buyers",
+      "suppliers": "Suppliers",
+      "orderStatus": "Order status",
+      "viewOrders": "View order details",
+      "stage": {
+        "paid": "Paid",
+        "inFulfilment": "In fulfilment",
+        "completed": "Completed",
+        "troubled": "Troubled"
+      },
+      "needsAttention": "Needs your attention",
+      "viewAllAlerts": "View all alerts",
+      "nothingWaiting": "Nothing needs intervention",
+      "oldest": "Oldest {hours}h ago",
+      "priority": {
+        "CRITICAL": "Critical",
+        "OVERDUE": "Overdue",
+        "REVIEW": "Review"
+      },
+      "case": {
+        "SETTLEMENT_OVERDUE": "{count} overdue settlements",
+        "PAYMENT_REPEATEDLY_FAILED": "{count} repeatedly failed payments",
+        "DISPUTE_OPEN": "{count} open disputes",
+        "BANK_ACCOUNT_REVIEW": "{count} bank accounts awaiting review",
+        "SUPPLIER_VERIFICATION": "{count} suppliers awaiting verification",
+        "LISTING_BLOCKED_BY_PLATFORM": "{count} listings blocked by platform configuration"
+      },
+      "current": "Current",
+      "notEnoughData": "Not enough data to draw a trend for this period",
+      "growthEmpty": "No new registrations in this period",
+      "granularity": {
+        "daily": "Daily",
+        "weekly": "Weekly"
+      },
+      "bucket": {
+        "daily": "Day {n}",
+        "weekly": "Week {n}"
+      },
+      "units": {
+        "thousand": "K",
+        "million": "M"
+      },
+      "settlementsOverdue": "{count} settlements overdue"
+    },
+    "ordersDetail": {
+      "title": "Order details",
+      "breadcrumbSection": "Orders and customer service",
+      "pathTitle": "Order path over the period",
+      "pathHint": "Press a stage to filter the table below",
+      "stageNote": {
+        "paid": "Payment success",
+        "inFulfilment": "Average start",
+        "completed": "Average completion",
+        "troubled": "Troubled"
+      },
+      "hours": "{value} hours",
+      "days": "{value} days",
+      "orderNumber": "Order",
+      "buyer": "Buyer",
+      "supplier": "Supplier",
+      "value": "Value",
+      "orderStatus": "Order status",
+      "paymentStatus": "Payment",
+      "orderDate": "Order date",
+      "paid": "Paid",
+      "searchPlaceholder": "Search by order or company…",
+      "emptyTitle": "No orders",
+      "emptyDescription": "No orders match the period and filters selected.",
+      "tableCaption": "Orders",
+      "exportFile": "orders"
+    },
+    "followUp": {
+      "title": "Follow-up centre",
+      "subtitle": "Cases that need administrative intervention",
+      "breadcrumbParent": "Needs your attention",
+      "total": "Total",
+      "review": "Awaiting review",
+      "overdue": "Overdue",
+      "critical": "Critical",
+      "searchPlaceholder": "Search the cases…",
+      "priorityLabel": "Priority",
+      "kindLabel": "Case type",
+      "assigneeLabel": "Assignee",
+      "unassigned": "Unassigned",
+      "all": "All",
+      "assignAction": "Assign",
+      "markInProgress": "Mark in progress",
+      "caseStatus": "Case",
+      "item": "Item",
+      "duration": "Waiting",
+      "action": "Action",
+      "sinceHours": "{hours}h ago",
+      "sinceDays": "{days} days ago",
+      "inProgressBadge": "In progress",
+      "emptyTitle": "No cases",
+      "emptyDescription": "Nothing needs administrative intervention right now.",
+      "tableCaption": "Follow-up cases",
+      "exportFile": "follow-up",
+      "selectRow": "Select this case",
+      "selectAll": "Select all",
+      "openAction": {
+        "SETTLEMENT_OVERDUE": "Open the settlement",
+        "PAYMENT_REPEATEDLY_FAILED": "Review",
+        "DISPUTE_OPEN": "Open the dispute",
+        "BANK_ACCOUNT_REVIEW": "Review the account",
+        "SUPPLIER_VERIFICATION": "Open the supplier"
+      },
+      "caseName": {
+        "SETTLEMENT_OVERDUE": "Overdue settlement",
+        "PAYMENT_REPEATEDLY_FAILED": "Repeatedly failed payment",
+        "DISPUTE_OPEN": "Open dispute",
+        "BANK_ACCOUNT_REVIEW": "Bank account",
+        "SUPPLIER_VERIFICATION": "Supplier verification"
+      }
+    },
+    "supplierVerification": {
+      "title": "Supplier verification request",
+      "state": {
+        "INCOMPLETE": "Supplier record incomplete",
+        "READY_TO_SUBMIT": "Complete, not yet sent",
+        "UNDER_REVIEW": "Waiting on your decision",
+        "NEEDS_COMPLETION": "Returned to the supplier",
+        "VERIFIED": "Verified",
+        "REJECTED": "Refused"
+      },
+      "submittedAt": "Sent on",
+      "decidedAt": "Decided on",
+      "reasonGiven": "Reason given to the supplier",
+      "noDecisionPending": "There is no request under review for this company.",
+      "approve": "Verify",
+      "approvePrompt": "{company} will be verified and its account activated together, and the bank account under review becomes the account its payouts go to.",
+      "return": "Return for completion",
+      "returnPrompt": "The request goes back to {company} with your reason, their details reopen for editing, and they may send it again.",
+      "returnReason": "What does the supplier need to complete?",
+      "returnReasonHint": "The supplier sees this text verbatim; it is what tells them what to fix.",
+      "reject": "Refuse request",
+      "rejectPrompt": "{company}'s request will be refused for good, and they cannot send it again without a later administrative decision.",
+      "rejectReason": "Reason for refusing",
+      "rejectReasonHint": "The supplier sees this text verbatim."
+    },
+    "taxonomy": {
+      "title": "Categories",
+      "addRoot": "Add category",
+      "addChild": "Add a branch",
+      "edit": "Edit",
+      "remove": "Delete",
+      "nameAr": "Arabic name",
+      "nameEn": "English name",
+      "save": "Save",
+      "cancel": "Cancel",
+      "empty": "No categories yet.",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "active": "Active",
+      "inactive": "Inactive",
+      "confirmRemove": "This category will be deleted for good.",
+      "depthReached": "Deepest level",
+      "sortOrder": "Order",
+      "sortOrderHint": "Smallest first",
+      "childCount": "{count} branches",
+      "productCount": "{count} products",
+      "moveRoot": "Drop here to make it a main category",
+      "products": "Products",
+      "state": "State",
+      "treeTitle": "Categories"
+    },
+    "policies": {
+      "title": "Policies and legal documents",
+      "registrationClosedTitle": "Registration is closed",
+      "registrationClosedDescription": "No mandatory policy is published, and no company can complete registration until at least one is.",
+      "documentsTitle": "Documents",
+      "addDocument": "New document",
+      "documentCode": "Key",
+      "documentCodeHint": "Lower-case letters, digits and underscores only — it appears in the public page’s link. For example: refund_policy",
+      "create": "Create",
+      "save": "Save the draft",
+      "versionsTitle": "Versions",
+      "newVersion": "New version",
+      "newVersionFrom": "New version from this one",
+      "editDraft": "Edit the draft",
+      "versionLabel": "Version",
+      "versionLabelHint": "A short label that tells versions apart, such as 2026-1",
+      "textAr": "Arabic text",
+      "textEn": "English text",
+      "textHint": "Plain text — shown as written and never interpreted as markup. Both languages are required because the public page shows the reader’s language with no fallback.",
+      "isMandatory": "Mandatory",
+      "isMandatoryHint": "A mandatory policy blocks registration until it is accepted.",
+      "requiresReacceptance": "Requires re-acceptance",
+      "requiresReacceptanceHint": "For users who accepted an earlier version.",
+      "yes": "Yes",
+      "no": "No",
+      "published": "Published",
+      "draft": "Draft",
+      "publishedAt": "Published",
+      "acceptances": "Acceptances",
+      "publish": "Publish",
+      "publishPrompt": "This text comes into force at once, on the public page and at registration. **Publishing is permanent** — it cannot be withdrawn or edited afterwards; to change it, publish a new version.",
+      "preview": "Preview",
+      "hidePreview": "Hide the preview",
+      "noVersions": "No versions have been written for this document yet.",
+      "readOnlyPublished": "A published version is never edited, withdrawn or deleted — the database forbids it, and people accepted this wording. To change it, create a new version from it."
+    },
+    "auditActions": {
+      "ADMIN_2FA_ENABLED": "Admin two-factor enabled",
+      "ADMIN_2FA_VERIFY_SUCCESS": "Admin two-factor verified",
+      "ADMIN_LIST_EXPORTED": "Admin list exported",
+      "ADMIN_LOGIN_FAILED": "Failed admin sign-in",
+      "ADMIN_LOGIN_SUCCESS": "Admin signed in",
+      "ADMIN_LOGOUT": "Admin signed out",
+      "ADMIN_PASSWORD_CHANGED": "Admin password changed",
+      "ADMIN_PASSWORD_CHANGE_FAILED": "Failed admin password change",
+      "ADMIN_STEP_UP_FAILED": "Failed admin step-up check",
+      "BANK_ACCOUNT_APPROVED": "Bank account approved",
+      "BANK_ACCOUNT_SUBMITTED": "Bank account submitted",
+      "BANNER_ACTIVATED": "Banner activated",
+      "BANNER_CREATED": "Banner created",
+      "BANNER_DEACTIVATED": "Banner deactivated",
+      "BANNER_DELETED": "Banner deleted",
+      "BANNER_IMAGE_DELETED": "Banner image deleted",
+      "BANNER_IMAGE_UPLOADED": "Banner image uploaded",
+      "BANNER_SCHEDULE_CHANGED": "Banner schedule changed",
+      "BRAND_LOGO_PUBLISHED": "Logo published",
+      "BRAND_LOGO_REPLACED": "Logo replaced",
+      "BRAND_LOGO_UPLOADED": "Logo uploaded",
+      "BRAND_THEME_DRAFT_SAVED": "Colour draft saved",
+      "BRAND_THEME_PUBLISHED": "Brand colours published",
+      "BRAND_THEME_RESET": "Brand colours reset",
+      "BRANDING_UPDATED": "Platform identity updated",
+      "CHECKOUT_LOCK_CREATED": "Quantity held at checkout",
+      "CHECKOUT_SETTINGS_UPDATED": "Checkout settings updated",
+      "CITY_CREATED": "City added",
+      "CITY_TOGGLED": "City switched on or off",
+      "CITY_UPDATED": "City updated",
+      "COMMISSION_POLICY_CREATED": "Commission policy issued",
+      "COMMISSION_TAX_POLICY_CREATED": "Commission tax policy issued",
+      "COMPANY_BRANCH_ADDED": "Company branch added",
+      "COMPANY_BRANCH_UPDATED": "Company branch updated",
+      "COMPANY_CONTACT_CREATED": "Company contact added",
+      "COMPANY_DELETED": "Company removed",
+      "COMPANY_LOCATION_CREATED": "Company location added",
+      "COMPANY_REACTIVATED": "Company reactivated",
+      "COMPANY_REGISTERED": "Company registered",
+      "COMPANY_SUSPENDED": "Company suspended",
+      "COMPANY_UPDATED": "Company details updated",
+      "COMPANY_USER_PASSWORD_RESET_REQUESTED": "Password reset link sent",
+      "COMPANY_USER_SESSIONS_REVOKED": "User sessions ended",
+      "COMPANY_VERIFICATION_APPROVED": "Company verification approved",
+      "DEFAULT_TAX_RATE_UPDATED": "Default tax rate updated",
+      "DISPUTE_DECIDED": "Dispute decided",
+      "DISPUTE_OPENED": "Dispute opened",
+      "FOLLOW_UP_ASSIGNED": "Follow-up case assigned",
+      "FOLLOW_UP_PROGRESS_CHANGED": "Follow-up progress changed",
+      "FULFILLMENT_SETTINGS_UPDATED": "Fulfilment settings updated",
+      "INVOICE_ADJUSTMENT_DRAFT_CREATED": "Invoice adjustment created",
+      "INVOICE_COMMISSION_DRAFT_CREATED": "Commission invoice draft created",
+      "INVOICE_PRODUCT_DRAFT_CREATED": "Product invoice draft created",
+      "INVOICING_PROFILE_UPDATED": "Invoicing profile updated",
+      "LISTING_DELETED": "Listing deleted",
+      "MASTER_ORDER_BUYER_BILLING_OVERRIDE_CREATED": "Buyer billing details supplied",
+      "MEDIA_POLICY_UPDATED": "Media policy updated",
+      "OPPORTUNITY_ACTION_REQUIRED_PRODUCT_CASCADE": "Listings blocked by a product change",
+      "OPPORTUNITY_ACTIVATED": "Listing published",
+      "OPPORTUNITY_CANCELLED": "Listing cancelled",
+      "OPPORTUNITY_CANCELLED_PRODUCT_CASCADE": "Listings cancelled by a product closure",
+      "OPPORTUNITY_CREATED": "Listing created",
+      "OPPORTUNITY_EXTENDED": "Listing extended",
+      "OPPORTUNITY_PAUSED": "Listing paused",
+      "OPPORTUNITY_REPUBLISH_BLOCKED": "Listing could not be republished",
+      "OPPORTUNITY_RESUMED": "Listing resumed",
+      "OPPORTUNITY_SCHEDULED": "Listing scheduled",
+      "OPPORTUNITY_UPDATED": "Listing updated",
+      "PASSWORD_RESET_REQUESTED": "Password reset requested",
+      "PAYMENT_SETTINGS_UPDATED": "Payment settings updated",
+      "PAYOUT_HOLD_DAYS_UPDATED": "Payout hold period updated",
+      "PLATFORM_BILLING_PROFILE_VERSION_CREATED": "Platform billing profile issued",
+      "POLICY_ACCEPTED": "Policy accepted",
+      "POLICY_DOCUMENT_CREATED": "Policy document created",
+      "POLICY_VERSION_DRAFTED": "Policy draft written",
+      "POLICY_VERSION_PUBLISHED": "Policy version published",
+      "POLICY_VERSION_UPDATED": "Policy draft updated",
+      "PRODUCT_ARCHIVED": "Product archived",
+      "PRODUCT_AUTO_APPROVED": "Product published",
+      "PRODUCT_CLOSED": "Product closed",
+      "PRODUCT_CREATED": "Product created",
+      "PRODUCT_MEDIA_UPLOADED": "Product image uploaded",
+      "PRODUCT_REACTIVATED": "Product reactivated",
+      "PRODUCT_SUSPENDED": "Product suspended",
+      "REPLACEMENT_DELIVERED": "Replacement delivered",
+      "REPLACEMENT_FAILED": "Replacement recorded as failed",
+      "REPLACEMENT_PREPARATION_STARTED": "Replacement preparation started",
+      "REPLACEMENT_READY": "Replacement ready to ship",
+      "REPLACEMENT_SHIPPED": "Replacement shipped",
+      "SECURITY_SETTING_UPDATED": "Security setting updated",
+      "SHIPPING_TARIFF_POLICY_CREATED": "Shipping tariff policy issued",
+      "SUPPLIER_VERIFICATION_APPROVED": "Supplier verification approved",
+      "SUPPLIER_VERIFICATION_REJECTED": "Supplier verification rejected",
+      "SUPPLIER_VERIFICATION_REQUESTED": "Supplier verification requested",
+      "SUPPLIER_VERIFICATION_RETURNED": "Supplier verification returned",
+      "TAXONOMY_NODE_CREATED": "Category created",
+      "TAXONOMY_NODE_DELETED": "Category deleted",
+      "TAXONOMY_NODE_MOVED": "Category moved",
+      "TAXONOMY_NODE_TOGGLED": "Category switched on or off",
+      "TAXONOMY_NODE_UPDATED": "Category updated",
+      "TAX_PROFILE_UPDATED": "Tax profile updated",
+      "TRADER_TAX_PROFILE_UPDATED": "Buyer tax profile updated",
+      "USER_LOGIN_FAILED": "Failed sign-in",
+      "USER_LOGIN_SUCCESS": "User signed in",
+      "USER_LOGOUT": "User signed out"
+    },
+    "footer": {
+      "title": "Footer",
+      "publishedTitle": "Published",
+      "draftTitle": "There is an unpublished draft",
+      "noDraft": "No draft — this is what is published",
+      "linksTitle": "Links",
+      "linksHint": "Destinations are limited to this platform's own pages. The footer cannot be pointed off-site from here.",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "enabled": "Enabled",
+      "labelAr": "Arabic label",
+      "labelEn": "English label",
+      "labelHint": "Leave a label empty to use the platform's own wording.",
+      "addLink": "Add a link:",
+      "removeLink": "Remove",
+      "contactTitle": "Contact details",
+      "email": "E-mail",
+      "phone": "Telephone",
+      "addressAr": "Arabic address",
+      "addressEn": "English address",
+      "socialTitle": "Social networks",
+      "socialHint": "The address must be https and on that network's own domain. Anything else is refused before publishing.",
+      "socialUrl": "Address",
+      "addSocial": "Add a network:",
+      "removeSocial": "Remove",
+      "invalidSocialUrl": "That address is not on this network's domain, or is not https.",
+      "copyrightTitle": "Copyright",
+      "copyrightAr": "Arabic copyright line",
+      "copyrightEn": "English copyright line",
+      "showDescription": "Show the platform's description in the footer",
+      "previewTitle": "Preview",
+      "previewHint": "This is what a visitor will see. A struck-through link will not appear, because its document is not published.",
+      "policyUnpublished": "Will not appear — the document is not published",
+      "saveDraft": "Save draft",
+      "publish": "Publish",
+      "publishPrompt": "This footer will appear to every visitor immediately. Publish?",
+      "discardPrompt": "The draft will be deleted and the screen returns to what is published. Continue?",
+      "discard": "Discard draft"
+    },
+    "auditFields": {
+      "status": "Status",
+      "verificationStatus": "Verification status",
+      "approvalStatus": "Approval status",
+      "isActive": "Active",
+      "isDefault": "Default",
+      "isMandatory": "Mandatory",
+      "requiresReacceptance": "Requires re-acceptance",
+      "ratePercent": "Rate",
+      "rateBasisPoints": "Rate (basis points)",
+      "sameCityFeeAmount": "Same-city fee",
+      "sameRegionDifferentCityFeeAmount": "Same-region fee",
+      "differentRegionFeeAmount": "Cross-region fee",
+      "quantity": "Quantity",
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "isVatRegistered": "VAT registered",
+      "parentId": "Parent category",
+      "sortOrder": "Order",
+      "priority": "Priority"
+    }
+  },
+  "pages": {
+    "about": {
+      "title": "About us"
+    },
+    "faq": {
+      "title": "Frequently asked questions"
+    },
+    "contact": {
+      "title": "Contact us"
+    },
+    "empty": "This page has no content yet."
+  },
+  "completeProfile": {
+    "title": "Complete your profile",
+    "branchName": "Branch name",
+    "city": "City",
+    "cityPlaceholder": "Select a city",
+    "shortAddress": "Short national address",
+    "contactPhone": "Contact number",
+    "contactName": "Contact person",
+    "mapUrl": "Google Maps link",
+    "mapUrlHint": "Open the branch in Google Maps and copy the link from the address bar.",
+    "mapUrlRejected": "This link carries no coordinates. Open the location in Google Maps and copy the link from the address bar.",
+    "submit": "Save and continue"
+  },
+  "company": {
+    "title": "Company details",
+    "incomplete": "Incomplete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "details": {
+      "title": "Company record",
+      "legalName": "Legal name",
+      "crNumber": "Commercial registration number",
+      "contactNumber": "Contact number",
+      "managedByAdmin": "The legal name and registration number are changed by the platform team.",
+      "email": "Email address"
+    },
+    "branches": {
+      "title": "Branches",
+      "empty": "No branches added yet.",
+      "add": "Add a branch",
+      "edit": "Edit",
+      "name": "Branch name",
+      "city": "City",
+      "cityPlaceholder": "Search for a city",
+      "shortAddress": "Short national address",
+      "contactName": "Branch contact name",
+      "contactPhone": "Branch contact number",
+      "mainBadge": "Main branch",
+      "cityNoMatch": "No city by that name",
+      "region": "Region",
+      "regionPlaceholder": "Search for a region",
+      "regionNoMatch": "No region by that name",
+      "cityOptional": "City (optional)",
+      "position": "Branch position on the map",
+      "positionEmpty": "No position chosen yet",
+      "positionKept": "The saved position stays as it is",
+      "pickPosition": "Set position",
+      "changePosition": "Change position",
+      "picker": {
+        "title": "Set the branch position",
+        "hint": "Drag the pin or tap the map until it sits on the branch entrance, then confirm.",
+        "confirm": "Confirm position",
+        "cancel": "Cancel",
+        "useMyLocation": "My current location",
+        "locating": "Finding your location…",
+        "locateFailed": "Could not find your location. Drag the pin instead.",
+        "coordinates": "Coordinates:",
+        "searchPlaceholder": "Search by place or district name",
+        "search": "Search",
+        "searchFailed": "No place found by that name. Try a clearer name, or drag the pin.",
+        "mapUnavailable": "Google Maps could not load. Check the API key or the connection.",
+        "usingOpenStreetMap": "Google Maps is not enabled yet — an API key is required. An open map is shown instead, and the position you confirm is saved exactly the same."
+      },
+      "remove": "Remove branch",
+      "cityNeedsRegion": "Choose a region first",
+      "extraTitle": "Additional branches (optional)",
+      "extraEmpty": "No additional branches. The main branch is saved from the establishment data above.",
+      "addPosition": "Add position",
+      "regionAndCity": "Region and city",
+      "cityOptionalPlaceholder": "City (optional)"
+    },
+    "contacts": {
+      "title": "Contact",
+      "add": "Add another contact",
+      "edit": "Edit",
+      "remove": "Remove",
+      "name": "Contact name",
+      "phone": "Additional contact number",
+      "pairRequired": "Enter both the name and the number, or leave both empty.",
+      "none": "No additional contact.",
+      "confirmRemove": "Remove this contact?"
+    },
+    "bank": {
+      "title": "Bank account",
+      "empty": "No bank account added yet.",
+      "add": "Add a bank account",
+      "accountHolder": "Account holder name",
+      "bankName": "Bank name",
+      "iban": "IBAN",
+      "ibanHint": "A Saudi IBAN beginning SA, 24 characters long.",
+      "endingIn": "ending in",
+      "statusLabel": "Status:",
+      "status": {
+        "PENDING_VERIFICATION": "Awaiting review",
+        "VERIFIED": "Verified",
+        "REJECTED": "Rejected",
+        "SUPERSEDED": "Superseded"
+      },
+      "ibanInvalid": "This IBAN is not valid. Check the digits.",
+      "bankAutoDetected": "Detected automatically",
+      "bankPending": "The bank appears here once the IBAN is entered",
+      "bankNotIdentified": "Bank not identified",
+      "bankMergedInto": "Now part of",
+      "ibanOnFile": "The account on file ends in"
+    },
+    "completeness": {
+      "title": "Your company record is incomplete",
+      "action": "Complete company details",
+      "requirement": {
+        "companyDetails": "Company record",
+        "mainBranch": "Main branch",
+        "bankAccount": "Bank account",
+        "billingIdentity": "Billing and tax details"
+      }
+    },
+    "verification": {
+      "title": "Company verification",
+      "state": {
+        "INCOMPLETE": "Details incomplete",
+        "READY_TO_SUBMIT": "Ready to send",
+        "UNDER_REVIEW": "Under review",
+        "NEEDS_COMPLETION": "Returned for completion",
+        "VERIFIED": "Verified",
+        "REJECTED": "Request refused"
+      },
+      "description": {
+        "INCOMPLETE": "Complete the items listed below and the send button will appear.",
+        "READY_TO_SUBMIT": "Your record is complete. Send it for review whenever you are ready.",
+        "UNDER_REVIEW": "Your request is being reviewed. We will tell you the outcome; your details cannot be changed until it is decided.",
+        "NEEDS_COMPLETION": "Your request was sent back so you can complete what is described below. Fix it and send it again.",
+        "VERIFIED": "Your company is verified and you can trade on the platform.",
+        "REJECTED": "Your request was refused for the reason below. It cannot be sent again from here; contact support if there is something that warrants another look."
+      },
+      "submit": "Send verification request",
+      "missingTitle": "What is missing",
+      "reasonTitle": "Reason given",
+      "submittedAt": "Sent on",
+      "locked": "Your details are locked while the review is open and cannot be changed until it is decided."
+    },
+    "billing": {
+      "title": "Billing and tax",
+      "requiredPill": "Required",
+      "completePill": "Complete",
+      "invoicingName": "Billing name",
+      "invoicingNameHint": "This name appears on the commission documents the platform issues to you.",
+      "vatQuestion": "Is the company registered for VAT?",
+      "vatYes": "Yes",
+      "vatNo": "No",
+      "vatNumber": "VAT number",
+      "vatNumberHint": "Fifteen digits, as printed on the VAT registration certificate.",
+      "vatNumberInvalid": "The VAT number must be exactly fifteen digits.",
+      "edit": "Edit details",
+      "save": "Save details",
+      "saveChanges": "Save changes",
+      "cancel": "Cancel",
+      "notRegistered": "Not registered for VAT"
+    },
+    "completionTitle": "Complete your establishment data",
+    "completionSubtitle": "Finish your establishment record so it can be sent for verification.",
+    "completionLabel": "Data completion",
+    "completionInProgress": "In progress",
+    "completionDone": "Complete",
+    "footer": {
+      "back": "Back",
+      "note": "Review the data before sending. Some of it cannot be changed while the request is under review.",
+      "savedNote": "Each card saves itself when you save it; nothing on this page is waiting to be saved.",
+      "editNote": "One press saves everything you changed on this card."
+    },
+    "notEntered": "Not entered yet",
+    "editRecord": "Edit data",
+    "blocked": {
+      "title": "To save, this is still needed:",
+      "vatMissing": "Enter the VAT number.",
+      "vatInvalid": "The VAT number must be 15 digits.",
+      "ibanInvalid": "A valid IBAN, or leave the field empty.",
+      "address": "Enter the national short address.",
+      "region": "Choose a region.",
+      "position": "Set the establishment position on the map.",
+      "extraBranch": "Finish or remove the additional branches.",
+      "contact": "Finish or remove each contact's name and number.",
+      "emailMissing": "Enter the email address.",
+      "emailInvalid": "A valid email address.",
+      "accountHolder": "Enter the account holder's name with the IBAN.",
+      "ibanMissing": "Enter the IBAN with the account holder's name."
+    },
+    "emailInvalid": "That email address is not a valid one.",
+    "emailReverify": "Changing the address means confirming it again.",
+    "establishmentName": "Establishment name",
+    "statusVerified": "Verified establishment",
+    "statusUnderReview": "Verification in progress",
+    "reverifies": "Changing this requires re-verification"
+  },
+  "timeRemaining": {
+    "days": "{days, plural, one {# day} other {# days}}",
+    "daysAndHours": "{days, plural, one {# day} other {# days}} and {hours, plural, one {# hour} other {# hours}}",
+    "hours": "{hours, plural, one {# hour} other {# hours}}",
+    "lessThanHour": "Less than an hour",
+    "ended": "Offer ended",
+    "label": "Remaining"
+  },
+  "visitor": {
+    "nav": {
+      "label": "Site navigation",
+      "home": "Home",
+      "market": "Market",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
     }
   }
 }

@@ -33,8 +33,14 @@ export function ownedProductWhere(companyId: string): Prisma.ProductWhereInput {
   return { companyId };
 }
 
-/** Media ordered exactly as it is displayed: main first, then by sort order. */
-const MEDIA_ORDER = [
+/**
+ * Media ordered exactly as it is displayed: main first, then by sort order.
+ *
+ * Exported for the ADMIN product read, which projects the same images to a
+ * different route. Two orderings would mean the console and the supplier
+ * disagree about which picture is the main one.
+ */
+export const MEDIA_ORDER = [
   { isMain: "desc" },
   { sortOrder: "asc" },
   // Terminating in the primary key, so two images sharing a sort order cannot
@@ -53,17 +59,22 @@ export const PRODUCT_SUMMARY_SELECT = {
   archivedAt: true,
   createdAt: true,
   updatedAt: true,
-  media: { select: { id: true }, orderBy: MEDIA_ORDER },
-} satisfies Prisma.ProductSelect;
-
-export const PRODUCT_DETAIL_SELECT = {
-  ...PRODUCT_SUMMARY_SELECT,
+  // WHAT THE CATALOGUE CARD DRAWS, on the summary rather than the
+  // detail — eight scalar columns on the row the query is already
+  // reading.
+  //
+  // THEY USED TO COST A REQUEST EACH. The supplier catalogue drew a
+  // description, a weight, three dimensions and the package content on
+  // every card, none of which the list carried, so the page fetched the
+  // DETAIL of every product it had just listed — one HTTP round trip per
+  // product, in parallel, documented in the page as riding on the
+  // assumption that a catalogue is small. A supplier with five hundred
+  // products made five hundred and two requests to open one screen.
+  //
+  // NOTHING NEW IS JOINED. These are columns of `products` itself, so
+  // the list costs exactly what it cost before and the N+1 disappears.
   descriptionAr: true,
   descriptionEn: true,
-  taxonomyNodeId: true,
-  // The SOFT reference, so an edit form can pre-select the picker the
-  // supplier chose from. Nothing reads it for business logic.
-  salesUnitId: true,
   weightPerUnit: true,
   lengthCm: true,
   widthCm: true,
@@ -71,6 +82,15 @@ export const PRODUCT_DETAIL_SELECT = {
   packageContentQuantity: true,
   packageContentUnitNameAr: true,
   packageContentUnitNameEn: true,
+  media: { select: { id: true }, orderBy: MEDIA_ORDER },
+} satisfies Prisma.ProductSelect;
+
+export const PRODUCT_DETAIL_SELECT = {
+  ...PRODUCT_SUMMARY_SELECT,
+  taxonomyNodeId: true,
+  // The SOFT reference, so an edit form can pre-select the picker the
+  // supplier chose from. Nothing reads it for business logic.
+  salesUnitId: true,
   media: {
     // `objectKey` and `thumbnailObjectKey` are NOT selected. The delivery
     // route resolves them server-side from the ids below, so nothing about
@@ -108,6 +128,19 @@ export function toProductSummary(row: ProductSummaryRow): ProductSummary {
     archivedAt: isoOrNull(row.archivedAt),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    descriptionAr: row.descriptionAr,
+    descriptionEn: row.descriptionEn,
+    // Physical measurements at their stored precision. Not money, but
+    // decimal strings for the same reason: a float would change the value.
+    weightPerUnit: row.weightPerUnit.toFixed(3),
+    lengthCm: row.lengthCm.toFixed(2),
+    widthCm: row.widthCm.toFixed(2),
+    heightCm: row.heightCm.toFixed(2),
+    packageContentQuantity: row.packageContentQuantity
+      ? row.packageContentQuantity.toFixed(3)
+      : null,
+    packageContentUnitNameAr: row.packageContentUnitNameAr,
+    packageContentUnitNameEn: row.packageContentUnitNameEn,
   };
 }
 
@@ -128,21 +161,8 @@ function toMedia(productId: string, media: ProductDetailRow["media"][number]): P
 export function toProductDetail(row: ProductDetailRow): ProductDetail {
   return {
     ...toProductSummary(row),
-    descriptionAr: row.descriptionAr,
-    descriptionEn: row.descriptionEn,
     taxonomyNodeId: row.taxonomyNodeId,
     salesUnitId: row.salesUnitId,
-    // Physical measurements at their stored precision. Not money, but decimal
-    // strings for the same reason: a float would change the value.
-    weightPerUnit: row.weightPerUnit.toFixed(3),
-    lengthCm: row.lengthCm.toFixed(2),
-    widthCm: row.widthCm.toFixed(2),
-    heightCm: row.heightCm.toFixed(2),
-    packageContentQuantity: row.packageContentQuantity
-      ? row.packageContentQuantity.toFixed(3)
-      : null,
-    packageContentUnitNameAr: row.packageContentUnitNameAr,
-    packageContentUnitNameEn: row.packageContentUnitNameEn,
     media: row.media.map((media) => toMedia(row.id, media)),
   };
 }

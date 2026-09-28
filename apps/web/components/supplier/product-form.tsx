@@ -23,7 +23,7 @@ import {
 } from "@/lib/product-form";
 import type { AppLocale } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldError } from "@/components/ui/field";
+import { Input, Label, FieldError, Textarea } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { ErrorSummary, FormSection, useUnsavedChangesWarning } from "@/components/forms/form-shell";
 
@@ -65,9 +65,7 @@ export interface ProductFormProps {
 
 export interface ProductFormLabels {
   sections: { identity: string; classification: string; packaging: string; dimensions: string };
-  sectionHints: { identity: string; classification: string; packaging: string; dimensions: string };
   fields: Record<keyof ProductFormValues, string>;
-  hints: { salesUnitId: string; packageGroup: string; snapshotNames: string };
   placeholderTaxonomy: string;
   placeholderSalesUnit: string;
   required: string;
@@ -264,7 +262,7 @@ export function ProductForm({
           {labels.fields[field]}
         </Label>
         {options.multiline ? (
-          <textarea
+          <Textarea
             id={fieldId(field)}
             value={values[field]}
             onChange={(event) => set(field, event.target.value)}
@@ -288,7 +286,7 @@ export function ProductForm({
             onChange={(event) => set(field, event.target.value)}
             invalid={Boolean(issue)}
             describedById={issue ? errorId(field) : undefined}
-            className="min-h-11"
+           
           />
         )}
         <FieldError id={errorId(field)}>
@@ -298,8 +296,17 @@ export function ProductForm({
     );
   };
 
+  // A MAXIMUM WIDTH, because the portal frame has none. `<main>` in
+  // `portal-chrome` is `flex-1` with padding and no cap, which is right
+  // for a table and wrong for a form: without this, every field below
+  // stretches the full width of whatever monitor it is opened on.
   return (
-    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-6">
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      noValidate
+      className="flex max-w-5xl flex-col gap-6"
+    >
       <ErrorSummary title={labels.errorSummaryTitle} entries={summaryEntries} />
       <ErrorSummary title={labels.checkSummaryTitle} entries={checkEntries} />
 
@@ -317,17 +324,20 @@ export function ProductForm({
         </div>
       ) : null}
 
-      <FormSection title={labels.sections.identity} description={labels.sectionHints.identity}>
+      {/* The two names sit side by side because they are the same field
+          in two languages, and reading one while typing the other is the
+          whole job. The descriptions keep the full row — a paragraph in
+          a half-width box is a box nobody can read back. */}
+      <FormSection title={labels.sections.identity} columns={2}>
         {textField("nameAr", { required: true })}
         {textField("nameEn", { required: true })}
-        {textField("descriptionAr", { multiline: true })}
-        {textField("descriptionEn", { multiline: true })}
+        <div className="sm:col-span-2">{textField("descriptionAr", { multiline: true })}</div>
+        <div className="sm:col-span-2">{textField("descriptionEn", { multiline: true })}</div>
       </FormSection>
 
-      <FormSection
-        title={labels.sections.classification}
-        description={labels.sectionHints.classification}
-      >
+      {/* A category, a sales unit, and that unit named in two
+          languages — four controls, none of them long. */}
+      <FormSection title={labels.sections.classification} columns={2}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={fieldId("taxonomyNodeId")} required requiredLabel={labels.required}>
             {labels.fields.taxonomyNodeId}
@@ -338,7 +348,7 @@ export function ProductForm({
             onChange={(event) => set("taxonomyNodeId", event.target.value)}
             invalid={Boolean(errors.taxonomyNodeId)}
             describedById={errors.taxonomyNodeId ? errorId("taxonomyNodeId") : undefined}
-            className="min-h-11"
+           
           >
             {/* An empty option, never a pre-selected first category: a
                 default nobody chose is a category the product gets filed
@@ -367,8 +377,6 @@ export function ProductForm({
             id={fieldId("salesUnitId")}
             value={values.salesUnitId}
             onChange={(event) => chooseSalesUnit(event.target.value)}
-            describedById={`${fieldId("salesUnitId")}-hint`}
-            className="min-h-11"
           >
             <option value="">{labels.placeholderSalesUnit}</option>
             {salesUnits.map((unit) => (
@@ -377,26 +385,22 @@ export function ProductForm({
               </option>
             ))}
           </Select>
-          <p id={`${fieldId("salesUnitId")}-hint`} className="text-xs text-content-muted">
-            {labels.hints.salesUnitId}
-          </p>
         </div>
 
         {textField("salesUnitNameAr", { required: true })}
         {textField("salesUnitNameEn", { required: true })}
-        <p className="text-xs text-content-muted">{labels.hints.snapshotNames}</p>
       </FormSection>
 
-      <FormSection title={labels.sections.packaging} description={labels.sectionHints.packaging}>
-        {/* One group: all three together, or none. Stated once here
-            rather than as three identical hints. */}
-        <p className="text-xs text-content-muted">{labels.hints.packageGroup}</p>
+      <FormSection title={labels.sections.packaging} columns={3}>
         {textField("packageContentQuantity", { inputMode: "decimal" })}
         {textField("packageContentUnitNameAr")}
         {textField("packageContentUnitNameEn")}
       </FormSection>
 
-      <FormSection title={labels.sections.dimensions} description={labels.sectionHints.dimensions}>
+      {/* FOUR NUMBERS. A weight and three dimensions, each of which is
+          three or four characters — the clearest case on the platform of
+          a short field given a whole row. */}
+      <FormSection title={labels.sections.dimensions} columns={4}>
         {textField("weightPerUnit", { required: true, inputMode: "decimal" })}
         {textField("lengthCm", { required: true, inputMode: "decimal" })}
         {textField("widthCm", { required: true, inputMode: "decimal" })}
@@ -407,7 +411,7 @@ export function ProductForm({
         <div className="flex flex-wrap gap-3">
           <Button
             type="submit"
-            className="min-h-11"
+           
             isLoading={submitting}
             disabled={submitting || (mode === "edit" && !dirty)}
           >
@@ -420,7 +424,7 @@ export function ProductForm({
           <Button
             type="button"
             variant="ghost"
-            className="min-h-11"
+           
             disabled={submitting}
             onClick={requestCancel}
           >
@@ -445,7 +449,7 @@ export function ProductForm({
               <Button
                 type="button"
                 size="sm"
-                className="min-h-11"
+               
                 onClick={() => router.push(backHref)}
               >
                 {labels.cancel}
@@ -454,7 +458,7 @@ export function ProductForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="min-h-11"
+               
                 onClick={() => setConfirmingCancel(false)}
               >
                 {root("common.close")}

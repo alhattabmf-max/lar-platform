@@ -5,6 +5,7 @@ import { CheckoutSettingsService } from "../src/settings/checkout-settings.servi
 import { AuditService } from "../src/audit/audit.service";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.fixture";
 import { PrismaClient } from "@prisma/client";
+import { uniqueMobile } from "./fixtures/unique";
 
 const rawPrisma = checkoutFixturePrisma;
 const prismaA = rawPrisma as unknown as PrismaService;
@@ -42,21 +43,22 @@ describe("CheckoutSessionService — core scenarios (integration, real DB)", () 
         companyId: otherTrader.id,
         email: `other-${Date.now()}@example.com`,
         passwordHash: "x",
-        primaryMobile1: "+966500000001",
-        primaryMobile2: "+966500000002",
+        primaryMobile1: uniqueMobile(),
+        primaryMobile2: uniqueMobile(),
       },
     });
     const opp = await rawPrisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } });
     const otherLocation = await rawPrisma.companyLocation.create({
       data: {
         companyId: otherTrader.id,
+        regionId: opp.fulfillmentRegionId!,
         cityId: opp.fulfillmentCityId!,
         name: "other-loc",
         shortAddress: "addr",
         latitude: 24.7,
         longitude: 46.7,
         contactName: "n",
-        contactPhone: "+966500000001",
+        contactPhone: uniqueMobile(),
         isDefault: true,
       },
     });

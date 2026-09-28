@@ -35,7 +35,15 @@ const DISPUTE_GATE = strip(
 const DISPUTE_DETAIL = strip(read("app/[locale]/trader/disputes/[id]/page.tsx"));
 const NOTIFICATIONS = strip(read("components/trader/notification-list.tsx"));
 const REPLACEMENT_DETAIL = strip(read("app/[locale]/trader/replacements/[id]/page.tsx"));
-const REPORTS = strip(read("app/[locale]/trader/product-reports/page.tsx"));
+/**
+ * THE THREE LISTS ARE CARDS NOW — «ألغِ ألسنتها وجمّعها كبطاقات في صفحة
+ * المتابعة». The disputes, the returns and the product reports moved
+ * into one component; their old addresses are kept open and forward to
+ * it. Everything these cases ever asked of those lists is still asked,
+ * of the file that draws them.
+ */
+const FOLLOW_UP = strip(read("components/trader/follow-up-sections.tsx"));
+const REPORTS = FOLLOW_UP;
 
 /** Every trader page, discovered rather than listed. */
 function traderPages(dir = join(ROOT, "app", "[locale]", "trader"), prefix = "trader"): string[] {
@@ -634,14 +642,27 @@ describe("every trader page keeps the portal's rules", () => {
   it("has an error and an empty state on every list", () => {
     for (const page of [
       "trader/orders/page.tsx",
-      "trader/disputes/page.tsx",
-      "trader/replacements/page.tsx",
       "trader/notifications/page.tsx",
-      "trader/product-reports/page.tsx",
     ]) {
       const source = strip(read(`app/[locale]/${page}`));
       expect([page, source.includes("<ErrorState")]).toEqual([page, true]);
       expect([page, source.includes("<EmptyState")]).toEqual([page, true]);
+    }
+
+    // AND THE THREE THAT BECAME CARDS keep both, once per card: a
+    // failed read must never be drawn as "nothing here".
+    expect(FOLLOW_UP.split("<ErrorState")).toHaveLength(4);
+    expect(FOLLOW_UP.split("<EmptyState")).toHaveLength(4);
+  });
+
+  it("forwards the three old list addresses rather than 404ing them", () => {
+    for (const segment of ["disputes", "replacements", "product-reports"]) {
+      const legacy = strip(read(`app/[locale]/trader/${segment}/page.tsx`));
+      expect([segment, legacy.includes("redirect(")]).toEqual([segment, true]);
+      expect([segment, legacy.includes('requireRoleOrRedirect(appLocale, "TRADER")')]).toEqual([
+        segment,
+        true,
+      ]);
     }
   });
 

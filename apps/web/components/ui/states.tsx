@@ -14,7 +14,14 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={cn("animate-pulse rounded-md bg-line", className)}
+      // A SHADE OF THE HAIRLINE, not the hairline itself. The rule got
+      // darker so a divider could be seen; a skeleton is a whole block
+      // of it, and at full strength six of them stacked read as
+      // content that has already arrived.
+      className={cn(
+        "animate-pulse rounded-control bg-[color-mix(in_srgb,var(--color-border)_60%,var(--color-surface))]",
+        className
+      )}
     />
   );
 }
@@ -49,9 +56,19 @@ export interface EmptyStateProps {
 export function EmptyState({ title, description, action, className }: EmptyStateProps) {
   return (
     <div
+      // A WELL, NOT A SECOND FRAME — «ما هو تسوي لي داخل البطاقة
+      // إطار». This box wore the 3:1 boundary for one revision, and on
+      // a card it then read as the card's edge while the real edge
+      // stayed invisible: two frames arguing about which one was the
+      // container. The card took the strong line, so this gives it up.
+      //
+      // WHAT DOES THE WORK NOW IS THE FILL. An empty state holds two
+      // lines of centred text and nothing else, so it has to be
+      // visibly a REGION; a value change says that without drawing a
+      // competing rectangle, and the dashed hairline only traces it.
       className={cn(
         "flex flex-col items-center gap-2 rounded-lg border border-dashed border-line",
-        "bg-surface px-6 py-10 text-center",
+        "bg-field-fill px-6 py-10 text-center",
         className
       )}
     >

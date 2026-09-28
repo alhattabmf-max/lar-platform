@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { OUTBOX_STATUSES } from "@platform/types";
 import type { AppLocale } from "@/i18n/routing";
@@ -34,6 +35,23 @@ import { StatusBadge } from "@/components/trader/status-badge";
  * literals it never reads; counting one of those as backlog would report
  * a permanent delay that nothing could ever clear.
  */
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.outbox",
+  });
+  return { title: t("title") };
+}
+
 export default async function AdminOutboxPage({
   params,
 }: {
@@ -50,7 +68,6 @@ export default async function AdminOutboxPage({
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
       <Suspense fallback={<LoadingState label={common("loading")} rows={3} />}>
@@ -148,8 +165,30 @@ async function Relay({ locale }: { locale: AppLocale }) {
                 )}
               </dd>
             </div>
+            {/* TWO SENTENCES, because there are two facts and they used
+                to be told as one.
+
+                The PENDING count above is every pending row; the relay
+                carries a single event type. So "21 waiting" beside "no
+                backlog" read as a contradiction while both were true.
+                The age of the oldest row is now stated against the
+                count it belongs to, and the relay's own backlog is
+                stated separately — appearing only when mail really is
+                stalled. */}
             <div className="flex flex-wrap gap-2 sm:col-span-2">
               <dt className="text-content-muted">{t("oldestPending")}</dt>
+              <dd className="text-content">
+                {stats.oldestPendingAnyAt ? (
+                  <time dateTime={stats.oldestPendingAnyAt}>
+                    {formatDateTime(stats.oldestPendingAnyAt, locale)}
+                  </time>
+                ) : (
+                  t("noPending")
+                )}
+              </dd>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
+              <dt className="text-content-muted">{t("relayBacklog")}</dt>
               <dd className="text-content">
                 {stats.oldestPendingAt ? (
                   <span className="flex flex-wrap items-center gap-2">
@@ -195,7 +234,6 @@ async function Integrations({ locale }: { locale: AppLocale }) {
       {/* No provider reports HEALTHY, because no connectivity check
           exists yet for any of them. The screen states that rather than
           showing an unqualified status that would read as "tested". */}
-      <p className="text-sm text-content-muted">{t("healthNotice")}</p>
 
       <Card>
         <CardHeader>

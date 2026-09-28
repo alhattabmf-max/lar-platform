@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { requireVerifiedSupplierCompany } from "./require-verified-supplier";
+import { requireSupplierCompany } from "./require-verified-supplier";
+import { SupplierVerificationRequestService } from "../verification/supplier-verification-request.service";
 import { BusinessException } from "../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 import type { UpdateTaxProfileDto } from "./dto/update-tax-profile.dto";
@@ -21,7 +22,8 @@ const SAUDI_VAT_NUMBER_PATTERN = /^\d{15}$/;
 export class TaxProfileService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly verificationRequests: SupplierVerificationRequestService
   ) {}
 
   async get(companyId: string) {
@@ -29,7 +31,11 @@ export class TaxProfileService {
   }
 
   async upsert(dto: UpdateTaxProfileDto, ctx: ActorContext) {
-    await requireVerifiedSupplierCompany(this.prisma, ctx.companyId);
+    // A SUPPLIER ACCOUNT, APPROVED OR NOT. Whether the company is
+    // registered for VAT is part of the record an administrator
+    // reviews, so demanding approval before it could be entered was
+    // the same circle the bank account was moved out of.
+    await requireSupplierCompany(this.prisma, ctx.companyId);
 
     let vatNumber: string | null = null;
     if (dto.isVatRegistered) {
@@ -71,6 +77,15 @@ export class TaxProfileService {
       ipAddress: ctx.ipAddress,
       userAgent: ctx.userAgent,
     });
+
+    // THE VAT NUMBER PRINTS ON A TAX INVOICE, and a wrong one makes
+    // the document defective in law — so a verified supplier that
+    // changes it is reviewed again.
+    await this.verificationRequests.markChangedSinceApproval(
+      ctx.companyId,
+      "TAX_PROFILE",
+      ctx,
+    );
 
     return profile;
   }

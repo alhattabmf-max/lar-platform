@@ -11,6 +11,7 @@ import {
   DEFAULT_OPPORTUNITY_SORT,
   OPPORTUNITY_SORTS,
   PUBLIC_OPPORTUNITY_DETAIL_KEYS,
+  PUBLIC_OPPORTUNITY_FORBIDDEN_FIELDS,
   PUBLIC_OPPORTUNITY_ITEM_KEYS,
   PUBLIC_OPPORTUNITY_STATUSES,
   PUBLIC_POLICY_VERSION_KEYS,
@@ -33,6 +34,11 @@ describe("shared contracts are importable from @platform/types", () => {
     expect([...BRANDING_PUBLIC_KEYS].sort()).toEqual(
       [
         "faviconUrl",
+        // ONE header mark, already resolved for the page's language.
+        // The two per-language URL columns are gone: they were
+        // free-text addresses, and the mark is now bytes this API
+        // stores and serves from a route of its own.
+        "headerLogo",
         "logoMainUrl",
         "logoSmallUrl",
         "nameAr",
@@ -40,12 +46,14 @@ describe("shared contracts are importable from @platform/types", () => {
         "shortDescriptionAr",
         "shortDescriptionEn",
         "theme",
-      ].sort()
+      ].sort(),
     );
   });
 
   it("the empty branding fallback covers every key, with the default theme", () => {
-    expect(Object.keys(EMPTY_BRANDING_PUBLIC).sort()).toEqual([...BRANDING_PUBLIC_KEYS].sort());
+    expect(Object.keys(EMPTY_BRANDING_PUBLIC).sort()).toEqual(
+      [...BRANDING_PUBLIC_KEYS].sort(),
+    );
 
     // Text and asset fields are null when unconfigured; the theme never
     // is, because an unreadable theme would leave the UI unusable.
@@ -71,7 +79,12 @@ describe("shared contracts are importable from @platform/types", () => {
 
   it("type-checks the contract shapes at compile time", () => {
     const branding: BrandingPublic = EMPTY_BRANDING_PUBLIC;
-    const page: Paginated<string> = { items: [], page: 1, pageSize: 20, total: 0 };
+    const page: Paginated<string> = {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+    };
     const me: MeResponse = {
       userId: "u",
       email: "e@example.com",
@@ -85,6 +98,9 @@ describe("shared contracts are importable from @platform/types", () => {
         accountType: "TRADER",
         verificationStatus: "VERIFIED",
       },
+      // What the company's record still needs, by name. Part of the
+      // contract, so the compiler refuses a MeResponse without it.
+      profile: { complete: true, missing: [] },
     };
 
     expect(branding.nameAr).toBeNull();
@@ -93,38 +109,86 @@ describe("shared contracts are importable from @platform/types", () => {
   });
 });
 
-describe("the public opportunity contract keeps commercial terms out", () => {
+/**
+ * The public boundary MOVED, on purpose.
+ *
+ * Price, the three quantities and progress are now shown to a visitor,
+ * so they can judge an offer before creating an account. This block used
+ * to assert the opposite; it is rewritten rather than deleted, because
+ * what matters is not "no terms are public" but "exactly these are, and
+ * nothing else has crept in beside them".
+ */
+describe("the public opportunity contract exposes offer terms and nothing more", () => {
   it("lists exactly the keys an anonymous visitor receives", () => {
     expect([...PUBLIC_OPPORTUNITY_ITEM_KEYS].sort()).toEqual(
       [
         "id",
+        // WHICH OF THE TWO SALES PATHS. Public by necessity: a card
+        // cannot be drawn without it — it decides whether the numbers
+        // are progress toward a target or stock on a shelf, and whether
+        // `endAt` and `shareQuantity` mean anything at all. It reveals
+        // nothing commercial that the price and quantities beside it do
+        // not already.
+        "saleMode",
         "productNameAr",
         "productNameEn",
         "imageUrl",
         "thumbnailUrl",
         "fulfillmentCityNameAr",
         "fulfillmentCityNameEn",
+        "fulfillmentRegionNameAr",
+        "fulfillmentRegionNameEn",
         "salesUnitNameAr",
         "salesUnitNameEn",
+        "unitPriceInclTaxAmount",
+        "currency",
+        "targetQuantity",
+        "unsoldQuantity",
+        "progressPercentage",
+        "shareQuantity",
         "endAt",
         "status",
-      ].sort()
+      ].sort(),
     );
   });
 
+  it.each([...PUBLIC_OPPORTUNITY_FORBIDDEN_FIELDS])(
+    "keeps %s off both the list item and the detail",
+    (field) => {
+      expect(PUBLIC_OPPORTUNITY_ITEM_KEYS).not.toContain(field);
+      expect(PUBLIC_OPPORTUNITY_DETAIL_KEYS).not.toContain(field);
+    },
+  );
+
   it.each([
-    "unitPriceInclTaxAmount",
-    "targetQuantity",
+    // The two trader figures that did NOT move with the rest.
     "fundedQuantity",
-    "unsoldQuantity",
-    "progressPercentage",
-    "shareQuantity",
     "sharePercentage",
-    "currency",
-    "expectedPreparationDays",
-  ])("keeps %s off both the list item and the detail", (field) => {
+  ])("keeps the trader-only figure %s off both public shapes", (field) => {
     expect(PUBLIC_OPPORTUNITY_ITEM_KEYS).not.toContain(field);
     expect(PUBLIC_OPPORTUNITY_DETAIL_KEYS).not.toContain(field);
+  });
+
+  it("names every forbidden field explicitly, so the list cannot quietly empty", () => {
+    // A guard driven by a list is only as good as the list; an empty or
+    // truncated one would make every assertion above vacuous.
+    expect(PUBLIC_OPPORTUNITY_FORBIDDEN_FIELDS.length).toBeGreaterThanOrEqual(
+      15,
+    );
+    expect(PUBLIC_OPPORTUNITY_FORBIDDEN_FIELDS).toContain(
+      "expectedPreparationDays",
+    );
+    expect(PUBLIC_OPPORTUNITY_FORBIDDEN_FIELDS).toContain("supplierCompanyId");
+  });
+
+  it("shares no field between the public shape and the forbidden list", () => {
+    const publicKeys = new Set<string>([
+      ...PUBLIC_OPPORTUNITY_ITEM_KEYS,
+      ...PUBLIC_OPPORTUNITY_DETAIL_KEYS,
+    ]);
+    for (const forbidden of PUBLIC_OPPORTUNITY_FORBIDDEN_FIELDS) {
+      expect(publicKeys.has(forbidden)).toBe(false);
+    }
   });
 
   it("makes the detail a superset of the list item, so the two cannot diverge", () => {
@@ -135,18 +199,48 @@ describe("the public opportunity contract keeps commercial terms out", () => {
 
   it("adds only descriptive context on the detail", () => {
     const added = PUBLIC_OPPORTUNITY_DETAIL_KEYS.filter(
-      (key) => !(PUBLIC_OPPORTUNITY_ITEM_KEYS as readonly string[]).includes(key)
+      (key) =>
+        !(PUBLIC_OPPORTUNITY_ITEM_KEYS as readonly string[]).includes(key),
     );
 
+    // THE DETAIL ADDS DESCRIPTIVE CONTEXT AND THE PRODUCT'S OWN FACTS,
+    // and nothing commercial. The region moved up to the list item —
+    // the card shows it — and the physical facts were widened when the
+    // buyer's detail page grew a package-specification card.
+    //
+    // NOTHING HERE IS NEW DATA. Every one of these was already frozen
+    // in the product approval snapshot at approval time; the parser
+    // read four of its fourteen keys, and now reads the rest. No
+    // migration and no new column.
+    //
+    // AND NONE OF IT IS COMMERCIAL. A weight and a box size say nothing
+    // about margin, about who is selling, or about how fast they work —
+    // the forbidden list below is untouched, and the boundary test that
+    // walks it still passes.
     expect([...added].sort()).toEqual(
       [
         "productDescriptionAr",
         "productDescriptionEn",
-        "fulfillmentRegionNameAr",
-        "fulfillmentRegionNameEn",
         "startAt",
-      ].sort()
+        "taxonomyNodeId",
+        "weightPerUnit",
+        "lengthCm",
+        "widthCm",
+        "heightCm",
+        "packageContentQuantity",
+        "packageContentUnitNameAr",
+        "packageContentUnitNameEn",
+        "imageUrls",
+        "thumbnailUrls",
+      ].sort(),
     );
+
+    // THE LIST ITEM IS NOT WIDENED WITH IT. A card shows one picture and
+    // no dimensions, and carrying them on every row of a paginated list
+    // is payload nobody reads.
+    for (const key of ["weightPerUnit", "lengthCm", "imageUrls", "taxonomyNodeId"]) {
+      expect([...(PUBLIC_OPPORTUNITY_ITEM_KEYS as readonly string[])]).not.toContain(key);
+    }
   });
 
   it("exposes only the two statuses an anonymous visitor can observe", () => {
@@ -160,19 +254,23 @@ describe("the public opportunity contract keeps commercial terms out", () => {
 });
 
 describe("catalogue contracts describe the real endpoints", () => {
-  it("records that taxonomy filtering does NOT include descendants", () => {
-    // Verified against OpportunityDiscoveryService.buildQuery, which
-    // compares the snapshot's taxonomyNodeId with `equals`.
-    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(false);
-  });
-
-  it("records that products may be filed under a non-leaf node", () => {
-    expect(TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS).toBe(true);
+  it("records the two halves of ONE decision, which must not disagree", () => {
+    // A product may no longer be filed on a node that has children —
+    // the owner's rule: «التصنيف إجباري، واختيار الفرع إجباري إذا كان
+    // للتصنيف فروع». Nothing then sits on a parent, so a parent filter
+    // MUST reach the leaves or every category in the bar becomes an
+    // empty page.
+    //
+    // Asserted together rather than in two tests, because the failure
+    // that matters is them drifting apart.
+    expect(TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS).toBe(false);
+    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(true);
+    expect(TAXONOMY_FILTER_INCLUDES_DESCENDANTS).toBe(!TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS);
   });
 
   it("keeps the taxonomy wire shape flat, carrying parentId", () => {
     expect([...TAXONOMY_NODE_ITEM_KEYS].sort()).toEqual(
-      ["id", "parentId", "nameAr", "nameEn", "iconUrl", "sortOrder"].sort()
+      ["id", "parentId", "nameAr", "nameEn", "iconUrl", "sortOrder"].sort(),
     );
 
     const node: TaxonomyNodeItem = {
@@ -187,7 +285,9 @@ describe("catalogue contracts describe the real endpoints", () => {
   });
 
   it("carries a city's region inline and no coordinates", () => {
-    expect([...CITY_ITEM_KEYS].sort()).toEqual(["id", "nameAr", "nameEn", "region"].sort());
+    expect([...CITY_ITEM_KEYS].sort()).toEqual(
+      ["id", "nameAr", "nameEn", "region"].sort(),
+    );
     expect(CITY_ITEM_KEYS).not.toContain("latitude");
     expect(CITY_ITEM_KEYS).not.toContain("longitude");
   });

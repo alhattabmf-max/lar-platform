@@ -7,6 +7,7 @@ import { ERROR_CODES } from "@platform/types";
 import type { PaymentAttemptView } from "@platform/types";
 import { PaymentSettingsService } from "../settings/payment-settings.service";
 import { CommissionTaxPolicyService } from "../settings/commission-tax-policy.service";
+import { newestPolicyVersionPerDocument } from "../policies/policy-version-selection";
 import type { PaymentProvider } from "./providers/payment-provider.interface";
 
 interface ActorContext {
@@ -106,6 +107,46 @@ export class PaymentAttemptService {
       throw new BusinessException(409, ERROR_CODES.PAYMENT_ATTEMPT_ALREADY_ACTIVE, "This checkout session is not in a state that allows starting a payment");
     }
 
+    /**
+     * AND THE LOCK MUST STILL BE ALIVE.
+     *
+     * `status = 'LOCKED'` ALONE WAS NOT ENOUGH, and that was the hole.
+     * A basket becomes EXPIRED by a sweep that runs every minute and by
+     * a lazy cleanup that only fires for the same trader on the same
+     * offer — so between the instant `lock_expires_at` passes and the
+     * instant something notices, the row still SAYS `LOCKED`. Claiming
+     * it here moved it to `PAYMENT_PENDING` with a fresh deadline: a
+     * dead basket brought back to life, holding stock that had already
+     * gone back on the shelf.
+     *
+     * WHAT IT COST, on the money path. The quantity that basket holds
+     * is no longer subtracted from availability, so another buyer can
+     * have taken it — and a supplier lowering a DIRECT listing's stock
+     * can have taken it too. Let the revived basket then pay, and the
+     * webhook's `funded += locked` lands above `target_quantity`, where
+     * `opportunities_funded_within_target` refuses it INSIDE the
+     * capture's own transaction: money taken, no order written, and a
+     * provider redelivering the same event for ever.
+     *
+     * THE SAME RULE FOR BOTH SALE MODES, because a lock means one thing
+     * in both: units held for one buyer, for a bounded time. Nothing
+     * here reads `sale_mode`, and nothing should.
+     *
+     * NOT REVIVED, NOT EXTENDED, AND NOT SILENTLY EXPIRED HERE EITHER.
+     * The buyer opens a new checkout and is told what is actually
+     * available now — which may be less, and that is the truth rather
+     * than a promise of stock that is gone. Marking the row EXPIRED is
+     * left to the sweep that owns that transition, so this path has one
+     * job and one failure mode.
+     */
+    if (session.lock_expires_at <= new Date()) {
+      throw new BusinessException(
+        409,
+        ERROR_CODES.CHECKOUT_LOCK_EXPIRED,
+        "This checkout has expired — start a new one to see the quantity still available"
+      );
+    }
+
     const traderTaxProfile = await tx.traderTaxProfile.findUnique({ where: { companyId: session.trader_company_id } });
     if (!traderTaxProfile) {
       throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, "Trader tax profile is incomplete — complete it before starting payment");
@@ -136,7 +177,12 @@ export class PaymentAttemptService {
       throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, "Supplier's active bank account is not verified");
     }
 
-    const mandatoryPolicies = await tx.policyVersion.findMany({ where: { isPublished: true, isMandatory: true } });
+    // The same set the checkout guard checks, so the acceptance this
+    // attempt records is one of the versions actually in force rather
+    // than whichever superseded row happened to be accepted last.
+    const mandatoryPolicies = newestPolicyVersionPerDocument(
+      await tx.policyVersion.findMany({ where: { isPublished: true, isMandatory: true } })
+    );
     let policyAcceptanceId: string | null = null;
     if (mandatoryPolicies.length > 0) {
       const acceptance = await tx.policyAcceptance.findFirst({

@@ -1,23 +1,32 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import type { AuditLogEntry, Paginated } from "@platform/types";
+import { auditVisibleData, type AuditLogEntry, type Paginated } from "@platform/types";
 import { PrismaService } from "../../database/prisma.service";
 
 /**
  * Reading the audit trail.
  *
- * NINE FIELDS. `beforeData`, `afterData`, `ipAddress` and `userAgent`
- * are not selected — not filtered afterwards, not selected. They are the
- * whole reason this projection is narrow:
+ * `ipAddress` and `userAgent` are NOT SELECTED — not filtered
+ * afterwards, not selected. They are request metadata about a person,
+ * kept for forensics, and reaching them is a database question with its
+ * own authorisation rather than a page in a portal.
  *
- *   - `beforeData`/`afterData` are arbitrary JSON copies of rows, so
- *     they carry whatever the row carried: a billing name, an email, a
- *     masked IBAN, an administrator's internal note. Someone reading the
- *     trail needs to know that something changed, who changed it and
- *     why — not a replay of the values.
- *   - `ipAddress`/`userAgent` are request metadata about a person, kept
- *     for forensics. Reaching them is a database question with its own
- *     authorisation, not a page in a portal.
+ * `beforeData` and `afterData` ARE selected, and are never returned.
+ * They are arbitrary JSON copies of rows, so they carry whatever the
+ * row carried: a billing name, an e-mail address, a masked IBAN, an
+ * administrator's internal note. What leaves this service is
+ * `auditVisibleData(...)` of each — a CLOSED ALLOW-LIST of field names,
+ * scalars only, every value bounded. `contracts/audit-fields.ts` holds
+ * the list, the rules, and the record of what was left off it.
+ *
+ * WHY SELECT THEM AT ALL, when "not selecting is stronger than not
+ * mapping" is the rule everywhere else here. Because the question the
+ * trail has to answer is "what did it change FROM", and no projection
+ * can answer it from columns it did not read. The strength moves from
+ * the `select` to the allow-list, which is why that list is driven by
+ * approved NAMES rather than by filtering the payload: a field nobody
+ * approved has no route to the response even in principle, including
+ * one added to some row next year.
  *
  * `reason` IS included: it is written deliberately by an administrator
  * to explain a decision, which is the opposite of incidental capture.
@@ -37,6 +46,10 @@ const AUDIT_SELECT = {
   reason: true,
   requestId: true,
   createdAt: true,
+  // Read, never returned. See the note above: what reaches the response
+  // is `auditVisibleData` of each, and nothing else.
+  beforeData: true,
+  afterData: true,
 } satisfies Prisma.AuditLogSelect;
 
 type AuditRow = Prisma.AuditLogGetPayload<{ select: typeof AUDIT_SELECT }>;
@@ -52,6 +65,8 @@ function toEntry(row: AuditRow): AuditLogEntry {
     reason: row.reason,
     requestId: row.requestId,
     createdAt: row.createdAt.toISOString(),
+    before: auditVisibleData(row.beforeData),
+    after: auditVisibleData(row.afterData),
   };
 }
 

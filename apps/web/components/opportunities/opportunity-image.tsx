@@ -11,9 +11,13 @@ import { cn } from "@/lib/cn";
  * grid of cards does not reflow depending on which products happen to
  * have photos.
  *
- * The placeholder's label is visually hidden rather than printed: a
- * card reading "no image" in large type looks like a failure, while a
- * screen reader still needs to know why there is nothing there.
+ * The placeholder is a NEUTRAL box — a muted mark on the page
+ * background, never a coloured fill that could be mistaken for the
+ * product itself. Whether its label is also printed is the caller's
+ * choice: on a card the empty half needs to say what it is, while a
+ * detail hero that announced "no image" in large type would read as a
+ * failure. Either way a screen reader is told, through the container's
+ * accessible name.
  */
 export interface OpportunityImageProps {
   src: string | null;
@@ -24,6 +28,15 @@ export interface OpportunityImageProps {
   className?: string;
   /** Real images below the fold should stay lazy; a detail hero should not. */
   priority?: boolean;
+  /**
+   * Print the no-image label as well as announcing it.
+   *
+   * Off by default so existing callers are unchanged. The card turns it
+   * on: half of a two-column card standing empty with only a faint icon
+   * looks like something failed to load, when in fact the offer simply
+   * has no photograph.
+   */
+  showNoImageLabel?: boolean;
 }
 
 export function OpportunityImage({
@@ -32,6 +45,7 @@ export function OpportunityImage({
   noImageLabel,
   className,
   priority = false,
+  showNoImageLabel = false,
 }: OpportunityImageProps) {
   const resolved = mediaUrl(src);
   const box = cn("w-full overflow-hidden rounded-md bg-background", className);
@@ -41,7 +55,11 @@ export function OpportunityImage({
       <div
         role="img"
         aria-label={noImageLabel}
-        className={cn(box, "flex items-center justify-center border border-dashed border-line")}
+        data-testid="opportunity-no-image"
+        className={cn(
+          box,
+          "flex flex-col items-center justify-center gap-2 border border-dashed border-line-control",
+        )}
       >
         {/* Decorative mark; the accessible name is on the container. */}
         <svg
@@ -56,6 +74,16 @@ export function OpportunityImage({
           <circle cx="8.5" cy="8.5" r="1.5" />
           <path d="m21 15-5-5L5 21" />
         </svg>
+        {showNoImageLabel ? (
+          // aria-hidden: the container is already named by the same
+          // string, and without this a screen reader reads it twice.
+          <span
+            aria-hidden="true"
+            className="px-2 text-center text-xs text-content-muted"
+          >
+            {noImageLabel}
+          </span>
+        ) : null}
       </div>
     );
   }

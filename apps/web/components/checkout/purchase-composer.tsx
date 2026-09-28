@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useMemo, useRef, useState } from "react";
+import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/field";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -57,6 +59,28 @@ export interface PurchaseComposerProps {
   locations: readonly SelectableLocation[];
   /** Where to send someone who has no branches yet. */
   accountLocationsHref: string;
+  /**
+   * DROPS EVERY LINE THAT IS NOT A CONTROL.
+   *
+   * «بطاقة اشترِ طويلة جدًا، اختصرها فقط في تحديد الكمية وتحديد الفرع
+   * بدون شروحات غير مهمة.»
+   *
+   * The composer is the whole purchase screen when it stands alone; on
+   * the buyer's detail page it is ONE of three cards, and four of its
+   * lines are either said again on the card beside it or are pure
+   * explanation:
+   *
+   *   - its own heading, under a card already headed «اشترِ الآن»
+   *   - the step hint, which is what the stepper does
+   *   - the unsold figure, which IS «الكمية المتبقية» one card over
+   *   - the caveat on that figure, printed there too
+   *
+   * WHAT STAYS is the quantity, the branch, the button, and the note
+   * about shipping and tax — the last because a reader deciding to
+   * press the button needs to know the price is not the total, and
+   * nothing else on the page says so.
+   */
+  compact?: boolean;
 }
 
 export function PurchaseComposer({
@@ -65,6 +89,7 @@ export function PurchaseComposer({
   shareQuantity,
   unsoldQuantity,
   salesUnitName,
+  compact = false,
   locations,
   accountLocationsHref,
 }: PurchaseComposerProps) {
@@ -119,6 +144,23 @@ export function PurchaseComposer({
     setAllocations((rows) =>
       rows.map((row, i) => (i === index ? { ...row, quantity: next } : row))
     );
+    // A SINGLE BRANCH IS THE WHOLE ORDER, so its field IS the total.
+    //
+    // The total already mirrored DOWN into a lone allocation — see
+    // `applyQuantity` — and nothing mirrored back, because there were
+    // always two controls and the top one was authoritative. With that
+    // control gone from the compact card («نكتفي بالحقل اللي في خانة
+    // مواقع التسليم ونغير منه الكمية») the mirror has to run both ways,
+    // or the figure submitted is whatever the total happened to be when
+    // the page loaded.
+    //
+    // ONLY WHEN THERE IS ONE. With several branches the total and the
+    // split are different questions, and the total keeps its own field.
+    //
+    // READ OUTSIDE THE UPDATER. A state updater must be pure — React
+    // may call it twice — and setting other state from inside one is
+    // how that rule gets broken quietly.
+    if (allocations.length === 1) setQuantity(next);
     setIssues([]);
   }
 
@@ -233,22 +275,49 @@ export function PurchaseComposer({
       onSubmit={submit}
       noValidate
       aria-label={t("title")}
-      className="flex flex-col gap-5 rounded-lg border border-line-strong bg-surface p-4"
+      className={
+        compact
+          ? // NO CARD OF ITS OWN INSIDE A CARD. A surface, a shadow and
+            // a padding drawn again within the one already around it is
+            // the second container this design keeps striking off.
+            "flex flex-col gap-3"
+          : "flex flex-col gap-5 rounded-card bg-surface shadow-card px-card-x py-card-y"
+      }
     >
-      <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-content">{t("title")}</h2>
-        <p className="text-sm text-content-muted">
-          {salesUnitName
-            ? t("step", {
-                quantity: formatQuantity(shareQuantity, locale as never),
-                unit: salesUnitName,
-              })
-            : t("stepNoUnit", { quantity: formatQuantity(shareQuantity, locale as never) })}
-        </p>
-      </div>
+      {compact ? null : (
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold text-content">{t("title")}</h2>
+          <p className="text-sm text-content-muted">
+            {salesUnitName
+              ? t("step", {
+                  quantity: formatQuantity(shareQuantity, locale as never),
+                  unit: salesUnitName,
+                })
+              : t("stepNoUnit", { quantity: formatQuantity(shareQuantity, locale as never) })}
+          </p>
+        </div>
+      )}
 
-      {/* ---- quantity ---- */}
-      <div className="flex flex-col gap-1.5">
+      {/* ---- quantity ----
+
+          HIDDEN WHEN IT IS THE SAME NUMBER TWICE — «الكمية ماخذة مساحة
+          كبيرة ومكررة في مربع مواقع التسليم».
+
+          A lone branch takes the whole order, so this stepper and the
+          field in that branch's row hold one figure between them. In a
+          card 22rem wide the stepper also wrapped onto three lines to
+          show it.
+
+          IT RETURNS THE MOMENT A SECOND BRANCH DOES, because then the
+          total and the split are different questions and the split
+          cannot answer the first. */}
+      <div
+        className={
+          compact && allocations.length === 1
+            ? "hidden"
+            : "flex flex-col gap-1.5"
+        }
+      >
         <label htmlFor={quantityId} className="text-sm font-medium text-content">
           {t("quantityLabel")}
         </label>
@@ -258,7 +327,7 @@ export function PurchaseComposer({
             type="button"
             onClick={() => applyQuantity(stepQuantity(quantity, shareQuantity, -1))}
             aria-label={t("decrease", { step: shareQuantity })}
-            className="h-11 w-11 rounded-md border border-line text-lg text-content hover:bg-background"
+            className="inline-flex size-8 min-h-control shrink-0 items-center justify-center rounded-control text-lg text-content disabled:opacity-[var(--state-disabled-opacity)]"
           >
             −
           </button>
@@ -266,9 +335,16 @@ export function PurchaseComposer({
           {/* Manual entry stays available: the buttons are a shortcut,
               not the only way in. `inputMode` gets a numeric keypad on a
               phone without rejecting a paste. */}
-          <input
+          <Input
             id={quantityId}
             ref={quantityRef}
+            // A COUNT IS FOUR CHARACTERS, and it sits between a minus and
+            // a plus. `Input` carries `block w-full`, so in this flex row
+            // it claimed the whole line and pushed the «+» onto the next
+            // one — a stepper split across two rows. Sized to what it
+            // holds instead, with a floor so a phone keeps a tappable
+            // target.
+            className="w-24 min-w-[4.5rem] shrink-0 text-center"
             type="text"
             inputMode="numeric"
             autoComplete="off"
@@ -284,14 +360,13 @@ export function PurchaseComposer({
             }}
             aria-describedby={quantityIssue ? errorSummaryId : undefined}
             aria-invalid={quantityIssue ? true : undefined}
-            className="h-11 w-32 rounded-md border border-line bg-background px-3 text-center text-content"
           />
 
           <button
             type="button"
             onClick={() => applyQuantity(stepQuantity(quantity, shareQuantity, 1))}
             aria-label={t("increase", { step: shareQuantity })}
-            className="h-11 w-11 rounded-md border border-line text-lg text-content hover:bg-background"
+            className="inline-flex size-8 min-h-control shrink-0 items-center justify-center rounded-control text-lg text-content disabled:opacity-[var(--state-disabled-opacity)]"
           >
             +
           </button>
@@ -301,12 +376,25 @@ export function PurchaseComposer({
           ) : null}
         </div>
 
-        <p className="text-sm text-content-muted">
-          {t("availability", { unsold: formatQuantity(unsoldQuantity, locale as never) })}
-        </p>
-        {/* Not a reservation. The lock the server takes during checkout
-            is the only authority on what can actually be bought. */}
-        <p className="text-sm text-content-muted">{t("availabilityCaveat")}</p>
+        {/* THE UNSOLD FIGURE AND ITS CAVEAT LIVE ON THE PRODUCT CARD in
+            the compact form — «الكمية المتبقية» and the note that an
+            arithmetic difference is not a reservation. Printing them
+            here as well would be the same two sentences twice on one
+            screen.
+
+            THEY STAY when the composer stands alone, because then there
+            is no card beside it carrying them. */}
+        {compact ? null : (
+          <>
+            <p className="text-sm text-content-muted">
+              {t("availability", { unsold: formatQuantity(unsoldQuantity, locale as never) })}
+            </p>
+            {/* Not a reservation. The lock the server takes during
+                checkout is the only authority on what can actually be
+                bought. */}
+            <p className="text-sm text-content-muted">{t("availabilityCaveat")}</p>
+          </>
+        )}
       </div>
 
       {/* ---- destinations ---- */}
@@ -336,19 +424,18 @@ export function PurchaseComposer({
                         free-text id field anywhere: a location outside
                         this list belongs to another company or is
                         inactive, and neither can be chosen. */}
-                    <select
+                    <Select
                       id={`${formId}-loc-${index}`}
                       value={allocation.companyLocationId}
                       onChange={(e) => setAllocationLocation(index, e.target.value)}
                       aria-invalid={rowIssue ? true : undefined}
-                      className="h-11 w-full rounded-md border border-line bg-background px-3 text-content"
                     >
                       {locations.map((option) => (
                         <option key={option.id} value={option.id}>
                           {option.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div className="flex flex-col gap-1">
@@ -358,7 +445,7 @@ export function PurchaseComposer({
                     >
                       {t("quantityLabel")}
                     </label>
-                    <input
+                    <Input
                       id={`${formId}-qty-${index}`}
                       ref={(el) => {
                         allocationRefs.current[index] = el;
@@ -366,11 +453,19 @@ export function PurchaseComposer({
                       type="text"
                       inputMode="numeric"
                       autoComplete="off"
-                      // With one branch the split is forced by the total,
-                      // so the field shows it and is not editable —
-                      // rather than accepting a number that would then be
-                      // reported as a mismatch.
-                      readOnly={singleLocation}
+                      // WITH ONE BRANCH AND A TOTAL FIELD ABOVE, the
+                      // split is forced by that total, so this shows it
+                      // and is not editable — rather than accepting a
+                      // number that would then be reported as a
+                      // mismatch.
+                      //
+                      // IN THE COMPACT CARD THERE IS NO FIELD ABOVE —
+                      // «نكتفي بالحقل اللي في خانة مواقع التسليم ونغير
+                      // منه الكمية» — so this one is it, and the mismatch
+                      // the read-only guarded against cannot arise: a
+                      // lone row and the total are the same number, kept
+                      // so by the mirror in `setAllocationQuantity`.
+                      readOnly={singleLocation && !compact}
                       value={allocation.quantity ?? ""}
                       onChange={(e) => {
                         const raw = e.target.value.trim();
@@ -380,7 +475,6 @@ export function PurchaseComposer({
                       }}
                       aria-label={`${rowLabel} — ${t("quantityLabel")}`}
                       aria-invalid={rowIssue ? true : undefined}
-                      className="h-11 w-28 rounded-md border border-line bg-background px-3 text-center text-content read-only:text-content-muted"
                     />
                   </div>
 
@@ -388,7 +482,7 @@ export function PurchaseComposer({
                     <button
                       type="button"
                       onClick={() => removeAllocation(index)}
-                      className="h-11 shrink-0 rounded-md border border-line px-3 text-sm text-content hover:bg-background"
+                      className="inline-flex min-h-control items-center rounded-control px-control-x py-control-y text-[length:var(--control-font-size)] leading-[var(--control-line-height)] text-secondary hover:opacity-[var(--state-hover-opacity)]"
                     >
                       {t("removeBranch")}
                     </button>
@@ -396,11 +490,24 @@ export function PurchaseComposer({
                 </div>
 
                 {/* The branch's own details, so someone can tell two
-                    similarly named ones apart. DELIVERY city — the
-                    trader's destination, not the supplier's origin. */}
+                    similarly named ones apart. The DELIVERY region —
+                    the trader's destination, not the supplier's origin
+                    — narrowed by the city when the branch names one.
+                    This showed the city alone, so a branch recorded on
+                    a region and no city printed only its address. */}
                 {location ? (
                   <p className="text-sm text-content-muted">
-                    {location.cityName ? `${t("cityLabel")}: ${location.cityName} · ` : ""}
+                    {[location.regionName, location.cityName]
+                      .filter(Boolean)
+                      .join(" — ") ? (
+                      <>
+                        {t("regionLabel")}:{" "}
+                        {[location.regionName, location.cityName]
+                          .filter(Boolean)
+                          .join(" — ")}
+                        {" · "}
+                      </>
+                    ) : null}
                     {location.shortAddress}
                   </p>
                 ) : null}
@@ -413,7 +520,7 @@ export function PurchaseComposer({
           <button
             type="button"
             onClick={addAllocation}
-            className="self-start rounded-md border border-line px-3 py-2 text-sm text-content hover:bg-background"
+            className="self-start inline-flex min-h-control items-center rounded-control border border-line px-control-x py-control-y text-[length:var(--control-font-size)] leading-[var(--control-line-height)] text-content hover:bg-background"
           >
             {t("addBranch")}
           </button>

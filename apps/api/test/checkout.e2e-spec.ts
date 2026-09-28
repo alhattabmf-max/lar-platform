@@ -8,6 +8,7 @@ import { createE2eApplication } from "./support/create-e2e-application";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
 import { ensureTestCity } from "./fixtures/city.fixture";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.fixture";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = checkoutFixturePrisma;
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -28,7 +29,7 @@ async function getActivePolicyIds(app: INestApplication): Promise<string[]> {
 }
 
 /** Registers a real trader via HTTP, then logs the session in as that SAME company as the fixture-seeded trader (by CR number match) — this lets HTTP-level checkout calls act on a fully Prisma-seeded opportunity+branches without going through the fragile product/media/publish HTTP flow. */
-async function loginAsFixtureTrader(app: INestApplication, cityId: string, crNumber: string) {
+async function loginAsFixtureTrader(app: INestApplication, crNumber: string) {
   const acceptedPolicyVersionIds = await getActivePolicyIds(app);
   const password = "correct-horse-battery-staple";
   await request(app.getHttpServer())
@@ -39,12 +40,7 @@ async function loginAsFixtureTrader(app: INestApplication, cityId: string, crNum
       legalName: "Will be overwritten by fixture",
       email: `login-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
       password,
-      primaryMobile1: "+966500000001",
-      primaryMobile2: "+966500000002",
-      cityId,
-      shortAddress: "Riyadh",
-      latitude: 24.7136,
-      longitude: 46.6753,
+      primaryMobile1: uniqueMobile(),
       acceptedPolicyVersionIds,
     });
   const agent = request.agent(app.getHttpServer());
@@ -54,7 +50,6 @@ async function loginAsFixtureTrader(app: INestApplication, cityId: string, crNum
 
 describe("Phase 7B — Checkout (e2e, HTTP layer over Prisma-seeded fixture)", () => {
   let app: INestApplication;
-  let cityId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -62,7 +57,8 @@ describe("Phase 7B — Checkout (e2e, HTTP layer over Prisma-seeded fixture)", (
     await resetThrottleCounters();
 
     await publishTestPolicy(prisma);
-    cityId = await ensureTestCity(prisma);
+    // Registration no longer carries a city; the fixture still needs one.
+    await ensureTestCity(prisma);
     await prisma.systemSetting.deleteMany({ where: { key: { in: ["company_verification_mode", "email_verification_enabled"] } } });
   });
 
@@ -227,8 +223,12 @@ describe("Phase 7B — Checkout (e2e, HTTP layer over Prisma-seeded fixture)", (
 
   it("rejects checkout over real HTTP when the trader has not accepted the latest mandatory policy", async () => {
     const fixture = await seedCheckoutFixture({ traderCrPrefix: "HTTPPOLICY" });
-    const { publishTestPolicy } = await import("./fixtures/policy.fixture");
-    await publishTestPolicy(prisma);
+    // Only THIS trader becomes non-compliant. Publishing a fresh
+    // mandatory policy did it by invalidating everyone in the shared
+    // database, including suites running in other workers.
+    const { withdrawPolicyAcceptances } = await import("./fixtures/policy.fixture");
+    const withdrawn = await withdrawPolicyAcceptances(prisma, fixture.traderCompanyId);
+    expect(withdrawn).toBeGreaterThan(0);
     const agent = await loginAsFixtureTraderCompany(fixture.traderCompanyId, fixture.traderUserId);
 
     const res = await agent
@@ -244,7 +244,7 @@ describe("Phase 7B — Checkout (e2e, HTTP layer over Prisma-seeded fixture)", (
   }, 30_000);
 
   it("requires an Idempotency-Key header — missing header is rejected with 400", async () => {
-    const agent = await loginAsFixtureTrader(app, cityId, randomCr("NOKEY"));
+    const agent = await loginAsFixtureTrader(app, randomCr("NOKEY"));
     const res = await agent
       .post("/api/v1/trader/checkout-sessions")
       .set("Origin", ORIGIN)

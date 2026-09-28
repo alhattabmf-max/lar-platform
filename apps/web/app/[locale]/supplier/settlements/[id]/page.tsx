@@ -5,10 +5,14 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
 import { loadSupplierSettlement } from "@/lib/supplier-data";
 import { localized, formatDate } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Fact, FactList, StatusWithAction } from "@/components/trader/account-panels";
 import { ErrorState } from "@/components/ui/states";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.settlements");
+
 
 /**
  * One payout, and the FROZEN basis it was calculated from.
@@ -49,7 +53,8 @@ export default async function SupplierSettlementDetailPage({
   const result = await loadSupplierSettlement(id);
   if (!result.ok && result.notFound) notFound();
 
-  const backHref = `/${appLocale}/supplier/settlements`;
+  // BACK TO «المتابعة», which is where this record's list now lives.
+  const backHref = `/${appLocale}/supplier/follow-up`;
 
   if (!result.ok) {
     return (
@@ -66,7 +71,9 @@ export default async function SupplierSettlementDetailPage({
   }
 
   const settlement = result.data;
-  const money = (amount: string) => formatMoney(amount, settlement.currency, appLocale) ?? "";
+  const money = (amount: string) => (
+    <Money amount={amount} currency={settlement.currency} locale={appLocale} />
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -101,11 +108,20 @@ export default async function SupplierSettlementDetailPage({
                   </time>
                 }
               />
+              {/*
+                THE REGION, NARROWED BY THE CITY WHEN THERE IS ONE. A
+                branch may name no city, and a settlement row saying
+                nothing about where the shipment went is worse than one
+                naming the region.
+              */}
               <Fact
-                label={t("city")}
-                value={
-                  localized(appLocale, settlement.cityNameAr, settlement.cityNameEn) ?? ""
-                }
+                label={t("region")}
+                value={[
+                  localized(appLocale, settlement.regionNameAr, settlement.regionNameEn),
+                  localized(appLocale, settlement.cityNameAr, settlement.cityNameEn),
+                ]
+                  .filter(Boolean)
+                  .join(" — ")}
               />
             </FactList>
           </div>
@@ -117,7 +133,6 @@ export default async function SupplierSettlementDetailPage({
           <CardTitle>{t("basisTitle")}</CardTitle>
         </CardHeader>
         <CardBody>
-          <p className="mb-3 text-sm text-content-muted">{t("basisNotice")}</p>
           <FactList>
             <Fact
               label={t("productAmountExclTax")}
@@ -152,7 +167,7 @@ export default async function SupplierSettlementDetailPage({
       <section className="flex flex-wrap gap-3">
         <Link
           href={`/${appLocale}/supplier/orders/${settlement.masterOrderId}`}
-          className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+          className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
         >
           {/* The order's documents live there, including the internal
               commission draft. There is no standalone documents page. */}
@@ -166,7 +181,7 @@ export default async function SupplierSettlementDetailPage({
 function Breadcrumb({ href, label, back }: { href: string; label: string; back: string }) {
   return (
     <nav aria-label={label} className="text-sm">
-      <Link href={href} className="inline-flex min-h-11 items-center text-secondary hover:opacity-90">
+      <Link href={href} className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {back}
       </Link>
     </nav>

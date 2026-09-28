@@ -1,12 +1,15 @@
 import {
   AccountType as PrismaAccountType,
+  SaleMode as PrismaSaleMode,
   CompanyVerificationStatus as PrismaCompanyVerificationStatus,
   EmailVerificationStatus as PrismaEmailVerificationStatus,
   UserCompanyRole as PrismaUserCompanyRole,
   UserStatus as PrismaUserStatus,
 } from "@prisma/client";
+import { SALE_MODES as DOMAIN_SALE_MODES } from "@platform/domain";
 import {
   ACCOUNT_TYPES,
+  SALE_MODES,
   COMPANY_VERIFICATION_STATUSES,
   EMAIL_VERIFICATION_STATUSES,
   USER_COMPANY_ROLES,
@@ -46,8 +49,23 @@ describe("shared wire enums match the Prisma enums exactly", () => {
       prismaValues(PrismaEmailVerificationStatus),
       [...EMAIL_VERIFICATION_STATUSES],
     ],
+    ["SaleMode", prismaValues(PrismaSaleMode), [...SALE_MODES]],
   ])("%s", (_name, prisma, shared) => {
     // Exact set equality in both directions — not "shared is a subset".
     expect([...shared].sort()).toEqual(prisma);
+  });
+
+  /**
+   * AND THE THIRD COPY TOO.
+   *
+   * `SaleMode` exists in three places for three reasons: Prisma because
+   * it is a column, `@platform/types` because the web app may not
+   * depend on the database client, and `@platform/domain` because the
+   * availability arithmetic and the per-mode status table are domain
+   * rules the API reasons with. Two of the three being equal would let
+   * the third drift silently.
+   */
+  it("the domain copy agrees as well", () => {
+    expect([...DOMAIN_SALE_MODES].sort()).toEqual(prismaValues(PrismaSaleMode));
   });
 });

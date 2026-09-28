@@ -54,7 +54,7 @@ export function OpportunityPagination({
 
   const canGoBack = query.page > 1;
   const canGoForward = query.page < lastPage;
-  const inactive = "inline-flex items-center rounded-md px-3 py-1.5 text-sm text-content-muted opacity-50";
+  const inactive = "inline-flex items-center rounded-md px-control-x py-control-y text-sm text-content-muted opacity-50";
 
   return (
     <nav aria-label={labels.navLabel} className={cn("flex items-center justify-between gap-3", className)}>

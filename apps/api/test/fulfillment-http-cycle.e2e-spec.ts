@@ -9,6 +9,7 @@ import { checkoutFixturePrisma } from "./fixtures/checkout.fixture";
 import { seedFulfillmentFixture } from "./fixtures/fulfillment.fixture";
 import { MockShippingProvider } from "../src/fulfillment/providers/mock-shipping.provider";
 import { hashPassword } from "../src/common/security/argon2.util";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = checkoutFixturePrisma;
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -78,8 +79,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixture.supplierCompanyId,
           email: `supplier-fulfx-${fixture.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000001",
-          primaryMobile2: "+966500000002",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });
@@ -149,8 +150,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixture.supplierCompanyId,
           email: `supplier-fulfx-${fixture.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000003",
-          primaryMobile2: "+966500000004",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });
@@ -173,8 +174,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixture.supplierCompanyId,
           email: `supplier-fulfx-${fixture.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000005",
-          primaryMobile2: "+966500000006",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });
@@ -221,8 +222,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixture.supplierCompanyId,
           email: `supplier-fulfx-${fixture.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000007",
-          primaryMobile2: "+966500000008",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });
@@ -249,8 +250,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixtureB.supplierCompanyId,
           email: `supplier-fulfx-b-${fixtureB.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000009",
-          primaryMobile2: "+966500000010",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });
@@ -271,8 +272,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixtureA.supplierCompanyId,
           email: `supplier-fulfx-c-${fixtureA.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000011",
-          primaryMobile2: "+966500000012",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });
@@ -300,8 +301,8 @@ describe("Fulfillment — full HTTP cycle (e2e)", () => {
           companyId: fixture.supplierCompanyId,
           email: `supplier-fulfx-d-${fixture.supplierCompanyId}-${Date.now()}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000013",
-          primaryMobile2: "+966500000014",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           emailVerificationStatus: "VERIFIED",
         },
       });

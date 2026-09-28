@@ -28,3 +28,23 @@ export const CITY_ITEM_KEYS = [
   "nameEn",
   "region",
 ] as const satisfies readonly (keyof CityItem)[];
+
+/**
+ * An active region, as every public surface receives one.
+ *
+ * THE PLATFORM'S OPERATIONAL UNIT. A branch is recorded against a
+ * region, a listing ships from one, the marketplace filters by one.
+ * `CityItem` above is the refinement beneath it — an optional narrowing
+ * of a place, not the place itself.
+ *
+ * The shape is `CityRegionRef` exactly, and it says so rather than
+ * restating three fields: a region named one way inside a city and
+ * another way in the picker would be the same region reading as two.
+ */
+export type RegionItem = CityRegionRef;
+
+export const REGION_ITEM_KEYS = [
+  "id",
+  "nameAr",
+  "nameEn",
+] as const satisfies readonly (keyof RegionItem)[];

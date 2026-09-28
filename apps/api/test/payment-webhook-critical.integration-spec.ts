@@ -4,6 +4,7 @@ import { PaymentWebhookService } from "../src/payments/payment-webhook.service";
 import { CommissionTaxPolicyService } from "../src/settings/commission-tax-policy.service";
 import { AuditService } from "../src/audit/audit.service";
 import { MockPaymentProvider } from "../src/payments/providers/mock-payment.provider";
+import { BusinessException } from "../src/common/errors/business-exception";
 import { AdminOpportunitiesService } from "../src/admin/opportunities/admin-opportunities.service";
 import { seedPaymentFixture, paymentFixturePrisma, buildPaymentAttemptService } from "./fixtures/payment.fixture";
 import { notificationEvents } from "./fixtures/notifications.fixture";
@@ -33,7 +34,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
     const fixture = await seedPaymentFixture({ traderCrPrefix: "LATECANCEL" });
     const beforeFunded = (await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } })).fundedQuantity;
 
-    const adminOpportunities = new AdminOpportunitiesService(prisma as unknown as PrismaService);
+    const adminOpportunities = new AdminOpportunitiesService(prisma as unknown as PrismaService, {} as never);
     await adminOpportunities.cancel(fixture.opportunityId, "test cancel", { actorId: crypto.randomUUID(), requestId: "req-cancel" });
 
     const session = await prisma.checkoutSession.findUniqueOrThrow({ where: { id: fixture.checkoutSessionId } });
@@ -78,7 +79,7 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
     const fixture = await seedPaymentFixture({ traderCrPrefix: "EARLYCANCEL" });
     const capturedAt = new Date();
 
-    const adminOpportunities = new AdminOpportunitiesService(prisma as unknown as PrismaService);
+    const adminOpportunities = new AdminOpportunitiesService(prisma as unknown as PrismaService, {} as never);
     await adminOpportunities.cancel(fixture.opportunityId, "test cancel", { actorId: crypto.randomUUID(), requestId: "req-cancel" });
 
     const service = buildWebhookService(prisma as unknown as PrismaService);
@@ -245,5 +246,56 @@ describe("PaymentWebhookService — critical scenarios (integration, real DB)", 
 
     const orders = await prisma.masterOrder.count({ where: { checkoutSessionId: fixture.checkoutSessionId } });
     expect(orders).toBe(1);
+  }, 30_000);
+
+  it("a SUCCESS without providerCapturedAt is refused as malformed, deliberately, and writes nothing", async () => {
+    // THE MOMENT OF CAPTURE IS NOT OPTIONAL ON A SUCCESS.
+    //
+    // It is what the two tests at the top of this file turn on: a
+    // capture that happened after the offer was cancelled must be
+    // refunded, one that happened before must become an order. A
+    // SUCCESS with no moment cannot be placed on either side of that
+    // line.
+    //
+    // Before this was checked, such an event was written straight into
+    // `payment_attempts` and stopped only by
+    // `payment_attempts_captured_at_amount_consistency` — a raw
+    // Postgres error inside the webhook's transaction, which every
+    // provider answers by delivering the same event again for ever.
+    const fixture = await seedPaymentFixture({ traderCrPrefix: "NOCAPTIME" });
+    const service = buildWebhookService(prisma as unknown as PrismaService);
+    const providerEventId = `evt-nocaptime-${fixture.merchantReference}`;
+    const { rawBody, headers } = provider.buildSignedWebhook({
+      merchantReference: fixture.merchantReference,
+      providerReference: `ref-${fixture.merchantReference}`,
+      providerEventId,
+      eventType: "SUCCESS",
+      providerCapturedAmount: fixture.providerAmount,
+      // providerCapturedAt deliberately absent.
+    });
+
+    // A 400, naming the missing field — not a constraint violation.
+    const error = await service.handleWebhook(rawBody, headers).then(
+      () => null,
+      (e: unknown) => e
+    );
+    expect(error).toBeInstanceOf(BusinessException);
+    expect((error as BusinessException).getStatus()).toBe(400);
+    expect((error as BusinessException).message).toContain("providerCapturedAt");
+
+    // REFUSED BEFORE THE TRANSACTION OPENS, so there is no idempotency
+    // claim to roll back and the attempt is untouched.
+    const claim = await prisma.$queryRaw<{ key: string }[]>`
+      SELECT key FROM idempotency_keys WHERE key = ${providerEventId}
+    `;
+    expect(claim).toHaveLength(0);
+
+    const attempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: fixture.paymentAttemptId } });
+    expect(attempt.status).not.toBe("SUCCEEDED");
+    expect(attempt.providerCapturedAt).toBeNull();
+    expect(attempt.providerCapturedAmount).toBeNull();
+
+    const orders = await prisma.masterOrder.count({ where: { checkoutSessionId: fixture.checkoutSessionId } });
+    expect(orders).toBe(0);
   }, 30_000);
 });

@@ -37,6 +37,18 @@ function summaryRow(overrides: Record<string, unknown> = {}) {
     archivedAt: null,
     createdAt: new Date("2026-08-01T00:00:00.000Z"),
     updatedAt: new Date("2026-08-02T00:00:00.000Z"),
+    // ON THE SUMMARY NOW, not the detail: the catalogue card draws all
+    // of these, and fetching them per row was one HTTP request per
+    // product.
+    descriptionAr: "وصف",
+    descriptionEn: "Description",
+    weightPerUnit: new Prisma.Decimal("12.5"),
+    lengthCm: new Prisma.Decimal("30"),
+    widthCm: new Prisma.Decimal("20"),
+    heightCm: new Prisma.Decimal("15"),
+    packageContentQuantity: new Prisma.Decimal("6"),
+    packageContentUnitNameAr: "علبة",
+    packageContentUnitNameEn: "Box",
     media: [{ id: MEDIA }],
     ...overrides,
   } as never;
@@ -45,16 +57,7 @@ function summaryRow(overrides: Record<string, unknown> = {}) {
 function detailRow(overrides: Record<string, unknown> = {}) {
   return {
     ...(summaryRow() as object),
-    descriptionAr: "وصف",
-    descriptionEn: "Description",
     taxonomyNodeId: "99999999-9999-4999-8999-999999999999",
-    weightPerUnit: new Prisma.Decimal("12.5"),
-    lengthCm: new Prisma.Decimal("30"),
-    widthCm: new Prisma.Decimal("20"),
-    heightCm: new Prisma.Decimal("15"),
-    packageContentQuantity: new Prisma.Decimal("6"),
-    packageContentUnitNameAr: "علبة",
-    packageContentUnitNameEn: "Box",
     media: [
       {
         id: MEDIA,

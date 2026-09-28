@@ -6,6 +6,10 @@ import { loadNotifications } from "@/lib/trader-data";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { NotificationList } from "@/components/trader/notification-list";
 import { TraderPagination, parsePage } from "@/components/trader/trader-pagination";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.notifications");
+
 
 /**
  * The trader's notifications.
@@ -43,8 +47,11 @@ export default async function TraderNotificationsPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
+        {/* THE TAB ABOVE IS THIS PAGE'S TITLE — «ألغِ التسمية المكررة مثل
+              ما سوّينا في صفحة المورد». The heading stays for the document
+              outline and for anyone reading by structure; a tab is a link
+              and can never stand in for one. */}
+          <h1 className="sr-only">{t("title")}</h1>
       </header>
 
       {!result.ok ? (

@@ -7,19 +7,25 @@ import {
   hasActiveFilters,
   type MarketplaceQuery,
 } from "@/lib/marketplace-query";
-import { loadCities, loadOpportunities, loadTaxonomy } from "@/lib/marketplace-data";
+import {
+  loadCities,
+  loadRegions,
+  loadOpportunities,
+  loadTaxonomy,
+} from "@/lib/marketplace-data";
 import { buildTaxonomyOptions, findTaxonomyOption } from "@/lib/taxonomy-tree";
 import { localized } from "@/lib/localized";
+import { offerCardLabels } from "@/lib/offer-labels";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { ButtonLink } from "@/components/ui/button";
 import { BannerSlot } from "@/components/banners/banner-slot";
 import { OpportunityFilters } from "@/components/opportunities/opportunity-filters";
 import { OpportunityPagination } from "@/components/opportunities/opportunity-pagination";
-import {
-  OpportunityCard,
-  remainingDays,
-  CLOSING_SOON_DAYS,
-} from "@/components/opportunities/opportunity-card";
+import { OpportunityCard } from "@/components/opportunities/opportunity-card";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("marketplace");
+
 
 /**
  * The public marketplace.
@@ -62,14 +68,25 @@ export default async function OpportunitiesPage({
   const appLocale = locale as AppLocale;
   const query = parseMarketplaceQuery(await searchParams);
 
-  const t = await getTranslations({ locale: appLocale, namespace: "marketplace" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "marketplace",
+  });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
 
   return (
     <div className="flex flex-col gap-6">
+      {/* FIRST, AND TOUCHING THE STRIP — «الصقه في الشريط اللي
+          فوقه». It stood third, under the heading and a banner slot,
+          which is the gap the owner measured. Being first in the body
+          IS being under the tab strip; nothing else may come between. */}
+      <FiltersRegion locale={appLocale} query={query} />
+
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
       </header>
 
       {/* A promotional strip must never hold up the listing. */}
@@ -79,10 +96,6 @@ export default async function OpportunitiesPage({
           locale={appLocale}
           regionLabel={t("bannersLabel")}
         />
-      </Suspense>
-
-      <Suspense fallback={<LoadingState label={common("loading")} rows={2} />}>
-        <FiltersRegion locale={appLocale} query={query} />
       </Suspense>
 
       <Suspense fallback={<LoadingState label={common("loading")} rows={4} />}>
@@ -97,11 +110,48 @@ export default async function OpportunitiesPage({
  * empty option lists it simply offers fewer choices, which beats
  * removing controls a visitor may have arrived using.
  */
-async function FiltersRegion({ locale, query }: { locale: AppLocale; query: MarketplaceQuery }) {
+async function FiltersRegion({
+  locale,
+  query,
+}: {
+  locale: AppLocale;
+  query: MarketplaceQuery;
+}) {
   const t = await getTranslations({ locale, namespace: "marketplace" });
 
-  const [cities, taxonomy] = await Promise.all([loadCities(), loadTaxonomy()]);
-  const taxonomyOptions = taxonomy.ok ? buildTaxonomyOptions(taxonomy.data, locale) : [];
+  // THE REGIONS, AND ONLY THE CHOSEN REGION'S CITIES.
+  //
+  // The city picker shows one region's cities. It used to receive every
+  // active city on the platform and narrow them in the browser, which
+  // put the whole list into the page twice — as markup and again in the
+  // RSC payload — to display a handful. Picking a different region
+  // fetches that region's cities from the filter itself.
+  const [regions, cities, taxonomy] = await Promise.all([
+    loadRegions(),
+    query.regionId ? loadCities(query.regionId) : Promise.resolve({ ok: true as const, data: [] }),
+    loadTaxonomy(),
+  ]);
+  const taxonomyOptions = taxonomy.ok
+    ? buildTaxonomyOptions(taxonomy.data, locale)
+    : [];
+
+  /**
+   * THE ROOTS, PLUS THE BRANCHES OF THE ONE THAT IS OPEN.
+   *
+   * The filter is two controls deep: a root category, and a branch
+   * beneath whichever root is chosen. It used to receive the entire
+   * tree as a prop and pick those two slices out of it in the browser —
+   * so every category on the platform was serialised into the page
+   * twice to render at most one root's children.
+   *
+   * The rest of the tree can never be rendered by this control, so it
+   * does not travel.
+   */
+  const chosen = taxonomyOptions.find((option) => option.id === query.taxonomyNodeId);
+  const openRootId = chosen ? (chosen.parentId ?? chosen.id) : null;
+  const visibleTaxonomy = taxonomyOptions.filter(
+    (option) => option.parentId === null || option.parentId === openRootId
+  );
 
   const sortOptions: Record<OpportunitySort, string> = {
     NEWEST: t("sort.newest"),
@@ -112,25 +162,36 @@ async function FiltersRegion({ locale, query }: { locale: AppLocale; query: Mark
     <OpportunityFilters
       locale={locale}
       query={query}
+      regions={regions.ok ? regions.data : []}
       cities={cities.ok ? cities.data : []}
-      taxonomyOptions={taxonomyOptions}
+      taxonomyOptions={visibleTaxonomy}
       labels={{
-        regionLabel: t("filters.regionLabel"),
+        formLabel: t("filters.regionLabel"),
+        regionLabel: t("filters.region"),
+        anyRegion: t("filters.anyRegion"),
         cityLabel: t("filters.city"),
         anyCity: t("filters.anyCity"),
         categoryLabel: t("filters.category"),
         anyCategory: t("filters.anyCategory"),
+        anyBranch: t("filters.anyBranch"),
         categoryExactMatchHint: t("filters.categoryExactMatchHint"),
         sortLabel: t("filters.sort"),
         sortOptions,
         apply: t("filters.apply"),
         clear: t("filters.clear"),
+        showResults: t("filters.show"),
       }}
     />
   );
 }
 
-async function ResultsRegion({ locale, query }: { locale: AppLocale; query: MarketplaceQuery }) {
+async function ResultsRegion({
+  locale,
+  query,
+}: {
+  locale: AppLocale;
+  query: MarketplaceQuery;
+}) {
   const t = await getTranslations({ locale, namespace: "marketplace" });
   const states = await getTranslations({ locale, namespace: "states" });
   const pagination = await getTranslations({ locale, namespace: "pagination" });
@@ -151,10 +212,28 @@ async function ResultsRegion({ locale, query }: { locale: AppLocale; query: Mark
   // Resolving the active filters' names needs the catalogues, which the
   // filter region already fetched — the same revalidated cache entry
   // serves both, so this is not a second round trip.
-  const [cities, taxonomy] = await Promise.all([loadCities(), loadTaxonomy()]);
-  const activeCity = cities.ok ? cities.data.find((c) => c.id === query.cityId) : undefined;
+  //
+  // THE CITIES OF THE CHOSEN REGION ONLY, and only when a region is
+  // chosen — this needs one name, not a catalogue.
+  const [regions, cities, taxonomy] = await Promise.all([
+    loadRegions(),
+    query.regionId ? loadCities(query.regionId) : Promise.resolve({ ok: true as const, data: [] }),
+    loadTaxonomy(),
+  ]);
+  // NAMED IN THE ORDER THEY NARROW: the region, then the city within
+  // it. A summary that said only the city would leave a visitor
+  // filtered by a region they cannot see stated anywhere.
+  const activeRegion = regions.ok
+    ? regions.data.find((r) => r.id === query.regionId)
+    : undefined;
+  const activeCity = cities.ok
+    ? cities.data.find((c) => c.id === query.cityId)
+    : undefined;
   const activeCategory = taxonomy.ok
-    ? findTaxonomyOption(buildTaxonomyOptions(taxonomy.data, locale), query.taxonomyNodeId)
+    ? findTaxonomyOption(
+        buildTaxonomyOptions(taxonomy.data, locale),
+        query.taxonomyNodeId,
+      )
     : null;
 
   const lastPage = Math.max(1, Math.ceil(results.data.total / query.pageSize));
@@ -162,49 +241,51 @@ async function ResultsRegion({ locale, query }: { locale: AppLocale; query: Mark
 
   return (
     <>
-      <p role="status" aria-live="polite" className="text-sm text-content-muted">
+      <p
+        role="status"
+        aria-live="polite"
+        className="text-sm text-content-muted"
+      >
         {t("resultCount", { count: results.data.total })}
-        {activeCity ? ` · ${localized(locale, activeCity.nameAr, activeCity.nameEn)}` : ""}
+        {activeRegion
+          ? ` · ${localized(locale, activeRegion.nameAr, activeRegion.nameEn)}`
+          : ""}
+        {activeCity
+          ? ` · ${localized(locale, activeCity.nameAr, activeCity.nameEn)}`
+          : ""}
         {activeCategory ? ` · ${activeCategory.path}` : ""}
       </p>
 
       {results.data.items.length === 0 ? (
         <EmptyState
           title={filtered ? t("emptyFiltered.title") : t("empty.title")}
-          description={filtered ? t("emptyFiltered.description") : t("empty.description")}
+          description={
+            filtered ? t("emptyFiltered.description") : t("empty.description")
+          }
           action={
             filtered ? (
-              <ButtonLink href={`/${locale}/opportunities`} variant="ghost" size="sm">
+              <ButtonLink
+                href={`/${locale}/opportunities`}
+                variant="ghost"
+                size="sm"
+              >
                 {t("filters.clear")}
               </ButtonLink>
             ) : undefined
           }
         />
       ) : (
-        <ul className="grid list-none gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.data.items.map((opportunity) => {
-            const days = remainingDays(opportunity.endAt);
-            const closingSoon = days !== null && days <= CLOSING_SOON_DAYS;
-
-            return (
-              <li key={opportunity.id}>
-                <OpportunityCard
-                  opportunity={opportunity}
-                  locale={locale}
-                  labels={{
-                    cityLabel: t("card.city"),
-                    unitLabel: t("card.unit"),
-                    closesLabel: t("card.closes"),
-                    closesIn: days === null ? null : t("card.closesInDays", { days }),
-                    closingSoonBadge: closingSoon ? t("card.closingSoon") : null,
-                    scheduledBadge: t("card.scheduled"),
-                    noImage: t("card.noImage"),
-                    viewDetails: t("card.viewDetails"),
-                  }}
-                />
-              </li>
-            );
-          })}
+        // THREE TO A ROW WHERE THERE IS ROOM — see `home-content`.
+        <ul className="grid list-none grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+          {results.data.items.map((opportunity) => (
+            <li key={opportunity.id}>
+              <OpportunityCard
+                opportunity={opportunity}
+                locale={locale}
+                labels={offerCardLabels(t, opportunity, locale)}
+              />
+            </li>
+          ))}
         </ul>
       )}
 

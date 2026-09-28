@@ -13,6 +13,7 @@ import { BannerService } from "./banner.service";
 import { ImageDeliveryService } from "../common/media/image-delivery.service";
 import { ListPublicBannersQueryDto } from "./dto/public-banner.dto";
 import { ImageVariantQueryDto, wantsThumbnail } from "./dto/image-variant.dto";
+import { BannerLocaleQueryDto } from "./dto/banner-locale.dto";
 
 /**
  * Public banners. No session, no guards — these appear on pages nobody
@@ -28,36 +29,37 @@ import { ImageVariantQueryDto, wantsThumbnail } from "./dto/image-variant.dto";
 export class BannerController {
   constructor(
     private readonly banners: BannerService,
-    private readonly delivery: ImageDeliveryService
+    private readonly delivery: ImageDeliveryService,
   ) {}
 
   @Get()
   async list(@Query() query: ListPublicBannersQueryDto): Promise<BannerItem[]> {
-    const rows = await this.banners.listLive(query.placement);
+    const rows = await this.banners.listLive(query.placement, query.locale);
+    const locale = encodeURIComponent(query.locale);
 
     return rows.map((row) => ({
       id: row.id,
-      titleAr: row.titleAr,
-      titleEn: row.titleEn,
-      bodyAr: row.bodyAr,
-      bodyEn: row.bodyEn,
       linkUrl: row.linkUrl,
-      // Routes, never object keys. Null when there is no image, so the
-      // client renders its no-image state instead of a broken request.
-      imageUrl: row.hasImage ? `/api/v1/banners/${row.id}/image` : null,
-      thumbnailUrl: row.hasImage ? `/api/v1/banners/${row.id}/image?variant=thumb` : null,
+      // Routes, never object keys. The locale travels in the URL so the
+      // image request resolves to the same language the list was built
+      // for — a client cannot end up asking for the other one.
+      //
+      // Never null: the list only returns banners whose artwork for this
+      // language exists, so there is no no-image case to represent.
+      imageUrl: `/api/v1/banners/${row.id}/image?locale=${locale}`,
+      thumbnailUrl: `/api/v1/banners/${row.id}/image?locale=${locale}&variant=thumb`,
     }));
   }
 
   @Get(":id/image")
   async getImage(
     @Param("id") id: string,
-    @Query() query: ImageVariantQueryDto,
+    @Query() query: ImageVariantQueryDto & BannerLocaleQueryDto,
     @Headers("if-none-match") ifNoneMatch: string | undefined,
     @Headers("if-modified-since") ifModifiedSince: string | undefined,
-    @Res() res: Response
+    @Res() res: Response,
   ): Promise<void> {
-    const image = await this.banners.findLiveImage(id);
+    const image = await this.banners.findLiveImage(id, query.locale);
     // Not live, no image, and unknown id are ONE answer with no
     // observable difference between them.
     if (!image) throw new NotFoundException("Image not found");
@@ -71,7 +73,7 @@ export class BannerController {
         etag: thumb ? image.imageThumbnailETag : image.imageETag,
         lastModified: image.imageUpdatedAt,
       },
-      { ifNoneMatch, ifModifiedSince }
+      { ifNoneMatch, ifModifiedSince },
     );
 
     res.set(result.headers).status(result.status);

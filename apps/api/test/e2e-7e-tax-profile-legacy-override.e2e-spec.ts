@@ -227,6 +227,15 @@ async function seedLegacyMasterOrder(fixture: Awaited<ReturnType<typeof seedChec
       supplierTaxProfileSnapshot: { isVatRegistered: supplierTaxProfile.isVatRegistered, vatNumber: supplierTaxProfile.vatNumber },
       supplierInvoicingProfileSnapshot: { invoicingLegalName: invoicingProfile.invoicingLegalName },
       paidAt: past,
+      // WHAT WAS SOLD, frozen on the order — see the migration
+      // `order_freezes_what_was_sold`. A fixture that omits these is
+      // building an order the platform can no longer write.
+      productNameArSnapshot: "منتج اختبار",
+      productNameEnSnapshot: "Test product",
+      salesUnitNameArSnapshot: "وحدة",
+      salesUnitNameEnSnapshot: "Unit",
+      unitPriceInclTaxSnapshot: 100,
+      totalQuantitySnapshot: 1,
     },
   });
 

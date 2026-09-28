@@ -7,12 +7,14 @@ import {
 } from "./admin-reason.constants";
 import { AdminReasonBodyDto } from "./admin-reason.dto";
 import { RejectSupplierDto } from "../../admin/operations/dto/reject-supplier.dto";
-import { RejectBankAccountDto } from "../../admin/financial/dto/reject-bank-account.dto";
+import { ReturnSupplierDto } from "../../admin/operations/dto/return-supplier.dto";
 import { RejectProductDto } from "../../admin/products/dto/reject-product.dto";
 import { ProductAdministrativeActionDto } from "../../admin/products/dto/product-administrative-action.dto";
 import { PauseOpportunityDto } from "../../admin/opportunities/dto/pause-opportunity.dto";
 import { CancelOpportunityDto } from "../../admin/opportunities/dto/cancel-opportunity.dto";
 import { AdminConfirmDeliveryDto } from "../../fulfillment/dto/admin-confirm-delivery.dto";
+import { AdminConfirmReplacementDeliveryDto } from "../../replacement/dto/admin-confirm-replacement-delivery.dto";
+import { CreateBuyerBillingOverrideDto } from "../../financial/dto/create-buyer-billing-override.dto";
 import { DecideProductReportDto } from "../../product-reports/dto/decide-product-report.dto";
 import { AdminReasonDto } from "../../admin/admin-users/dto/admin-reason.dto";
 
@@ -44,7 +46,9 @@ const REASON_DTOS: ReadonlyArray<readonly [string, new () => object]> = [
   ["AdminReasonBodyDto", AdminReasonBodyDto],
   ["AdminReasonDto (admin users)", AdminReasonDto],
   ["RejectSupplierDto", RejectSupplierDto],
-  ["RejectBankAccountDto", RejectBankAccountDto],
+  // A bank account is no longer refused on its own; the decision that
+  // needs a reason is now returning a supplier's request.
+  ["ReturnSupplierDto", ReturnSupplierDto],
   ["RejectProductDto", RejectProductDto],
   ["ProductAdministrativeActionDto", ProductAdministrativeActionDto],
   ["PauseOpportunityDto", PauseOpportunityDto],
@@ -54,6 +58,17 @@ const REASON_DTOS: ReadonlyArray<readonly [string, new () => object]> = [
 /** The two whose field is named something else. */
 const OTHER_FIELD_DTOS: ReadonlyArray<readonly [string, new () => object, string]> = [
   ["AdminConfirmDeliveryDto", AdminConfirmDeliveryDto, "reasonNote"],
+  // The same override on a replacement rather than the original
+  // allocation. It kept @MinLength(1) because no screen ever sent it —
+  // which is exactly how a bound goes unnoticed.
+  [
+    "AdminConfirmReplacementDeliveryDto",
+    AdminConfirmReplacementDeliveryDto,
+    "reasonNote",
+  ],
+  // Rewriting the billing identity on an order. Stored, audited, and
+  // read off a tax-adjacent document long afterwards.
+  ["CreateBuyerBillingOverrideDto", CreateBuyerBillingOverrideDto, "reasonNote"],
   ["DecideProductReportDto", DecideProductReportDto, "note"],
 ];
 

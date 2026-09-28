@@ -1,34 +1,37 @@
 import { createHash, createHmac } from "crypto";
-
-/** Uppercase, strip whitespace — the canonical form stored/compared everywhere. */
-export function normalizeIban(raw: string): string {
-  return raw.replace(/\s+/g, "").toUpperCase();
-}
+import {
+  normalizeSaudiIban,
+  isValidSaudiIban as isWellFormedSaudiIban,
+  saudiBankFromIban,
+} from "@platform/types";
 
 /**
- * Saudi IBAN format: "SA" + 22 digits = 24 characters total. The
- * platform operates in Saudi Arabia (Blueprint-wide assumption), so
- * this is the one format validated here rather than the fully general
- * (and much looser) international IBAN pattern.
+ * IBAN handling, split in two on purpose.
+ *
+ * THE FORMAT RULES LIVE IN `@platform/types`, because the form has to
+ * apply exactly the same ones as the server: a supplier should see the
+ * bank appear beside the field as they type, and see the same answer
+ * the server will give. There is one MOD-97 in this repository and it
+ * is there.
+ *
+ * THE SECRETS LIVE HERE, because they need the encryption key and Node
+ * crypto, and neither belongs in a package the browser imports.
  */
-const SAUDI_IBAN_PATTERN = /^SA\d{22}$/;
 
-export function isValidSaudiIban(normalized: string): boolean {
-  if (!SAUDI_IBAN_PATTERN.test(normalized)) return false;
+/** Uppercase, strip whitespace — the canonical form stored/compared everywhere. */
+export const normalizeIban = normalizeSaudiIban;
 
-  // ISO 13616 checksum without converting the complete value to a JS number.
-  const rearranged = normalized.slice(4) + normalized.slice(0, 4);
-  let remainder = 0;
-  for (const character of rearranged) {
-    const numeric = /[A-Z]/.test(character)
-      ? String(character.charCodeAt(0) - 55)
-      : character;
-    for (const digit of numeric) {
-      remainder = (remainder * 10 + Number(digit)) % 97;
-    }
-  }
-  return remainder === 1;
-}
+/**
+ * Well-formed Saudi IBAN: "SA" + 22 digits, checksum agreeing.
+ *
+ * A TYPO-CATCHER, NOT A VERIFICATION. It says nothing about whether the
+ * account exists or who owns it; the company's approval review is what
+ * answers that.
+ */
+export const isValidSaudiIban = isWellFormedSaudiIban;
+
+/** The bank the number itself names, or null when the code is unknown. */
+export const bankFromIban = saudiBankFromIban;
 
 /**
  * A domain-separated key derived from the raw encryption key,

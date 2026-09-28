@@ -17,15 +17,37 @@ import type { NextFunction, Request, Response } from "express";
  *     GET /api/v1/opportunities/:id/image
  *       -> net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
  *
- * so every product, opportunity and banner image is broken.
+ * so every product, opportunity, banner and brand-logo image is
+ * broken.
  *
- * Why `same-site` and not `cross-origin`
- * --------------------------------------
+ * Why `same-site` in production
+ * -----------------------------
  * `cross-origin` would let ANY site embed these images. `same-site` lets
  * only this deployment's own sites do it, which is all that is needed:
  * CORP compares SITE (scheme + registrable domain), ignoring the port,
- * so `localhost:3001` -> `localhost:3000` and
- * `app.forsa.sa` -> `api.forsa.sa` both pass, while `evil.com` does not.
+ * so `app.forsa.sa` -> `api.forsa.sa` passes while `evil.com` does not.
+ *
+ * Why NOT `same-site` outside production
+ * --------------------------------------
+ * BECAUSE A DEVELOPMENT HOST IS OFTEN AN IP ADDRESS, and an IP
+ * address has no registrable domain for that comparison to be made
+ * against. Reading the platform from a phone means serving it on
+ * the machine's LAN address, and Chrome then answers every image
+ * with:
+ *
+ *     net::ERR_BLOCKED_BY_RESPONSE.NotSameSite
+ *
+ * — measured, on the logo, the banner and every product thumbnail
+ * at once: «الصور لا تظهر في سطح المكتب، حتى البنر والشعار وصور
+ *  المنتجات». The API answers 200 and the browser drops the bytes,
+ * so nothing appears in the network log as a failure.
+ *
+ * THE RELAXATION IS FENCED BY `NODE_ENV`. A deployment always has
+ * real domain names, so it keeps the stricter header; only a
+ * developer's own machine, reachable from their own network, hands
+ * out `cross-origin`.
+ *
+ * AND IT IS NOT AN ACCESS CONTROL EITHER WAY — see below.
  *
  * Why this does not weaken authentication
  * ---------------------------------------
@@ -48,8 +70,23 @@ export const EMBEDDABLE_IMAGE_ROUTES: readonly RegExp[] = [
   /^\/api\/v1\/banners\/[^/]+\/image$/,
   /^\/api\/v1\/admin\/banners\/[^/]+\/image$/,
   /^\/api\/v1\/companies\/me\/products\/[^/]+\/media\/[^/]+\/image$/,
+  // The header logo, added in 8G and missed here — which is why it
+  // rendered as a broken image on every page while the API was
+  // answering 200. Both are literal paths with no id segment: the
+  // language is a query parameter, and `req.path` excludes the query.
+  /^\/api\/v1\/branding\/logo$/,
+  /^\/api\/v1\/admin\/branding\/logo\/image$/,
 ];
 
+/**
+ * The header value for this environment. Production keeps the
+ * stricter one; anything else has to survive an IP-address host.
+ */
+export function embeddableImageCorp(nodeEnv: string | undefined): string {
+  return nodeEnv === "production" ? "same-site" : "cross-origin";
+}
+
+/** What a production deployment sends. */
 export const EMBEDDABLE_IMAGE_CORP = "same-site";
 
 export function isEmbeddableImagePath(path: string): boolean {
@@ -67,7 +104,10 @@ export function embeddableImageCorpMiddleware(
   next: NextFunction
 ): void {
   if (isEmbeddableImagePath(req.path)) {
-    res.setHeader("Cross-Origin-Resource-Policy", EMBEDDABLE_IMAGE_CORP);
+    res.setHeader(
+      "Cross-Origin-Resource-Policy",
+      embeddableImageCorp(process.env.NODE_ENV),
+    );
   }
   next();
 }

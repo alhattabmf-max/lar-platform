@@ -13,8 +13,8 @@ function load(locale: string): Record<string, unknown> {
 
 function flatten(value: unknown, prefix = ""): string[] {
   if (typeof value !== "object" || value === null) return [prefix];
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
-    flatten(child, prefix ? `${prefix}.${key}` : key)
+  return Object.entries(value as Record<string, unknown>).flatMap(
+    ([key, child]) => flatten(child, prefix ? `${prefix}.${key}` : key),
   );
 }
 
@@ -34,15 +34,25 @@ describe("message catalogues", () => {
   });
 
   it("cover every namespace the 8B shell needs", () => {
-    for (const namespace of ["shell", "common", "pagination", "states", "errors"]) {
+    for (const namespace of [
+      "shell",
+      "common",
+      "pagination",
+      "states",
+      "errors",
+    ]) {
       expect(ar).toHaveProperty(namespace);
       expect(en).toHaveProperty(namespace);
     }
   });
 
   it("cover every error code in the shared catalogue", () => {
-    const arCodes = Object.keys((ar.errors as { codes: Record<string, string> }).codes);
-    const enCodes = Object.keys((en.errors as { codes: Record<string, string> }).codes);
+    const arCodes = Object.keys(
+      (ar.errors as { codes: Record<string, string> }).codes,
+    );
+    const enCodes = Object.keys(
+      (en.errors as { codes: Record<string, string> }).codes,
+    );
 
     for (const code of Object.values(ERROR_CODES)) {
       expect(arCodes).toContain(code);
@@ -59,7 +69,7 @@ describe("message catalogues", () => {
     expect((ar.shell as Record<string, string>).brandFallback).toBeTruthy();
     expect((en.shell as Record<string, string>).brandFallback).toBeTruthy();
     expect((ar.shell as Record<string, string>).brandFallback).not.toBe(
-      (en.shell as Record<string, string>).brandFallback
+      (en.shell as Record<string, string>).brandFallback,
     );
   });
 
@@ -73,7 +83,9 @@ describe("message catalogues", () => {
           expect(value.trim(), `${locale}:${path}`).not.toBe("");
           return;
         }
-        for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+        for (const [key, child] of Object.entries(
+          value as Record<string, unknown>,
+        )) {
           walk(child, path ? `${path}.${key}` : key);
         }
       };
@@ -111,10 +123,22 @@ describe("message catalogues", () => {
 
   it("formats every message that takes a named argument", () => {
     const cases = [
-      { namespace: "pagination", key: "status", values: { page: 2, lastPage: 7 } },
+      {
+        namespace: "pagination",
+        key: "status",
+        values: { page: 2, lastPage: 7 },
+      },
       { namespace: "policies", key: "version", values: { label: "v1.0" } },
       { namespace: "auth.resetPassword", key: "tooShort", values: { min: 8 } },
-      { namespace: "register", key: "location.accuracy", values: { metres: 25 } },
+      // Was register.location.accuracy, which read out how precisely
+      // the browser had found a company. Registration no longer asks
+      // where a company is, so the key is gone; the shell header keeps
+      // this case honest with a placeholder that still exists.
+      {
+        namespace: "shell",
+        key: "nav.openCategory",
+        values: { name: "أدوات" },
+      },
     ] as const;
 
     for (const locale of ["ar-SA", "en-SA"] as const) {
@@ -132,7 +156,9 @@ describe("message catalogues", () => {
         expect(formatted, `${locale}:${namespace}.${key}`).toBeTruthy();
         // An unsubstituted placeholder means the catalogue and the call
         // site disagree about the argument's name.
-        expect(formatted, `${locale}:${namespace}.${key}`).not.toMatch(/\{[a-zA-Z]+\}/);
+        expect(formatted, `${locale}:${namespace}.${key}`).not.toMatch(
+          /\{[a-zA-Z]+\}/,
+        );
       }
     }
   });
@@ -153,9 +179,16 @@ describe("message catalogues", () => {
    */
   describe("shipping origin is never called a delivery city", () => {
     const marketplace = (m: Record<string, unknown>) =>
-      (m.marketplace as Record<string, Record<string, string>>);
+      m.marketplace as Record<string, Record<string, string>>;
 
     it("labels the marketplace filter as the shipping origin", () => {
+      // THE REGION IS THE FILTER NOW, and it inherits the same
+      // obligation: it is where the goods SHIP FROM. A bare «المنطقة»
+      // would read as the trader's own region, which is the exact
+      // confusion this block exists to prevent.
+      expect(marketplace(ar).filters.region).toBe("منطقة الشحن");
+      expect(marketplace(en).filters.region).toBe("Shipping origin region");
+      // The city refines it, and says the same thing.
       expect(marketplace(ar).filters.city).toBe("مدينة الشحن");
       expect(marketplace(en).filters.city).toBe("Shipping origin city");
     });
@@ -176,11 +209,19 @@ describe("message catalogues", () => {
       }
     });
 
-    it("keeps the trader's OWN address wording untouched", () => {
-      // register.city is the trader's company location, a genuine
-      // address — not a supplier origin.
-      expect((ar.register as Record<string, string>).city).toBe("المدينة");
-      expect((en.register as Record<string, string>).city).toBe("City");
+    it("keeps the company's OWN address wording untouched", () => {
+      // The company's own city is a genuine address, not a supplier
+      // origin, and must not pick up the origin wording.
+      //
+      // IT MOVED, WITH THE FIELD. Registration no longer asks where a
+      // company is — the first branch is collected afterwards, from
+      // "complete your profile" — so the key that has to hold this
+      // line is that step's, not the registration form's.
+      expect((ar.completeProfile as Record<string, string>).city).toBe(
+        "المدينة",
+      );
+      expect((en.completeProfile as Record<string, string>).city).toBe("City");
+      expect((ar.register as Record<string, unknown>).city).toBeUndefined();
     });
 
     it("distinguishes shipping origin from delivery in English", () => {
@@ -191,9 +232,18 @@ describe("message catalogues", () => {
       expect(filter).not.toContain("fulfilment");
     });
 
-    it("describes the landing page by shipping origin too", () => {
-      expect((ar.home as Record<string, string>).description).toContain("مدينة الشحن");
-      expect((en.home as Record<string, string>).description).toContain("shipping origin");
+    it("describes the landing page by shipping ORIGIN too, now as a region", () => {
+      // The card shows the REGION rather than the city — a city is too
+      // fine a grain to judge an offer by. What matters here is
+      // unchanged: it is where goods ship FROM, never where they go.
+      const arDescription = (ar.home as Record<string, string>).description;
+      const enDescription = (en.home as Record<string, string>).description;
+
+      expect(arDescription).toContain("منطقة الشحن");
+      expect(enDescription.toLowerCase()).toContain("shipping region");
+
+      expect(arDescription).not.toContain("التوصيل");
+      expect(enDescription.toLowerCase()).not.toContain("delivery");
     });
   });
 

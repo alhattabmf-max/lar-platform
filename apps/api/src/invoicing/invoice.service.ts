@@ -176,6 +176,27 @@ export class InvoiceService {
 
     const snapshotData = {
       documentPurpose: "NOT_A_TAX_INVOICE",
+      // WHAT WAS INVOICED, IN THE INVOICE.
+      //
+      // The document froze the seller, the buyer and the money and left
+      // the GOODS to be found by following masterOrder -> opportunity ->
+      // approval snapshot -> product: three rows an administrator can
+      // remove. An invoice that cannot say what it invoiced is not an
+      // invoice, and the platform was compensating by refusing to let a
+      // sold product go.
+      //
+      // TAKEN FROM THE ORDER'S OWN SNAPSHOT, which the payment webhook
+      // wrote at capture from the frozen approval record — so it is the
+      // name that was approved and published, never whatever the
+      // supplier renames the product to afterwards.
+      line: {
+        productNameAr: order.productNameArSnapshot,
+        productNameEn: order.productNameEnSnapshot,
+        salesUnitNameAr: order.salesUnitNameArSnapshot,
+        salesUnitNameEn: order.salesUnitNameEnSnapshot,
+        unitPriceInclTax: toDecimalString(Number(order.unitPriceInclTaxSnapshot)),
+        quantity: order.totalQuantitySnapshot,
+      },
       seller: {
         legalName: order.supplierLegalNameSnapshot,
         crNumber: order.supplierCrNumberSnapshot,
@@ -231,6 +252,27 @@ export class InvoiceService {
 
     const snapshotData = {
       documentPurpose: "NOT_A_TAX_INVOICE",
+      // WHAT WAS INVOICED, IN THE INVOICE.
+      //
+      // The document froze the seller, the buyer and the money and left
+      // the GOODS to be found by following masterOrder -> opportunity ->
+      // approval snapshot -> product: three rows an administrator can
+      // remove. An invoice that cannot say what it invoiced is not an
+      // invoice, and the platform was compensating by refusing to let a
+      // sold product go.
+      //
+      // TAKEN FROM THE ORDER'S OWN SNAPSHOT, which the payment webhook
+      // wrote at capture from the frozen approval record — so it is the
+      // name that was approved and published, never whatever the
+      // supplier renames the product to afterwards.
+      line: {
+        productNameAr: order.productNameArSnapshot,
+        productNameEn: order.productNameEnSnapshot,
+        salesUnitNameAr: order.salesUnitNameArSnapshot,
+        salesUnitNameEn: order.salesUnitNameEnSnapshot,
+        unitPriceInclTax: toDecimalString(Number(order.unitPriceInclTaxSnapshot)),
+        quantity: order.totalQuantitySnapshot,
+      },
       seller: {
         legalName: platformProfile.legalName,
         crNumber: platformProfile.crNumber,
@@ -302,6 +344,15 @@ export class InvoiceService {
 
     const snapshotData = {
       documentPurpose: "NOT_A_TAX_INVOICE",
+      // AND A CREDIT NOTE CARRIES THE LINE IT IS CORRECTING.
+      //
+      // It has no order in scope and does not need one: an adjustment
+      // exists to correct ONE document, and what that document said
+      // was sold is what this one is adjusting. Reading the order
+      // again could pick up a different answer if anything upstream
+      // ever changed; reading the original cannot.
+      line:
+        (original.snapshotData as { line?: unknown } | null)?.line ?? null,
       adjustmentReason: input.sourceDescription,
       sourceReferenceId: input.sourceReferenceId ?? null,
       originalDocumentAmount: Number(original.amount),
@@ -331,7 +382,10 @@ export class InvoiceService {
   private async emit(tx: Prisma.TransactionClient, ctx: AdminActorContext, action: string, entityId: string): Promise<void> {
     await tx.auditLog.create({
       data: {
-        actorType: AuditActorType.USER,
+        // ADMIN, not USER. Every invoice document here is raised by an
+        // administrator — the controller states there is no supplier- or
+        // trader-facing route to any of this, by design.
+        actorType: AuditActorType.ADMIN,
         actorId: ctx.userId,
         action,
         entityType: "invoice_document",

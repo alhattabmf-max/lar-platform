@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ADMIN_NAV_DESTINATIONS } from "@/components/admin/admin-shell";
+import { CONTROL_PANEL_PAGES } from "@/components/admin/control-panel-nav";
 
 const ROOT = join(__dirname, "..");
 const read = (relative: string) => readFileSync(join(ROOT, relative), "utf8");
@@ -72,7 +72,7 @@ describe("the guard runs on the server, once, for the whole segment", () => {
     const body = strip(LAYOUT);
     // The shell is rendered only after the session check succeeds.
     const gateIndex = body.indexOf("AdminLoginGate");
-    const shellIndex = body.indexOf("<AdminShell");
+    const shellIndex = body.indexOf("<ControlPanelShell");
     expect(gateIndex).toBeGreaterThan(-1);
     expect(shellIndex).toBeGreaterThan(gateIndex);
   });
@@ -240,22 +240,25 @@ describe("the navigation covers what exists and nothing more", () => {
       )
     );
 
-    for (const destination of ADMIN_NAV_DESTINATIONS) {
+    for (const destination of CONTROL_PANEL_PAGES) {
       // A menu entry that 404s is worse than one that is absent.
       expect(segments.has(destination.segment)).toBe(true);
     }
   });
 
   it("has no duplicate destination", () => {
-    const keys = ADMIN_NAV_DESTINATIONS.map((destination) => destination.key);
+    const keys = CONTROL_PANEL_PAGES.map((destination) => destination.key);
     expect(new Set(keys).size).toBe(keys.length);
 
-    const segments = ADMIN_NAV_DESTINATIONS.map((destination) => destination.segment);
+    const segments = CONTROL_PANEL_PAGES.map((destination) => destination.segment);
     expect(new Set(segments).size).toBe(segments.length);
   });
 
   it("starts at the dashboard", () => {
-    expect(ADMIN_NAV_DESTINATIONS[0]).toEqual({ key: "dashboard", segment: "" });
+    // The map puts `home` first and it carries an icon, so the shape is
+    // checked rather than the whole object.
+    expect(CONTROL_PANEL_PAGES[0].key).toBe("dashboard");
+    expect(CONTROL_PANEL_PAGES[0].segment).toBe("");
   });
 });
 
@@ -322,12 +325,33 @@ describe("nothing on these screens is invented", () => {
     }
   });
 
-  it("the dashboard counts totals, never a page length", () => {
+  it("the dashboard counts nothing itself", () => {
     const body = strip(read("app/[locale]/admin/page.tsx"));
-    // `items.length` of a first page would silently read "25" for any
-    // backlog larger than a page — wrong in the direction that matters.
+
+    // THE ORIGINAL FAULT: `items.length` of a first page read "25" for
+    // any backlog larger than a page — wrong in the direction that
+    // matters. The screen no longer counts at all: every figure is an
+    // aggregate the API computed over the whole window, so there is no
+    // array here whose length could stand in for a total.
     expect(body).not.toContain("items.length");
-    expect(body).toContain(".total");
+    expect(body).toContain("loadDashboardOverview");
+  });
+
+  it("the dashboard asks for ONE read, not a list per card", () => {
+    const body = strip(read("app/[locale]/admin/page.tsx"));
+
+    // Six list endpoints counted by hand is what this replaced.
+    const loads = body.match(/\bload[A-Z][A-Za-z]*\(/g) ?? [];
+    expect(loads).toHaveLength(1);
+    expect(loads[0]).toBe("loadDashboardOverview(");
+  });
+
+  it("shows an em dash where a comparison cannot be made", () => {
+    const chrome = strip(read("components/admin/dashboard-chrome.tsx"));
+
+    // "0%" would claim nothing moved when in truth nothing was known.
+    expect(chrome).toContain("value === null");
+    expect(chrome).toContain("—");
   });
 
   it("the outbox screen states the provider mode and what PUBLISHED means", () => {
@@ -336,11 +360,111 @@ describe("nothing on these screens is invented", () => {
     expect(body).toContain("publishedMeaning");
   });
 
-  it("the opportunities screen says it cannot create or edit", () => {
-    expect(read("app/[locale]/admin/opportunities/page.tsx")).toContain("monitorOnlyNotice");
+  it("EXPLAINS ITSELF NOWHERE, on either screen", () => {
+    // Both used to carry a boxed sentence under the heading — «الإدارة
+    // تتابع المنتجات المعروضة ولا تنشئها ولا تعدّلها…» and the same
+    // shape over the administrators list. The owner named the first one
+    // as an example and banned the shape platform-wide: «القسم واضح ما
+    // يحتاج شرح له».
+    //
+    // WHAT ENFORCED THE RULE STILL DOES. Neither screen renders a
+    // create or edit control, and `no-blurbs.test.ts` holds the shape
+    // shut everywhere. A sentence saying so was belt over braces.
+    for (const page of [
+      "app/[locale]/admin/opportunities/page.tsx",
+      "app/[locale]/admin/admin-users/page.tsx",
+    ]) {
+      const source = read(page);
+      expect(source).not.toContain("monitorOnlyNotice");
+      expect(source).not.toContain("creationNotice");
+    }
+  });
+});
+
+describe("every admin destination is a route that exists", () => {
+  const ADMIN_COMPONENTS = join(ROOT, "components", "admin");
+
+  /** Every `/{locale}/…` path this portal navigates to, read from source. */
+  function internalPaths(): { file: string; path: string }[] {
+    const files = [
+      ...readdirSync(ADMIN_COMPONENTS)
+        .filter((name) => name.endsWith(".tsx"))
+        .map((name) => join(ADMIN_COMPONENTS, name)),
+      join(ROOT, "lib", "admin-redirects.ts"),
+    ];
+
+    const found: { file: string; path: string }[] = [];
+    for (const file of files) {
+      const source = strip(readFileSync(file, "utf8"));
+      // `/${locale}/admin/...` and `/${appLocale}/admin/...`
+      for (const match of source.matchAll(
+        /`\/\$\{(?:app)?[Ll]ocale\}(\/admin[^`$]*)`/g,
+      )) {
+        found.push({ file: file.replace(ROOT, ""), path: match[1] });
+      }
+    }
+    return found;
+  }
+
+  /** Whether the app router can actually produce this path. */
+  function routeExists(path: string): boolean {
+    const segments = path
+      .split("?")[0]
+      .split("#")[0]
+      .split("/")
+      .filter(Boolean);
+    let dir = join(ROOT, "app", "[locale]");
+
+    for (const segment of segments) {
+      const literal = join(dir, segment);
+      if (existsSync(literal)) {
+        dir = literal;
+        continue;
+      }
+      // A dynamic segment matches anything: `[id]`, `[...slug]`.
+      const dynamic = readdirSync(dir, { withFileTypes: true }).find(
+        (entry) => entry.isDirectory() && entry.name.startsWith("["),
+      );
+      if (!dynamic) return false;
+      dir = join(dir, dynamic.name);
+    }
+
+    return existsSync(join(dir, "page.tsx"));
+  }
+
+  it("finds the paths to check", () => {
+    // A guard against this whole block passing because the scan found
+    // nothing — the failure mode that makes a test look green.
+    //
+    // IT WAS FOUR, then three, and it is two.
+    //
+    // Four included `admin-shell.tsx` — a shell no layout rendered,
+    // holding a second copy of the console's destination list. Three
+    // included `admin-pagination.tsx`, a pager nothing imported and
+    // whose own exports were named nowhere in the repository. Each time
+    // the number fell because a file stopped existing, not because the
+    // scan stopped working: what this case guards is that it finds
+    // SOMETHING, and two is what the console's live files contain.
+    expect(internalPaths().length).toBeGreaterThanOrEqual(2);
   });
 
-  it("the admin users screen says why there is no create button", () => {
-    expect(read("app/[locale]/admin/admin-users/page.tsx")).toContain("creationNotice");
+  it("navigates to no page that does not exist", () => {
+    // THE FAULT THIS CATCHES: sign-out sent the administrator to
+    // `/{locale}/admin/login`, and the redirect guard sent every
+    // unauthenticated visitor to the same place — a route that has
+    // never existed. Both landed on a raw 404 with no way back. The
+    // layout gate masked it on ordinary visits, which is how it
+    // survived; neither TypeScript nor the build sees a dead href.
+    const dead = internalPaths().filter((entry) => !routeExists(entry.path));
+
+    expect(dead).toEqual([]);
+  });
+
+  it("shows the sign-in form at the segment root, which is where they are sent", () => {
+    const layout = read("app/[locale]/admin/layout.tsx");
+    const redirects = read("lib/admin-redirects.ts");
+
+    expect(layout).toContain("AdminLoginGate");
+    expect(redirects).toContain("`/${locale}/admin`");
   });
 });

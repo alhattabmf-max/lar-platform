@@ -1,15 +1,23 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { AuditActorType } from "@prisma/client";
-import { ERROR_CODES } from "@platform/types";
+import {
+  ERROR_CODES,
+  checkBannerImageShape,
+  describeBannerShapeRejection,
+  type BannerImageLocale,
+} from "@platform/types";
 import { PrismaService } from "../database/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { StorageService } from "../storage/storage.service";
 import { BannerPolicyService } from "../settings/banner-policy.service";
 import { BusinessException } from "../common/errors/business-exception";
-import { InvalidImageError, processImage } from "../common/media/image-processing.util";
+import {
+  InvalidImageError,
+  processImage,
+} from "../common/media/image-processing.util";
 import { computeETag } from "../common/media/image-delivery.service";
-import type { BannerActorContext } from "./banner.service";
+import { toLocaleMember, type BannerActorContext } from "./banner.service";
 
 const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -43,15 +51,29 @@ export class BannerImageService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly storage: StorageService,
-    private readonly policy: BannerPolicyService
+    private readonly policy: BannerPolicyService,
   ) {}
 
-  async upload(bannerId: string, buffer: Buffer, ctx: BannerActorContext) {
-    const existing = await this.prisma.promotionalBanner.findUnique({
+  async upload(
+    bannerId: string,
+    locale: BannerImageLocale,
+    buffer: Buffer,
+    ctx: BannerActorContext,
+  ) {
+    const member = toLocaleMember(locale);
+
+    const banner = await this.prisma.promotionalBanner.findUnique({
       where: { id: bannerId },
-      select: { id: true, imageObjectKey: true, imageThumbnailKey: true },
+      select: { id: true },
     });
-    if (!existing) throw new NotFoundException("Banner not found");
+    if (!banner) throw new NotFoundException("Banner not found");
+
+    // The artwork this language already has, if any. Replacing one
+    // language leaves the other untouched — they are separate rows.
+    const existing = await this.prisma.bannerImage.findUnique({
+      where: { bannerId_locale: { bannerId, locale: member } },
+      select: { objectKey: true, thumbnailKey: true },
+    });
 
     const bannerPolicy = await this.policy.getPolicy();
 
@@ -59,7 +81,7 @@ export class BannerImageService {
       throw new BusinessException(
         400,
         ERROR_CODES.VALIDATION_FAILED,
-        `Image exceeds the ${bannerPolicy.maxSizeBytes} byte limit`
+        `Image exceeds the ${bannerPolicy.maxSizeBytes} byte limit`,
       );
     }
 
@@ -71,9 +93,32 @@ export class BannerImageService {
       processed = await processImage(buffer, bannerPolicy);
     } catch (err) {
       if (err instanceof InvalidImageError) {
-        throw new BusinessException(400, ERROR_CODES.VALIDATION_FAILED, err.message);
+        throw new BusinessException(
+          400,
+          ERROR_CODES.VALIDATION_FAILED,
+          err.message,
+        );
       }
       throw err;
+    }
+
+    // THE SHAPE, decided here and nowhere else.
+    //
+    // The browser checks the same rule before uploading, but only to
+    // fail fast with a useful message — this is the check that counts.
+    // A caller that never opens the admin screen reaches this endpoint
+    // just the same.
+    const rejection = checkBannerImageShape(
+      processed.width,
+      processed.height,
+      bannerPolicy.imageShape,
+    );
+    if (rejection !== null) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        describeBannerShapeRejection(rejection, bannerPolicy.imageShape),
+      );
     }
 
     const extension = EXTENSION_BY_CONTENT_TYPE[processed.contentType] ?? "bin";
@@ -88,12 +133,22 @@ export class BannerImageService {
     // derived from the banner id and variant and never changes. Serving
     // fresh bytes after a replacement is the job of the ETag, which is
     // content-derived, together with Cache-Control revalidation.
-    const baseKey = `banners/${bannerId}/${randomUUID()}`;
+    // The locale is part of the path, so the two languages' objects
+    // are never confusable when looking at storage directly.
+    const baseKey = `banners/${bannerId}/${locale}/${randomUUID()}`;
     const objectKey = `${baseKey}.${extension}`;
     const thumbnailKey = `${baseKey}-thumb.${extension}`;
 
-    await this.storage.upload(objectKey, processed.mainBuffer, processed.contentType);
-    await this.storage.upload(thumbnailKey, processed.thumbnailBuffer, processed.contentType);
+    await this.storage.upload(
+      objectKey,
+      processed.mainBuffer,
+      processed.contentType,
+    );
+    await this.storage.upload(
+      thumbnailKey,
+      processed.thumbnailBuffer,
+      processed.contentType,
+    );
 
     // Both variants are the same format, so they share one content
     // type — but they are different bytes, so each carries its own tag.
@@ -103,17 +158,30 @@ export class BannerImageService {
     let updated;
     try {
       updated = await this.prisma.$transaction(async (tx) => {
-        const row = await tx.promotionalBanner.update({
-          where: { id: bannerId },
-          data: {
-            imageObjectKey: objectKey,
-            imageThumbnailKey: thumbnailKey,
-            imageContentType: processed.contentType,
-            imageETag,
-            imageThumbnailETag,
-            imageWidth: processed.width,
-            imageHeight: processed.height,
-            imageUpdatedAt: new Date(),
+        // Upsert on (banner, locale): a language has exactly one artwork
+        // row, and replacing it updates that row rather than growing a
+        // second one. The unique index enforces the same thing.
+        const row = await tx.bannerImage.upsert({
+          where: { bannerId_locale: { bannerId, locale: member } },
+          create: {
+            bannerId,
+            locale: member,
+            objectKey,
+            thumbnailKey,
+            contentType: processed.contentType,
+            etag: imageETag,
+            thumbnailETag: imageThumbnailETag,
+            width: processed.width,
+            height: processed.height,
+          },
+          update: {
+            objectKey,
+            thumbnailKey,
+            contentType: processed.contentType,
+            etag: imageETag,
+            thumbnailETag: imageThumbnailETag,
+            width: processed.width,
+            height: processed.height,
           },
         });
 
@@ -127,6 +195,7 @@ export class BannerImageService {
             // Object keys are internal; only the safe descriptors are
             // recorded, so the audit trail never becomes a key index.
             after: {
+              locale,
               contentType: processed.contentType,
               width: processed.width,
               height: processed.height,
@@ -136,7 +205,7 @@ export class BannerImageService {
             ipAddress: ctx.ipAddress,
             userAgent: ctx.userAgent,
           },
-          tx
+          tx,
         );
 
         return row;
@@ -149,42 +218,44 @@ export class BannerImageService {
       throw err;
     }
 
-    // Committed. The old objects are now unreferenced.
-    if (existing.imageObjectKey) await this.bestEffortDelete(existing.imageObjectKey);
-    if (existing.imageThumbnailKey) await this.bestEffortDelete(existing.imageThumbnailKey);
+    // Committed. This language's previous objects are now unreferenced;
+    // the other language's are untouched.
+    if (existing) {
+      await this.bestEffortDelete(existing.objectKey);
+      await this.bestEffortDelete(existing.thumbnailKey);
+    }
 
     return {
-      width: updated.imageWidth,
-      height: updated.imageHeight,
-      contentType: updated.imageContentType,
+      locale,
+      width: updated.width,
+      height: updated.height,
+      contentType: updated.contentType,
     };
   }
 
-  async remove(bannerId: string, ctx: BannerActorContext): Promise<void> {
-    const existing = await this.prisma.promotionalBanner.findUnique({
-      where: { id: bannerId },
-      select: { id: true, imageObjectKey: true, imageThumbnailKey: true },
+  async remove(
+    bannerId: string,
+    locale: BannerImageLocale,
+    ctx: BannerActorContext,
+  ): Promise<void> {
+    const member = toLocaleMember(locale);
+
+    const existing = await this.prisma.bannerImage.findUnique({
+      where: { bannerId_locale: { bannerId, locale: member } },
+      select: { objectKey: true, thumbnailKey: true },
     });
-    if (!existing) throw new NotFoundException("Banner not found");
 
-    // Nothing to do, and saying so is not an error.
-    if (!existing.imageObjectKey) return;
+    // Nothing to do, and saying so is not an error. Removing artwork a
+    // language never had is a no-op, not a 404 — the banner may well
+    // exist and simply have nothing for this language.
+    if (!existing) return;
 
-    // Clear the metadata first. The CHECK constraint requires all eight
-    // image columns to move together, so this is all-or-nothing.
+    // Delete the ROW. There is no partially-cleared state to arrange for
+    // any more: the row's columns are all NOT NULL, so its absence is
+    // exactly what "this language has no artwork" means.
     await this.prisma.$transaction(async (tx) => {
-      await tx.promotionalBanner.update({
-        where: { id: bannerId },
-        data: {
-          imageObjectKey: null,
-          imageThumbnailKey: null,
-          imageContentType: null,
-          imageETag: null,
-          imageThumbnailETag: null,
-          imageWidth: null,
-          imageHeight: null,
-          imageUpdatedAt: null,
-        },
+      await tx.bannerImage.delete({
+        where: { bannerId_locale: { bannerId, locale: member } },
       });
 
       await this.audit.log(
@@ -194,53 +265,72 @@ export class BannerImageService {
           action: "BANNER_IMAGE_DELETED",
           entityType: "promotional_banner",
           entityId: bannerId,
+          before: { locale },
           requestId: ctx.requestId,
           ipAddress: ctx.ipAddress,
           userAgent: ctx.userAgent,
         },
-        tx
+        tx,
       );
     });
 
     // Only now, with no row referencing them, are the bytes removed.
-    await this.bestEffortDelete(existing.imageObjectKey);
-    if (existing.imageThumbnailKey) await this.bestEffortDelete(existing.imageThumbnailKey);
+    await this.bestEffortDelete(existing.objectKey);
+    await this.bestEffortDelete(existing.thumbnailKey);
   }
 
   /** Admin preview: any state, no LIVE predicate. Access is the guard's job. */
-  async findAdminImage(bannerId: string) {
-    const row = await this.prisma.promotionalBanner.findUnique({
-      where: { id: bannerId },
-      select: {
-        imageObjectKey: true,
-        imageThumbnailKey: true,
-        imageContentType: true,
-        imageETag: true,
-        imageThumbnailETag: true,
-        imageUpdatedAt: true,
-      },
+  async findAdminImage(bannerId: string, locale: BannerImageLocale) {
+    const row = await this.prisma.bannerImage.findUnique({
+      where: { bannerId_locale: { bannerId, locale: toLocaleMember(locale) } },
     });
 
-    if (
-      !row ||
-      row.imageObjectKey === null ||
-      row.imageThumbnailKey === null ||
-      row.imageContentType === null ||
-      row.imageETag === null ||
-      row.imageThumbnailETag === null ||
-      row.imageUpdatedAt === null
-    ) {
-      return null;
-    }
+    // Every column is NOT NULL, so the row either exists and is complete
+    // or does not exist. The six null checks the old shape needed are
+    // gone with the nullable columns that made them necessary.
+    if (!row) return null;
 
     return {
-      imageObjectKey: row.imageObjectKey,
-      imageThumbnailKey: row.imageThumbnailKey,
-      imageContentType: row.imageContentType,
-      imageETag: row.imageETag,
-      imageThumbnailETag: row.imageThumbnailETag,
-      imageUpdatedAt: row.imageUpdatedAt,
+      imageObjectKey: row.objectKey,
+      imageThumbnailKey: row.thumbnailKey,
+      imageContentType: row.contentType,
+      imageETag: row.etag,
+      imageThumbnailETag: row.thumbnailETag,
+      imageUpdatedAt: row.updatedAt,
     };
+  }
+
+  /**
+   * Drops the stored objects of a banner whose ROW IS ALREADY GONE.
+   *
+   * Called after the delete transaction commits, never inside it:
+   * storage and the database cannot share a transaction, and removing
+   * the files first would leave a row pointing at bytes that are not
+   * there if the transaction then rolled back. This way the worst case
+   * is an orphaned object, which costs disk and nothing else.
+   *
+   * A failure here does NOT fail the request. The banner is already
+   * gone as far as every reader is concerned, and reporting a failure
+   * for work that actually succeeded would be a lie.
+   *
+   * The log names the BANNER, never the object keys: a warning stream
+   * that carried storage keys would become an index of them.
+   */
+  async discardStoredImages(
+    bannerId: string,
+    objectKeys: readonly string[],
+  ): Promise<void> {
+    for (const key of objectKeys) {
+      try {
+        await this.storage.delete(key);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to delete a stored image for deleted banner ${bannerId} — left as an orphan for later cleanup: ${
+            err instanceof Error ? err.message : "unknown error"
+          }`,
+        );
+      }
+    }
   }
 
   private async bestEffortDelete(objectKey: string): Promise<void> {
@@ -250,7 +340,7 @@ export class BannerImageService {
       this.logger.warn(
         `Failed to delete storage object — left as an orphan for later cleanup: ${
           err instanceof Error ? err.message : "unknown error"
-        }`
+        }`,
       );
     }
   }

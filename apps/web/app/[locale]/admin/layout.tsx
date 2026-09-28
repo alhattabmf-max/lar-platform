@@ -1,8 +1,36 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { getAdminSession } from "@/lib/admin-session";
-import { AdminShell } from "@/components/admin/admin-shell";
+import { ControlPanelShell } from "@/components/admin/control-panel-shell";
 import { AdminLoginGate } from "@/components/admin/admin-login-gate";
+
+/**
+ * THE TAB'S NAME, which every admin page was leaving blank.
+ *
+ * Declared as a TEMPLATE on the layout so a page only has to say its
+ * own name: `«المنشآت»` becomes `«المنشآت | لوحة التحكم»`. A page that
+ * forgets still gets the `default`, so the worst case is the portal's
+ * name rather than an empty tab.
+ *
+ * The portal's name is the one the sidebar already shows, read from
+ * the same key — so the tab and the screen cannot drift apart.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const nav = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.nav",
+  });
+  const portal = nav("portalName");
+
+  return { title: { template: `%s | ${portal}`, default: portal } };
+}
 
 /**
  * The admin portal layout.
@@ -57,8 +85,8 @@ export default async function AdminLayout({
   if (!session) return <AdminLoginGate locale={appLocale} />;
 
   return (
-    <AdminShell locale={appLocale} session={session}>
+    <ControlPanelShell locale={appLocale} session={session}>
       {children}
-    </AdminShell>
+    </ControlPanelShell>
   );
 }

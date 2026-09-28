@@ -2,6 +2,8 @@ import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import type {
   AdminBankAccountItem,
   AdminCompanyItem,
+  AdminCompanyName,
+  AdminCompanyTabCounts,
   AdminProductItem,
   Paginated,
 } from "@platform/types";
@@ -9,6 +11,7 @@ import { AdminDirectoryService } from "./admin-directory.service";
 import {
   AdminBankAccountsQueryDto,
   AdminCompaniesQueryDto,
+  AdminCompanyNamesQueryDto,
   AdminProductsQueryDto,
 } from "./dto/admin-list-query.dto";
 import { AdminSessionAuthGuard } from "../admin-auth/admin-session-auth.guard";
@@ -24,6 +27,35 @@ import { AdminSessionAuthGuard } from "../admin-auth/admin-session-auth.guard";
 @UseGuards(AdminSessionAuthGuard)
 export class AdminDirectoryController {
   constructor(private readonly directory: AdminDirectoryService) {}
+
+  /**
+   * How many buyers and how many suppliers the current search matches.
+   *
+   * DECLARED BEFORE `companies`, which is a different path but the
+   * same prefix — keeping them adjacent is what stops the two from
+   * drifting on which filters they honour.
+   */
+  @Get("companies/tab-counts")
+  companyTabCounts(
+    @Query() query: AdminCompaniesQueryDto,
+  ): Promise<AdminCompanyTabCounts> {
+    return this.directory.countCompanyTabs(query);
+  }
+
+  /**
+   * The names, for a chooser.
+   *
+   * DECLARED BEFORE `companies`: Nest matches in declaration order and
+   * these are different paths, but keeping every static companies route
+   * above the list is the rule that stops one of them being read as a
+   * query one day.
+   */
+  @Get("companies/names")
+  companyNames(
+    @Query() query: AdminCompanyNamesQueryDto,
+  ): Promise<AdminCompanyName[]> {
+    return this.directory.listCompanyNames(query.accountType, query.q, query.limit);
+  }
 
   @Get("companies")
   companies(@Query() query: AdminCompaniesQueryDto): Promise<Paginated<AdminCompanyItem>> {

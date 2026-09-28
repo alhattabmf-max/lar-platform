@@ -43,6 +43,7 @@ const FAKE_ENV: Record<string, string> = {
   DATABASE_URL: "postgresql://unused:unused@127.0.0.1:1/unused",
   REDIS_URL: "redis://127.0.0.1:1",
   ADMIN_TOTP_ENCRYPTION_KEY: "a".repeat(64),
+  ADMIN_TOTP_ISSUER: "Azier Plus Admin",
   BANK_DATA_ENCRYPTION_KEY: "b".repeat(64),
   STORAGE_ENDPOINT: "http://127.0.0.1:1",
   STORAGE_REGION: "us-east-1",

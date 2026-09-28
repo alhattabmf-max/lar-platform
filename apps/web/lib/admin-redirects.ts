@@ -17,8 +17,27 @@ import { getAdminSession, type AdminSession } from "./admin-session";
  * page body is never produced rather than produced and hidden.
  */
 
+/**
+ * Where an unauthenticated visitor is sent.
+ *
+ * THE SEGMENT ROOT, NOT A `/login` CHILD. There is no
+ * `admin/login/page.tsx` and there never was: this console shows its
+ * sign-in form from `admin/layout.tsx`, which returns `AdminLoginGate`
+ * instead of `children` when there is no session. That is why every
+ * admin URL renders the form rather than navigating anywhere.
+ *
+ * THE FAULT THIS FIXES: the path returned here pointed at
+ * `/{locale}/admin/login`, which no route produces — so anybody whose
+ * session lapsed while a page was rendering, or who followed that URL,
+ * landed on Next's raw 404 with no way back and no explanation. The
+ * layout gate was masking it for every ordinary visit, which is why it
+ * survived this long.
+ *
+ * Pointing at the segment root sends them to the one place that does
+ * show the form.
+ */
 export function adminLoginPath(locale: AppLocale): string {
-  return `/${locale}/admin/login`;
+  return `/${locale}/admin`;
 }
 
 /**
@@ -42,11 +61,3 @@ export async function requireAdminOrRedirect(locale: AppLocale): Promise<AdminSe
   return session;
 }
 
-/**
- * For the admin login page: sends an already-signed-in administrator to
- * the dashboard instead of showing them a login form.
- */
-export async function redirectIfAdminAuthenticated(locale: AppLocale): Promise<void> {
-  const session = await getAdminSession();
-  if (session) redirect(`/${locale}/admin`);
-}

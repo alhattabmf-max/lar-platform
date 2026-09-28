@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { PrismaService } from "../database/prisma.service";
 import { OpportunitySettingsService } from "../settings/opportunity-settings.service";
-import { selectMainMedia } from "./snapshot-media.util";
+import { parseSnapshotMedia, selectMainMedia } from "./snapshot-media.util";
 import type { ImageTarget } from "../common/media/image-delivery.service";
 
 /**
@@ -79,7 +79,20 @@ export class OpportunityImageService {
    */
   async findPublicTarget(
     id: string,
-    variant: "main" | "thumb"
+    variant: "main" | "thumb",
+    /**
+     * WHICH PHOTOGRAPH, in the snapshot's own order.
+     *
+     * Omitted, it is the main one — which is what every existing caller
+     * asks for and what the card has always shown. Given, it indexes
+     * the SAME sorted list the detail's gallery is built from, so the
+     * n-th url and the n-th image cannot disagree.
+     *
+     * AN INDEX PAST THE END IS A 404, not a fallback to the main image:
+     * a caller asking for a photograph that is not there has a bug, and
+     * quietly serving a different one hides it.
+     */
+    index?: number
   ): Promise<ImageTarget | null> {
     // The SAME visibility rule the list and detail reads use, resolved
     // from settings rather than restated here.
@@ -96,7 +109,11 @@ export class OpportunityImageService {
     });
     if (!row?.productApprovalSnapshot) return null;
 
-    const media = selectMainMedia(row.productApprovalSnapshot.snapshot);
+    const media =
+      index === undefined
+        ? selectMainMedia(row.productApprovalSnapshot.snapshot)
+        : (parseSnapshotMedia(row.productApprovalSnapshot.snapshot)[index] ??
+          null);
     if (!media) return null;
 
     const objectKey = variant === "thumb" ? media.thumbnailObjectKey : media.objectKey;

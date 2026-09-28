@@ -7,7 +7,7 @@ import { apiClient } from "@/lib/api-client";
 import { toUserFacingError, type UserFacingError } from "@/lib/error-messages";
 import { newIdempotencyKey, type IdempotencyKey } from "@/lib/idempotency";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/field";
+import { Label, Textarea } from "@/components/ui/field";
 
 /**
  * One administrative write, with the confirmation it deserves.
@@ -55,7 +55,7 @@ export interface AdminActionReason {
 export interface AdminActionProps {
   /** API path, e.g. `/admin/admin-users/{id}/disable`. */
   path: string;
-  method?: "POST" | "PATCH";
+  method?: "POST" | "PATCH" | "DELETE";
   /** Extra body fields sent alongside the reason. */
   body?: Record<string, unknown>;
   /** True when this endpoint accepts — and requires — an Idempotency-Key. */
@@ -127,6 +127,12 @@ export function AdminAction({
       const options = idempotencyKey ? { idempotencyKey } : {};
       if (method === "PATCH") {
         await apiClient.patch(path, payload, options);
+      } else if (method === "DELETE") {
+        // THE BODY TRAVELS WITH IT, because a delete here still takes a
+        // reason: the audit entry is the only thing that will outlive
+        // the row, so the note cannot be optional and cannot go in the
+        // query string where a proxy log would keep it.
+        await apiClient.delete(path, payload, options);
       } else {
         await apiClient.post(path, payload, options);
       }
@@ -141,7 +147,7 @@ export function AdminAction({
 
   if (!asking) {
     return (
-      <Button type="button" variant={variant} size="sm" className="min-h-11" onClick={open}>
+      <Button type="button" variant={variant} size="sm" onClick={open}>
         {labels.action}
       </Button>
     );
@@ -160,19 +166,15 @@ export function AdminAction({
           <Label htmlFor={fieldId} required requiredLabel={root("common.required")}>
             {reason.label}
           </Label>
-          <textarea
+          <Textarea
             id={fieldId}
             value={reasonText}
             onChange={(event) => setReasonText(event.target.value)}
             minLength={reason.minLength}
             maxLength={reason.maxLength}
             rows={3}
-            aria-describedby={`${fieldId}-hint`}
             className="w-full rounded-md border border-line bg-background px-3 py-2 text-sm text-content"
           />
-          <p id={`${fieldId}-hint`} className="text-xs text-content-muted">
-            {reason.hint}
-          </p>
         </div>
       ) : null}
 
@@ -181,7 +183,7 @@ export function AdminAction({
           type="button"
           variant={variant}
           size="sm"
-          className="min-h-11"
+         
           onClick={run}
           isLoading={busy}
           // Disabled only while a write is in flight or the mandatory
@@ -195,7 +197,7 @@ export function AdminAction({
           type="button"
           variant="ghost"
           size="sm"
-          className="min-h-11"
+         
           onClick={close}
           disabled={busy}
         >

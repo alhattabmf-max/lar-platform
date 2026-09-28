@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import messages from "../messages/ar-SA.json";
@@ -7,84 +8,25 @@ import {
   type BannerManagerLabels,
 } from "@/components/admin/banner-manager";
 import type { AdminBannerRow } from "@/lib/admin-data";
+import * as api from "@/lib/api-client";
+import { DEFAULT_BANNER_IMAGE_SHAPE } from "@platform/types";
 
 /**
- * Renders the banners screen the way the route does.
+ * The banner console, after banners stopped carrying text.
  *
- * `/ar-SA/admin/banners` returned "Application error: a server-side
- * exception has occurred" (digest `1046837119`) because the page handed
- * this component three FUNCTIONS — `moveUp`, `moveDown`, `stateLabel` —
- * and React cannot serialize a function across the server/client
- * boundary. `server-client-boundary.test.ts` forbids that shape
- * repo-wide; this file proves the replacement actually renders, which a
- * static scan cannot show.
- *
- * The three removed labels are now resolved from `useTranslations()`
- * inside the component, so this wraps it in the same
- * `NextIntlClientProvider` the real layout provides, with the REAL
- * `ar-SA` messages. A missing or misnamed key fails here rather than
- * shipping as a raw key on the screen.
+ * A banner is ARTWORK — one picture per language — and nothing else.
+ * The screen used to ask for an Arabic title, an English title and two
+ * body fields; none of them was ever displayed, the Arabic title was
+ * quietly reused as alt text, and the rest were stored and ignored.
+ * What is pinned here is that they are gone, that both languages are
+ * required before anything can go live, and that a banner can be
+ * removed for good rather than only switched off.
  */
 
-// The component calls router.refresh() after a mutation; the app router
-// is not mounted under jsdom. Same shape the other component tests use.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const BANNERS: AdminBannerRow[] = [
-  {
-    id: "11111111-1111-4111-8111-111111111111",
-    placement: "PUBLIC_HOME",
-    titleAr: "عرض الأسمنت",
-    titleEn: "Cement offer",
-    bodyAr: null,
-    bodyEn: null,
-    linkUrl: null,
-    sortOrder: 1,
-    isActive: true,
-    startsAt: null,
-    endsAt: null,
-    hasImage: false,
-    state: "LIVE",
-    imageWidth: null,
-    imageHeight: null,
-    createdAt: "2026-08-23T10:00:00.000Z",
-    updatedAt: "2026-08-23T10:00:00.000Z",
-  },
-  {
-    id: "22222222-2222-4222-8222-222222222222",
-    placement: "PUBLIC_HOME",
-    titleAr: "عرض الحديد",
-    titleEn: "Steel offer",
-    bodyAr: null,
-    bodyEn: null,
-    linkUrl: null,
-    sortOrder: 2,
-    isActive: false,
-    startsAt: null,
-    endsAt: null,
-    hasImage: false,
-    // A REAL member of the state vocabulary. An invented one would make
-    // next-intl echo the key path, which is what a missing translation
-    // looks like — the test must not manufacture that itself.
-    state: "INACTIVE",
-    imageWidth: null,
-    imageHeight: null,
-    createdAt: "2026-08-23T10:00:00.000Z",
-    updatedAt: "2026-08-23T10:00:00.000Z",
-  },
-];
-
-/**
- * Exactly what the page now passes — no function anywhere. Typed as
- * `BannerManagerLabels`, so if anyone re-adds a function-valued member
- * to that interface, this object stops compiling.
- */
 const LABELS: BannerManagerLabels = {
   createLegend: "إضافة لافتة",
-  titleAr: "العنوان بالعربية",
-  titleEn: "العنوان بالإنجليزية",
-  bodyAr: "النص بالعربية",
-  bodyEn: "النص بالإنجليزية",
   linkUrl: "الرابط",
   linkHint: "رابط داخلي فقط",
   create: "إنشاء",
@@ -93,8 +35,6 @@ const LABELS: BannerManagerLabels = {
   orderSaved: "حُفظ الترتيب",
   activate: "تفعيل",
   deactivate: "إيقاف",
-  hasImage: "بها صورة",
-  noImage: "بلا صورة",
   scheduleFrom: "من",
   scheduleTo: "إلى",
   saveSchedule: "حفظ الجدولة",
@@ -102,60 +42,188 @@ const LABELS: BannerManagerLabels = {
   working: "جارٍ التنفيذ",
   required: "مطلوب",
   empty: "لا توجد لافتات",
-  errorTitle: "تعذّر التنفيذ",
-  requestIdLabel: "رقم الطلب",
+  errorTitle: "تعذّر إتمام الطلب",
+  requestIdLabel: "رقم المرجع",
 };
 
-function renderManager() {
+const ID = "11111111-1111-4111-8111-111111111111";
+
+function banner(overrides: Partial<AdminBannerRow> = {}): AdminBannerRow {
+  return {
+    id: ID,
+    placement: "PUBLIC_HOME",
+    images: ["ar-SA", "en-SA"],
+    linkUrl: null,
+    sortOrder: 1,
+    isActive: false,
+    startsAt: null,
+    endsAt: null,
+    state: "DRAFT",
+    createdAt: "2026-08-24T00:00:00.000Z",
+    updatedAt: "2026-08-24T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function renderWith(rows: AdminBannerRow[]) {
   return render(
     <NextIntlClientProvider locale="ar-SA" messages={messages}>
-      <BannerManager placement="PUBLIC_HOME" banners={BANNERS} labels={LABELS} />
-    </NextIntlClientProvider>
+      <BannerManager
+        placement="PUBLIC_HOME"
+        banners={rows}
+        labels={LABELS}
+        imageShape={DEFAULT_BANNER_IMAGE_SHAPE}
+      />
+    </NextIntlClientProvider>,
   );
 }
 
-describe("admin banners screen", () => {
-  it("renders without throwing — the page no longer 500s", () => {
-    expect(() => renderManager()).not.toThrow();
+describe("the form asks for pictures, not prose", () => {
+  it("offers ONE upload control per language and no text fields at all", () => {
+    renderWith([]);
+
+    expect(screen.getByTestId("artwork-picker-ar-SA")).toBeTruthy();
+    expect(screen.getByTestId("artwork-picker-en-SA")).toBeTruthy();
+
+    // Four fields that were never rendered anywhere and are now gone.
+    expect(screen.queryByLabelText(/العنوان/)).toBeNull();
+    expect(screen.queryByLabelText(/النص/)).toBeNull();
   });
 
-  it("offers the create form, so a banner can be added from the UI", () => {
-    renderManager();
-
-    // Substring matchers: the accessible name also carries the required
-    // marker the form appends.
-    expect(screen.getByLabelText(new RegExp(LABELS.titleAr))).toBeTruthy();
-    expect(screen.getByLabelText(new RegExp(LABELS.titleEn))).toBeTruthy();
-    expect(screen.getByRole("button", { name: LABELS.create })).toBeTruthy();
+  it("keeps the optional link", () => {
+    renderWith([]);
+    expect(screen.getByLabelText(LABELS.linkUrl)).toBeTruthy();
   });
 
-  it("resolves the three formerly-function labels from real messages", () => {
-    renderManager();
+  it("refuses to submit until BOTH languages have a picture", () => {
+    renderWith([]);
 
-    // stateLabel: a translated state, never the raw enum.
-    const live = messages.admin.vocab.bannerState.LIVE;
-    const inactive = messages.admin.vocab.bannerState.INACTIVE;
-    expect(live).toBeTruthy();
-    expect(inactive).toBeTruthy();
-    expect(screen.getAllByText(live).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(inactive).length).toBeGreaterThan(0);
-    // The raw enum must never reach the screen.
-    expect(screen.queryByText("LIVE")).toBeNull();
-    expect(screen.queryByText("INACTIVE")).toBeNull();
+    // A banner with one language is a draft nobody can publish, so
+    // asking for both up front beats accepting half and refusing later.
+    expect(screen.getByRole("button", { name: LABELS.create })).toBeDisabled();
+  });
+});
 
-    // moveUp / moveDown: an accessible name carrying the banner's title,
-    // which is the whole reason they needed an argument.
-    const up = screen.getAllByRole("button", { name: /عرض الأسمنت/ });
-    expect(up.length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByRole("button", { name: /عرض الحديد/ }).length
-    ).toBeGreaterThan(0);
+describe("activation waits for both languages", () => {
+  it("disables the control while a language is missing, and says why", () => {
+    renderWith([banner({ images: ["ar-SA"] })]);
+
+    const toggle = screen.getByTestId(`banner-toggle-${ID}`);
+    expect(toggle).toBeDisabled();
+    // A disabled button with no explanation is the same as a broken one.
+    expect(toggle.getAttribute("title")).toBe(
+      messages.admin.banners.activateNeedsBoth,
+    );
   });
 
-  it("renders no untranslated message key", () => {
-    const { container } = renderManager();
-    // next-intl echoes a missing key as its dotted path.
-    expect(container.textContent).not.toMatch(/admin\.banners\./);
-    expect(container.textContent).not.toMatch(/admin\.vocab\./);
+  it("names the language that is still missing", () => {
+    renderWith([banner({ images: ["ar-SA"] })]);
+
+    // The notice names it; the upload control for that language names it
+    // too, which is why this reads the notice specifically.
+    expect(screen.getByText(/ينقصه/).textContent).toContain("الإنجليزية");
+  });
+
+  it("allows activation once both are present", async () => {
+    const user = userEvent.setup();
+    const post = vi.spyOn(api.apiClient, "post").mockResolvedValue({});
+
+    renderWith([banner()]);
+    await user.click(screen.getByTestId(`banner-toggle-${ID}`));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(`/admin/banners/${ID}/toggle`, {
+        isActive: true,
+      }),
+    );
+  });
+
+  it("never blocks DEACTIVATION, whatever the artwork looks like", () => {
+    // Switching something off must always work — a banner that lost an
+    // image must not become impossible to take down.
+    renderWith([banner({ images: [], isActive: true, state: "LIVE" })]);
+
+    expect(screen.getByTestId(`banner-toggle-${ID}`)).not.toBeDisabled();
+  });
+});
+
+describe("deleting a banner for good", () => {
+  it("offers delete alongside deactivate, not instead of it", () => {
+    renderWith([banner()]);
+
+    // Deactivating is the reversible control and this one is not, so
+    // they are two different buttons rather than one with a flag.
+    expect(screen.getByTestId(`banner-delete-${ID}`)).toBeTruthy();
+    expect(screen.getByTestId(`banner-toggle-${ID}`)).toBeTruthy();
+  });
+
+  it("offers it for a LIVE banner too", () => {
+    renderWith([banner({ isActive: true, state: "LIVE" })]);
+    expect(screen.getByTestId(`banner-delete-${ID}`)).toBeTruthy();
+  });
+
+  it("asks first, and asks IN THE PAGE", async () => {
+    const user = userEvent.setup();
+    const del = vi.spyOn(api.apiClient, "delete").mockResolvedValue({});
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    renderWith([banner()]);
+    await user.click(screen.getByTestId(`banner-delete-${ID}`));
+
+    // A native dialog cannot be translated, ignores the document's RTL
+    // direction, and a browser may suppress it outright.
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId(`banner-delete-confirm-${ID}`)).toBeTruthy();
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("deletes only after the confirmation is pressed", async () => {
+    const user = userEvent.setup();
+    const del = vi.spyOn(api.apiClient, "delete").mockResolvedValue({});
+
+    renderWith([banner()]);
+    await user.click(screen.getByTestId(`banner-delete-${ID}`));
+    await user.click(screen.getByTestId(`banner-delete-confirmed-${ID}`));
+
+    await waitFor(() =>
+      expect(del).toHaveBeenCalledWith(`/admin/banners/${ID}`),
+    );
+  });
+
+  it("cancels without touching the network", async () => {
+    const user = userEvent.setup();
+    const del = vi.spyOn(api.apiClient, "delete").mockResolvedValue({});
+
+    renderWith([banner()]);
+    await user.click(screen.getByTestId(`banner-delete-${ID}`));
+    await user.click(screen.getByText(messages.common.cancel));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId(`banner-delete-confirm-${ID}`)).toBeNull(),
+    );
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("warns that it cannot be undone", async () => {
+    const user = userEvent.setup();
+    renderWith([banner()]);
+
+    await user.click(screen.getByTestId(`banner-delete-${ID}`));
+
+    const prompt = screen.getByTestId(`banner-delete-confirm-${ID}`);
+    expect(within(prompt).getByRole("status").textContent).toBe(
+      messages.admin.banners.deletePrompt,
+    );
+  });
+});
+
+describe("the card carries no banner text", () => {
+  it("shows state and artwork, and prints nothing an operator wrote", () => {
+    renderWith([banner({ linkUrl: "/offers" })]);
+
+    // The link is data, not prose, and is edited rather than displayed
+    // as a heading. Nothing on the row is a title or a body.
+    expect(screen.getByTestId(`banner-artwork-${ID}-ar-SA`)).toBeTruthy();
+    expect(screen.getByTestId(`banner-artwork-${ID}-en-SA`)).toBeTruthy();
   });
 });

@@ -4,6 +4,10 @@ import { themeStyle } from "@/lib/theme";
 import type { AppLocale } from "@/i18n/routing";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("unauthorized");
+
 
 /**
  * The single 403 page every guard redirects to.
@@ -26,7 +30,7 @@ export default async function UnauthorizedPage({
   const appLocale = locale as AppLocale;
 
   const [branding, t] = await Promise.all([
-    getBranding(),
+    getBranding(locale),
     getTranslations({ locale: appLocale, namespace: "unauthorized" }),
   ]);
 
@@ -41,7 +45,6 @@ export default async function UnauthorizedPage({
             <CardTitle>{t("title")}</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="text-sm text-content-muted">{t("description")}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <ButtonLink href={`/${appLocale}`} variant="secondary">
                 {t("goHome")}

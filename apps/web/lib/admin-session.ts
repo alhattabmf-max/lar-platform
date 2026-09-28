@@ -59,6 +59,3 @@ export const getAdminSession = cache(async (): Promise<AdminSession | null> => {
   }
 });
 
-export async function isAdminAuthenticated(): Promise<boolean> {
-  return (await getAdminSession()) !== null;
-}

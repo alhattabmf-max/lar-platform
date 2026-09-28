@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuditActorType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
-import type { AdminRegionItem } from "@platform/types";
+import type { AdminRegionItem, RegionItem } from "@platform/types";
 import { AuditService } from "../audit/audit.service";
+import { SENTINEL_REGION_ID } from "./sentinel.constants";
 import type { CreateRegionDto } from "./dto/create-region.dto";
 import type { UpdateRegionDto } from "./dto/update-region.dto";
 
@@ -29,6 +30,9 @@ export class RegionsService {
    */
   async listAll(): Promise<AdminRegionItem[]> {
     const rows = await this.prisma.region.findMany({
+      // Hidden for the same reason its city is — see cities.service.ts.
+      // Kept in the database, absent from the screen.
+      where: { id: { not: SENTINEL_REGION_ID } },
       select: { id: true, nameAr: true, nameEn: true, isActive: true, createdAt: true },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
@@ -42,11 +46,29 @@ export class RegionsService {
     }));
   }
 
-  async listActive() {
-    return this.prisma.region.findMany({
-      where: { isActive: true },
-      orderBy: [{ createdAt: "asc" }],
+  /**
+   * The regions a visitor and a branch form may choose from.
+   *
+   * A CLOSED PROJECTION — three fields, matching `RegionItem`. It used
+   * to return the raw row, which put `isActive`, `createdAt` and
+   * `updatedAt` on a public, unauthenticated response: every one of
+   * them is an administrative fact about reference data, and none of
+   * them is anything a picker reads.
+   *
+   * THE SENTINEL IS EXCLUDED BY ID, not only by its inactive flag. It
+   * is the «غير محدد» placeholder that exists because
+   * `company_locations.city_id` was once NOT NULL, and it must never
+   * appear in a list somebody chooses from — switching it on by
+   * accident would otherwise put it in every region picker on the
+   * platform.
+   */
+  async listActive(): Promise<RegionItem[]> {
+    const rows = await this.prisma.region.findMany({
+      where: { isActive: true, id: { not: SENTINEL_REGION_ID } },
+      select: { id: true, nameAr: true, nameEn: true },
+      orderBy: [{ nameAr: "asc" }, { id: "asc" }],
     });
+    return rows;
   }
 
   async create(dto: CreateRegionDto, ctx: ActorContext) {

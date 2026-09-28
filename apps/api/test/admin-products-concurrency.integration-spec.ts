@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import type { PrismaService } from "../src/database/prisma.service";
 import { AdminProductsService } from "../src/admin/products/admin-products.service";
+import { ProductsService } from "../src/products/products.service";
 import { AuditService } from "../src/audit/audit.service";
 
 const prisma = new PrismaClient() as unknown as PrismaService;
@@ -45,6 +46,7 @@ async function seedApprovedProductWithOpportunities(fundedQuantity = 0) {
   const location = await prisma.companyLocation.create({
     data: {
       companyId: company.id,
+      regionId: region.id,
       cityId: city.id,
       name: "loc",
       shortAddress: "addr",
@@ -106,7 +108,7 @@ describe("AdminProductsService — concurrent admin decisions (integration, real
   it("two concurrent suspend() calls on the same APPROVED product: exactly one wins, no duplicate cascade or audit/outbox", async () => {
     const { productId, activeOppId, admin1, admin2 } = await seedApprovedProductWithOpportunities();
     const audit = new AuditService(prisma);
-    const service = new AdminProductsService(prisma, audit);
+    const service = new AdminProductsService(prisma, audit, new ProductsService(prisma, audit));
     const ctx = { requestId: "req-conc-1" };
 
     const results = await Promise.allSettled([
@@ -143,7 +145,7 @@ describe("AdminProductsService — concurrent admin decisions (integration, real
   it("a concurrent suspend() and close(): close() legitimately accepts SUSPENDED as a starting point, so both may succeed sequentially — the product ends CLOSED, with no duplicate cascade/audit for either transition", async () => {
     const { productId, activeOppId, admin1, admin2 } = await seedApprovedProductWithOpportunities();
     const audit = new AuditService(prisma);
-    const service = new AdminProductsService(prisma, audit);
+    const service = new AdminProductsService(prisma, audit, new ProductsService(prisma, audit));
     const ctx = { requestId: "req-conc-2" };
 
     // Unlike suspend()xsuspend() (both require the SAME starting
@@ -192,7 +194,7 @@ describe("AdminProductsService — concurrent admin decisions (integration, real
   it("suspend() cascade leaves a non-zero fundedQuantity on the ACTIVE->PAUSED opportunity completely unchanged", async () => {
     const { productId, activeOppId, admin1 } = await seedApprovedProductWithOpportunities(17);
     const audit = new AuditService(prisma);
-    const service = new AdminProductsService(prisma, audit);
+    const service = new AdminProductsService(prisma, audit, new ProductsService(prisma, audit));
 
     const before = await prisma.opportunity.findUniqueOrThrow({ where: { id: activeOppId } });
     expect(before.fundedQuantity).toBe(17);
@@ -207,7 +209,7 @@ describe("AdminProductsService — concurrent admin decisions (integration, real
   it("close() cascade leaves a non-zero fundedQuantity on the ACTIVE->CANCELLED opportunity completely unchanged", async () => {
     const { productId, activeOppId, admin1 } = await seedApprovedProductWithOpportunities(23);
     const audit = new AuditService(prisma);
-    const service = new AdminProductsService(prisma, audit);
+    const service = new AdminProductsService(prisma, audit, new ProductsService(prisma, audit));
 
     const before = await prisma.opportunity.findUniqueOrThrow({ where: { id: activeOppId } });
     expect(before.fundedQuantity).toBe(23);

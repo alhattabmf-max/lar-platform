@@ -52,9 +52,23 @@ const isoOrNull = (date: Date | null): string | null => (date ? date.toISOString
  * be a single request.
  */
 function isOverdue(
-  allocation: { status: OrderAllocationStatus; preparationDueAt: Date; shippedAt: Date | null },
+  allocation: {
+    status: OrderAllocationStatus;
+    preparationDueAt: Date | null;
+    shippedAt: Date | null;
+  },
   now: Date
 ): boolean {
+  // NO DATE, NO LATENESS — «لا يتم شحن البضاعة إلا بعد ما يتم العرض
+  // شروطه ووصوله لهدفه».
+  //
+  // The due date is NULL while the offer is still gathering its target,
+  // because no work is owed yet. It used to be stamped at PAYMENT, which
+  // dated work nobody was permitted to start: a supplier whose offer
+  // stood at 20% was reported late here, on the admin dashboard, and on
+  // his own. Absence is the honest answer, not a comparison against
+  // a date that means nothing.
+  if (allocation.preparationDueAt === null) return false;
   return allocation.shippedAt === null && allocation.preparationDueAt < now;
 }
 
@@ -293,7 +307,8 @@ export class SupplierOrdersService {
       address: destination.addressSnapshot,
       contactName: destination.contactNameSnapshot,
       contactPhone: destination.contactPhoneSnapshot,
-      preparationDueAt: iso(allocation.preparationDueAt),
+      // ABSENT UNTIL THE OFFER CLOSES — see `isOverdue`.
+      preparationDueAt: isoOrNull(allocation.preparationDueAt),
       isPreparationOverdue: isOverdue(
         {
           status: allocation.status,

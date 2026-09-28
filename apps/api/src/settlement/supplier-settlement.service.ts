@@ -97,6 +97,11 @@ const SETTLEMENT_DETAIL_SELECT = {
           locationNameSnapshot: true,
           cityNameArSnapshot: true,
           cityNameEnSnapshot: true,
+          // Read because the city may be null — a branch names a region
+          // always and a city sometimes, so the region is what
+          // guarantees a settlement row names a place at all.
+          regionNameArSnapshot: true,
+          regionNameEnSnapshot: true,
         },
       },
     },
@@ -175,6 +180,8 @@ export class SupplierSettlementService {
       locationName: destination.locationNameSnapshot,
       cityNameAr: destination.cityNameArSnapshot,
       cityNameEn: destination.cityNameEnSnapshot,
+      regionNameAr: destination.regionNameArSnapshot,
+      regionNameEn: destination.regionNameEnSnapshot,
     };
   }
 }

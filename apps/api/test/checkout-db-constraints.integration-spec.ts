@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.fixture";
+import { seedFulfillmentFixture } from "./fixtures/fulfillment.fixture";
 
 const prisma = checkoutFixturePrisma;
 
@@ -277,7 +278,8 @@ describe("Checkout DB constraints — direct breakage proof (integration, real D
       ).resolves.toBeDefined();
     });
 
-    it("QuoteSnapshot rows cannot be UPDATEd or DELETEd after creation (immutability trigger)", async () => {
+
+    it("QuoteSnapshot rows can never be UPDATEd", async () => {
       const { fixture, session } = await seedLockedSession();
       const snapshotId = (await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } })).productApprovalSnapshotId!;
       const base = await baseQuoteData(session.id, snapshotId, fixture.tariffId);
@@ -295,7 +297,55 @@ describe("Checkout DB constraints — direct breakage proof (integration, real D
       await expect(prisma.$executeRaw`UPDATE quote_snapshots SET quantity = 999 WHERE id = ${quote.id}::uuid`).rejects.toThrow(
         /append-only|immutable/
       );
-      await expect(prisma.$executeRaw`DELETE FROM quote_snapshots WHERE id = ${quote.id}::uuid`).rejects.toThrow(/append-only|immutable/);
     });
+
+    // DELETE IS NOT THE SAME RULE AS UPDATE, and this test used to claim
+    // it was: it asserted that deleting a quote raised «append-only»,
+    // which the trigger has not done since
+    // `20260902060100_allocation_deletable_when_unpaid`.
+    //
+    // That migration made an abandoned checkout removable. A quote is
+    // the price the trader was SHOWN; while nothing was bought on it,
+    // it is a discarded draft and deleting the session takes it with
+    // it. The moment an order is built on that session the same quote
+    // becomes the record of what was sold, and the trigger refuses.
+    //
+    // The old assertion passed only because no order existed — so it
+    // was asserting the opposite of what it said, and would have gone
+    // on passing if the protection that matters had been removed.
+    it("a QuoteSnapshot CAN be DELETEd while no order was built on its session", async () => {
+      const { fixture, session } = await seedLockedSession();
+      const snapshotId = (await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } })).productApprovalSnapshotId!;
+      const base = await baseQuoteData(session.id, snapshotId, fixture.tariffId);
+      const quote = await prisma.quoteSnapshot.create({
+        data: {
+          ...base,
+          productsSubtotalExclTaxAmount: 34.8,
+          productsTaxAmount: 5.2,
+          productsSubtotalInclTaxAmount: 40,
+          totalShippingFeeAmount: 10,
+          grandTotalAmount: 50,
+        },
+      });
+
+      const orders = await prisma.masterOrder.count({ where: { checkoutSessionId: session.id } });
+      expect(orders).toBe(0);
+
+      await expect(prisma.$executeRaw`DELETE FROM quote_snapshots WHERE id = ${quote.id}::uuid`).resolves.toBe(1);
+      expect(await prisma.quoteSnapshot.findUnique({ where: { id: quote.id } })).toBeNull();
+    });
+
+    it("a QuoteSnapshot CANNOT be DELETEd once an order was built on its session", async () => {
+      // The branch that guards money: this quote is what the buyer was
+      // charged, and the order points back at it.
+      const paid = await seedFulfillmentFixture("QUOTEDEL");
+      const order = await prisma.masterOrder.findUniqueOrThrow({ where: { id: paid.masterOrderId } });
+      const quote = await prisma.quoteSnapshot.findFirstOrThrow({ where: { checkoutSessionId: order.checkoutSessionId } });
+
+      await expect(prisma.$executeRaw`DELETE FROM quote_snapshots WHERE id = ${quote.id}::uuid`).rejects.toThrow(
+        /cannot delete a quote an order was built on/
+      );
+      expect(await prisma.quoteSnapshot.findUnique({ where: { id: quote.id } })).not.toBeNull();
+    }, 60_000);
   });
 });

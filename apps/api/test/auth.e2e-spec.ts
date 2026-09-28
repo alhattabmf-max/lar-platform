@@ -12,6 +12,7 @@ import { SETTINGS_KEYS } from "../src/settings/settings-keys.constants";
 import { getCapturedEmails } from "./helpers/captured-emails";
 import { CapturingEmailProvider } from "./helpers/capturing-email.provider";
 import { EMAIL_PROVIDER } from "../src/email/email-provider.interface";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -57,12 +58,7 @@ async function baseRegistrationPayload(
     legalName: "Test Trading Co",
     email: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
     password: "correct-horse-battery-staple",
-    primaryMobile1: "+966500000001",
-    primaryMobile2: "+966500000002",
-    cityId: testCityId,
-    shortAddress: "Riyadh, King Fahd Rd",
-    latitude: 24.7136,
-    longitude: 46.6753,
+    primaryMobile1: uniqueMobile(),
     acceptedPolicyVersionIds,
     ...overrides,
   };
@@ -384,7 +380,7 @@ describe("Auth (e2e)", () => {
         latitude: 21.4858,
         longitude: 39.1925,
         contactName: "Branch Contact",
-        contactPhone: "+966500000003",
+        contactPhone: uniqueMobile(),
       });
       expect(secondLocation.status).toBe(201);
       expect(secondLocation.body.isDefault).toBe(false);

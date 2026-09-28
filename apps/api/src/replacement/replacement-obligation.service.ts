@@ -8,6 +8,19 @@ import { ERROR_CODES } from "@platform/types";
 interface ActorContext {
   userId?: string;
   companyId?: string;
+  /**
+   * True when the caller is an administrator rather than the supplier
+   * or the buyer.
+   *
+   * DECLARED, NOT INFERRED. `emit` read "a userId is present" as "a
+   * company user did this", so both admin overrides in this file were
+   * written into the audit log as USER actions carrying an admin's id
+   * in the actor column — invisible to anyone filtering for what an
+   * administrator did. The absence of `companyId` would have been a
+   * second guess rather than a fact, so the admin entry point says so
+   * outright.
+   */
+  isAdmin?: boolean;
   requestId: string;
   ipAddress?: string;
   userAgent?: string;
@@ -206,7 +219,16 @@ export class ReplacementObligationService {
    * ReplacementObligation — serializes against a concurrent delivery
    * confirmation racing to the same terminal transition.
    */
-  async markFailed(replacementObligationId: string, ctx: ActorContext) {
+  async markFailed(replacementObligationId: string, reasonNote: string, ctx: ActorContext) {
+    const reason = reasonNote?.trim() ?? "";
+    if (reason.length === 0) {
+      throw new BusinessException(
+        400,
+        ERROR_CODES.VALIDATION_FAILED,
+        "reasonNote is required for an admin decision to fail a replacement"
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const preview = await tx.replacementObligation.findUniqueOrThrow({
         where: { id: replacementObligationId },
@@ -231,7 +253,10 @@ export class ReplacementObligationService {
         throw new BusinessException(409, ERROR_CODES.INVALID_FULFILLMENT_TRANSITION, "This replacement cannot be marked failed from its current state");
       }
 
-      await this.emit(tx, ctx, "REPLACEMENT_FAILED", replacementObligationId);
+      // The reason travels INTO the audit entry rather than beside it:
+      // the decision and its explanation are one record or they are two
+      // things that can be read apart.
+      await this.emit(tx, ctx, "REPLACEMENT_FAILED", replacementObligationId, "replacement_obligation", reason);
       await this.notifications.replacementFailed(tx, replacementObligationId);
 
       return tx.replacementObligation.findUniqueOrThrow({ where: { id: replacementObligationId } });
@@ -254,11 +279,24 @@ export class ReplacementObligationService {
     ctx: ActorContext,
     action: string,
     entityId: string,
-    entityType: "replacement_obligation" | "dispute" = "replacement_obligation"
+    entityType: "replacement_obligation" | "dispute" = "replacement_obligation",
+    /**
+     * The written reason, when the action carries one.
+     *
+     * INTO `auditLog.reason`, the column the schema already has for
+     * exactly this — not into `afterData`, which is for state. A
+     * decision and its explanation belong to one record.
+     */
+    reason?: string
   ): Promise<void> {
     await tx.auditLog.create({
       data: {
-        actorType: ctx.userId ? AuditActorType.USER : AuditActorType.SYSTEM,
+        ...(reason ? { reason } : {}),
+        actorType: ctx.isAdmin
+          ? AuditActorType.ADMIN
+          : ctx.userId
+            ? AuditActorType.USER
+            : AuditActorType.SYSTEM,
         actorId: ctx.userId ?? null,
         companyId: ctx.companyId ?? null,
         action,

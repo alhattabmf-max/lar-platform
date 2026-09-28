@@ -1,105 +1,37 @@
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
 import type { AppLocale } from "@/i18n/routing";
 import { requireRoleOrRedirect } from "@/lib/auth-redirects";
-import {
-  loadPolicyLimits,
-  loadSupplierLocations,
-  loadSupplierProducts,
-} from "@/lib/supplier-data";
-import { referenceFailureRequestId } from "@/lib/reference-data";
-import { EMPTY_OPPORTUNITY_FORM } from "@/lib/opportunity-form";
-import { ErrorState } from "@/components/ui/states";
-import { OpportunityForm } from "@/components/supplier/opportunity-form";
-import { opportunityFormLabels } from "@/components/supplier/opportunity-form-labels";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("supplier.opportunities.new");
+
 
 /**
- * Creating a listing.
+ * THE OLD DOOR, kept open and pointed at the catalogue.
  *
- * SAVING IS NOT PUBLISHING. The listing is created as a DRAFT and traders
- * see nothing: publishing is a separate action that runs the eligibility
- * checks — a verified company, an approved product, an active location, a
- * configured tax rate, a quantity that divides into whole shares — and any
- * one of them can refuse it. The steps stay separate because they are.
+ * An offer is made ON a product, so there is no address at which one
+ * can be created without naming which product it is for — the form
+ * lives at `/supplier/products/:id/offers/new`. This address named a
+ * step that used to open with a dropdown of products; it is not
+ * deleted, because a supplier who bookmarked it, or a link in an email
+ * sent last month, must land somewhere that works rather than on a 404.
  *
- * The product picker offers APPROVED, unarchived products ONLY. Publishing
- * requires an approved snapshot, so a listing built on anything else could
- * be saved and never published — and the picker would have been the thing
- * that suggested it.
+ * THE CATALOGUE IS WHERE THE MISSING ANSWER IS. Sending someone to a
+ * list of their products is sending them to the question the old form
+ * opened by asking.
  */
-export default async function NewSupplierOpportunityPage({
+export default async function LegacyNewOfferPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  // GUARDED LIKE EVERY OTHER PAGE IN THIS SEGMENT, even though it only
+  // forwards. A visitor with no session should meet the sign-in page
+  // here rather than be bounced to another address that then sends
+  // them there — and a rule with one exception is a rule the next
+  // page copies the exception from.
   const appLocale = locale as AppLocale;
   await requireRoleOrRedirect(appLocale, "SUPPLIER");
-
-  const t = await getTranslations({ locale: appLocale, namespace: "supplier.opportunities" });
-  const states = await getTranslations({ locale: appLocale, namespace: "states" });
-
-  const [products, locations, policyLimits] = await Promise.all([
-    loadSupplierProducts(),
-    loadSupplierLocations(),
-    loadPolicyLimits(),
-  ]);
-
-  const backHref = `/${appLocale}/supplier/opportunities`;
-
-  // Only what can actually be published on.
-  const publishable = products.ok
-    ? products.data.filter(
-        (product) => product.approvalStatus === "APPROVED" && product.archivedAt === null
-      )
-    : [];
-
-  return (
-    <div className="flex flex-col gap-6">
-      <nav aria-label={t("breadcrumbLabel")} className="text-sm">
-        <Link
-          href={backHref}
-          className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
-        >
-          {t("backToList")}
-        </Link>
-      </nav>
-
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("new.title")}</h1>
-        <p className="text-sm text-content-muted">{t("new.description")}</p>
-      </header>
-
-      <div className="rounded-lg border border-line bg-surface p-4">
-        <h2 className="text-sm font-semibold text-content">{t("new.nextStepsTitle")}</h2>
-        <ol className="mt-2 flex list-decimal flex-col gap-1 ps-5 text-sm text-content-muted">
-          <li>{t("new.step1")}</li>
-          <li>{t("new.step2")}</li>
-          <li>{t("new.step3")}</li>
-        </ol>
-      </div>
-
-      {!products.ok || !locations.ok ? (
-        <ErrorState
-          title={states("errorTitle")}
-          description={states("errorDescription")}
-          requestId={referenceFailureRequestId(products, locations)}
-          requestIdLabel={states("requestIdLabel")}
-        />
-      ) : (
-        <OpportunityForm
-          // Undefined when the policy read failed — the form then
-          // states that bounds exist without naming figures.
-          limits={policyLimits.ok ? policyLimits.data.opportunity : undefined}
-          mode="create"
-          locale={appLocale}
-          initialValues={EMPTY_OPPORTUNITY_FORM}
-          products={publishable}
-          locations={locations.data}
-          backHref={backHref}
-          labels={await opportunityFormLabels(appLocale, policyLimits.ok ? policyLimits.data.opportunity : undefined)}
-        />
-      )}
-    </div>
-  );
+  redirect(`/${appLocale}/supplier/products`);
 }

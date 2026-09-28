@@ -171,7 +171,7 @@ export function NotificationList({ items, locale, hasUnread }: NotificationListP
                         // reaching the thing it points at.
                         if (unread) void markRead(item.id);
                       }}
-                      className="text-sm text-secondary hover:opacity-90"
+                      className="text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]"
                     >
                       {t(`action.${item.type}`)}
                     </Link>

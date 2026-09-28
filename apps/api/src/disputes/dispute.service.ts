@@ -742,7 +742,13 @@ export class DisputeService {
             reasonNote: true,
             decidedAt: true,
             refundObligation: { select: { id: true } },
-            replacementObligation: { select: { id: true } },
+            // THE STATUS TOO, not only the id. The admin screen offers
+            // two actions on a replacement — confirm delivered, and
+            // record it as failed — and each is accepted from a
+            // different set of states. With only an id the screen must
+            // draw both and let the server refuse one, which is exactly
+            // the doomed button this platform refuses to draw.
+            replacementObligation: { select: { id: true, status: true } },
           },
           orderBy: [{ sequenceNumber: "asc" }, { id: "asc" }],
         },
@@ -787,6 +793,8 @@ export class DisputeService {
         decidedAt: decision.decidedAt.toISOString(),
         refundObligationId: decision.refundObligation?.id ?? null,
         replacementObligationId: decision.replacementObligation?.id ?? null,
+        replacementObligationStatus:
+          decision.replacementObligation?.status ?? null,
       })),
     };
   }

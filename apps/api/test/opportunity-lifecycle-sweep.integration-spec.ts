@@ -42,6 +42,7 @@ async function seedOpportunity(overrides: {
   const location = await prisma.companyLocation.create({
     data: {
       companyId: company.id,
+      regionId: region.id,
       cityId: city.id,
       name: "loc",
       shortAddress: "addr",

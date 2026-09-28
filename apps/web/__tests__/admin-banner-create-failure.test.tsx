@@ -1,62 +1,42 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../messages/ar-SA.json";
 import {
   BannerManager,
   type BannerManagerLabels,
 } from "@/components/admin/banner-manager";
-import type { AdminBannerRow } from "@/lib/admin-data";
-import { apiClient } from "@/lib/api-client";
+import * as api from "@/lib/api-client";
 import { ApiError } from "@/lib/errors";
-import { ERROR_CODES } from "@platform/types";
+import { DEFAULT_BANNER_IMAGE_SHAPE, ERROR_CODES } from "@platform/types";
 
 /**
- * A REAL ApiError, not a look-alike object. `isApiError` is an
- * `instanceof` check, so a plain literal is treated as an unknown throw
- * and loses its requestId — which would make this test assert against a
- * failure mode the app never actually produces.
- */
-function serverFailure(requestId: string): ApiError {
-  return new ApiError({
-    kind: "server",
-    status: 500,
-    code: ERROR_CODES.INTERNAL_ERROR,
-    requestId,
-    message: "Internal server error",
-  });
-}
-
-/** The reference number the founder was shown. */
-const REQUEST_ID = "75689e20-2f79-494e-8e49-dc84383b7bf5";
-
-/**
- * What an operator keeps when the server refuses the request.
+ * Creating a banner is TWO STEPS, and the second one can fail.
  *
- * `POST /admin/banners` answered 500 for every banner
- * (`Failed to deserialize column of type 'void'` — see
- * `banner-placement-lock.integration-spec.ts`). The founder hit it after
- * typing a full banner, and the question that matters for the person at
- * the keyboard is not only "was the bug fixed" but "did I lose what I
- * typed".
+ * The row must exist before an upload can be addressed to it, so
+ * creation posts the banner and then uploads each language's artwork
+ * onto it. That means a request can succeed and the next one fail, and
+ * what happens then is a real decision rather than an accident:
  *
- * Today the answer is no, by construction: `create()` clears the five
- * fields only AFTER `await apiClient.post(...)` returns, so a throw
- * skips the clears entirely. That is easy to break — moving the resets
- * into a `finally`, or clearing optimistically before the request, would
- * silently start discarding an operator's work on every failure. This
- * pins the behaviour.
+ *   THE HALF-BUILT BANNER IS KEPT, as an inactive draft. It cannot be
+ *   activated until both languages are present, so no visitor can ever
+ *   see it; it sits in the list with its missing language named, and
+ *   the operator finishes it or deletes it.
+ *
+ * Rolling back instead would throw away the upload that DID succeed and
+ * make the operator repeat it — worse for them, and no safer, because
+ * the draft was never visible in the first place.
+ *
+ * A creation failure must also leave the CHOSEN FILES in place. Clearing
+ * the form on failure means re-picking two pictures because of one
+ * server error.
  */
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const LABELS: BannerManagerLabels = {
   createLegend: "إضافة لافتة",
-  titleAr: "العنوان بالعربية",
-  titleEn: "العنوان بالإنجليزية",
-  bodyAr: "النص بالعربية",
-  bodyEn: "النص بالإنجليزية",
   linkUrl: "الرابط",
   linkHint: "رابط داخلي فقط",
   create: "إنشاء",
@@ -65,8 +45,6 @@ const LABELS: BannerManagerLabels = {
   orderSaved: "حُفظ الترتيب",
   activate: "تفعيل",
   deactivate: "إيقاف",
-  hasImage: "بها صورة",
-  noImage: "بلا صورة",
   scheduleFrom: "من",
   scheduleTo: "إلى",
   saveSchedule: "حفظ الجدولة",
@@ -78,105 +56,219 @@ const LABELS: BannerManagerLabels = {
   requestIdLabel: "رقم المرجع",
 };
 
-const NO_BANNERS: AdminBannerRow[] = [];
+/**
+ * jsdom has no object URLs and never decodes an image, so a picked file
+ * would be unmeasurable and the shape check would be skipped. These
+ * stubs stand in for the browser's decoder; the reported size is a
+ * valid 5:1 banner so the picker accepts it.
+ */
+beforeEach(() => {
+  URL.createObjectURL = vi.fn(() => "blob:artwork");
+  URL.revokeObjectURL = vi.fn();
 
-/** The founder's banner: home placement, both titles, NO link. */
-const TYPED = {
-  titleAr: "عرض الأسمنت الوطني",
-  titleEn: "National Cement Offer",
-  bodyAr: "خصم خاص لهذا الشهر",
-};
+  class StubImage {
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    naturalWidth = 2000;
+    naturalHeight = 400;
+    set src(_value: string) {
+      queueMicrotask(() => this.onload?.());
+    }
+  }
+  vi.stubGlobal("Image", StubImage);
+});
 
-function renderManager() {
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+function renderWith() {
   return render(
     <NextIntlClientProvider locale="ar-SA" messages={messages}>
-      <BannerManager placement="PUBLIC_HOME" banners={NO_BANNERS} labels={LABELS} />
-    </NextIntlClientProvider>
+      <BannerManager
+        placement="PUBLIC_HOME"
+        banners={[]}
+        labels={LABELS}
+        imageShape={DEFAULT_BANNER_IMAGE_SHAPE}
+      />
+    </NextIntlClientProvider>,
   );
 }
 
-async function fillTheForm(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(new RegExp(LABELS.titleAr)), TYPED.titleAr);
-  await user.type(screen.getByLabelText(new RegExp(LABELS.titleEn)), TYPED.titleEn);
-  await user.type(screen.getByLabelText(new RegExp(LABELS.bodyAr)), TYPED.bodyAr);
+const file = (name: string) =>
+  new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], name, {
+    type: "image/png",
+  });
+
+function formPicker(locale: "ar-SA" | "en-SA"): HTMLInputElement {
+  const label = screen.getByTestId(`artwork-input-${locale}`);
+  return label.querySelector("input[type=file]") as HTMLInputElement;
 }
 
-describe("creating a banner when the server fails", () => {
-  it("keeps every typed value so nothing has to be retyped", async () => {
-    const user = userEvent.setup();
-    // The exact failure shape the API returned.
-    vi.spyOn(apiClient, "post").mockRejectedValue(serverFailure(REQUEST_ID));
+async function pickBoth(user: ReturnType<typeof userEvent.setup>) {
+  await user.upload(formPicker("ar-SA"), file("ar.png"));
+  await waitFor(() =>
+    expect(screen.getByTestId("artwork-preview-ar-SA")).toBeTruthy(),
+  );
+  await user.upload(formPicker("en-SA"), file("en.png"));
+  await waitFor(() =>
+    expect(screen.getByTestId("artwork-preview-en-SA")).toBeTruthy(),
+  );
+}
 
-    renderManager();
-    await fillTheForm(user);
-    await user.click(screen.getByRole("button", { name: LABELS.create }));
-
-    await waitFor(() => {
-      expect(screen.getByText(LABELS.errorTitle)).toBeTruthy();
-    });
-
-    // The whole point: the fields still hold what was typed.
-    expect(screen.getByLabelText(new RegExp(LABELS.titleAr))).toHaveValue(TYPED.titleAr);
-    expect(screen.getByLabelText(new RegExp(LABELS.titleEn))).toHaveValue(TYPED.titleEn);
-    expect(screen.getByLabelText(new RegExp(LABELS.bodyAr))).toHaveValue(TYPED.bodyAr);
-  });
-
-  it("shows the reference id, so a failure can be traced to the log", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(apiClient, "post").mockRejectedValue(serverFailure(REQUEST_ID));
-
-    renderManager();
-    await fillTheForm(user);
-    await user.click(screen.getByRole("button", { name: LABELS.create }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(new RegExp(REQUEST_ID))
-      ).toBeTruthy();
-    });
-  });
-
-  it("the form is usable again — the operator can retry without retyping", async () => {
+describe("creating a banner", () => {
+  it("posts the row FIRST, then uploads one picture per language", async () => {
     const user = userEvent.setup();
     const post = vi
-      .spyOn(apiClient, "post")
-      .mockRejectedValueOnce(serverFailure(REQUEST_ID))
-      .mockResolvedValueOnce({});
+      .spyOn(api.apiClient, "post")
+      .mockResolvedValue({ id: "new-1" });
+    const upload = vi.spyOn(api, "uploadFile").mockResolvedValue({});
 
-    renderManager();
-    await fillTheForm(user);
-
-    const submit = screen.getByRole("button", { name: LABELS.create });
-    await user.click(submit);
-    await waitFor(() => expect(screen.getByText(LABELS.errorTitle)).toBeTruthy());
-
-    // Second attempt, without touching the fields again.
-    await user.click(submit);
-
-    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
-    // Both attempts carried the same typed content.
-    expect(post.mock.calls[1][1]).toMatchObject({
-      placement: "PUBLIC_HOME",
-      titleAr: TYPED.titleAr,
-      titleEn: TYPED.titleEn,
-      // A blank optional field is sent as null, never "".
-      linkUrl: null,
-      bodyEn: null,
-    });
-  });
-
-  it("clears the form only on success", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(apiClient, "post").mockResolvedValue({});
-
-    renderManager();
-    await fillTheForm(user);
+    renderWith();
+    await pickBoth(user);
     await user.click(screen.getByRole("button", { name: LABELS.create }));
 
-    await waitFor(() => {
-      expect(screen.getByLabelText(new RegExp(LABELS.titleAr))).toHaveValue("");
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+
+    // The row has to exist before anything can be uploaded onto it.
+    expect(post).toHaveBeenCalledWith("/admin/banners", {
+      placement: "PUBLIC_HOME",
+      linkUrl: null,
     });
-    expect(screen.getByLabelText(new RegExp(LABELS.titleEn))).toHaveValue("");
-    expect(screen.getByLabelText(new RegExp(LABELS.bodyAr))).toHaveValue("");
+    expect(upload.mock.calls[0][0]).toBe(
+      "/admin/banners/new-1/image?locale=ar-SA",
+    );
+    expect(upload.mock.calls[1][0]).toBe(
+      "/admin/banners/new-1/image?locale=en-SA",
+    );
+  });
+
+  it("sends a blank link as null, never as an empty string", async () => {
+    const user = userEvent.setup();
+    const post = vi
+      .spyOn(api.apiClient, "post")
+      .mockResolvedValue({ id: "new-1" });
+    vi.spyOn(api, "uploadFile").mockResolvedValue({});
+
+    renderWith();
+    await pickBoth(user);
+    await user.click(screen.getByRole("button", { name: LABELS.create }));
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect((post.mock.calls[0][1] as { linkUrl: unknown }).linkUrl).toBeNull();
+  });
+});
+
+describe("when the banner row itself cannot be created", () => {
+  it("shows the failure with its request id", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api.apiClient, "post").mockRejectedValue(
+      new ApiError({
+        kind: "server",
+        status: 500,
+        code: ERROR_CODES.INTERNAL_ERROR,
+        requestId: "75689e20-2f79-494e-8e49-dc84383b7bf5",
+        message: "boom",
+      }),
+    );
+    const upload = vi.spyOn(api, "uploadFile").mockResolvedValue({});
+
+    renderWith();
+    await pickBoth(user);
+    await user.click(screen.getByRole("button", { name: LABELS.create }));
+
+    await waitFor(() =>
+      expect(screen.getByText(LABELS.errorTitle)).toBeTruthy(),
+    );
+    expect(screen.getByText(/75689e20/)).toBeTruthy();
+    // Nothing was uploaded: there is no row to upload onto.
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("KEEPS the chosen pictures so the operator can retry", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api.apiClient, "post").mockRejectedValue(
+      new ApiError({
+        kind: "server",
+        status: 500,
+        code: ERROR_CODES.INTERNAL_ERROR,
+        requestId: "r1",
+        message: "boom",
+      }),
+    );
+
+    renderWith();
+    await pickBoth(user);
+    await user.click(screen.getByRole("button", { name: LABELS.create }));
+
+    await waitFor(() =>
+      expect(screen.getByText(LABELS.errorTitle)).toBeTruthy(),
+    );
+
+    // Both previews survive, so pressing the button again is all it
+    // takes — rather than picking two files a second time.
+    expect(screen.getByTestId("artwork-preview-ar-SA")).toBeTruthy();
+    expect(screen.getByTestId("artwork-preview-en-SA")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: LABELS.create }),
+    ).not.toBeDisabled();
+  });
+});
+
+describe("when one picture uploads and the other fails", () => {
+  it("stops at the failure and reports it", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api.apiClient, "post").mockResolvedValue({ id: "new-1" });
+    const upload = vi
+      .spyOn(api, "uploadFile")
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(
+        new ApiError({
+          kind: "server",
+          status: 500,
+          code: ERROR_CODES.INTERNAL_ERROR,
+          requestId: "partial-1",
+          message: "storage unreachable",
+        }),
+      );
+
+    renderWith();
+    await pickBoth(user);
+    await user.click(screen.getByRole("button", { name: LABELS.create }));
+
+    await waitFor(() => expect(screen.getByText(/partial-1/)).toBeTruthy());
+    expect(upload).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT undo the banner or the picture that succeeded", async () => {
+    const user = userEvent.setup();
+    const post = vi
+      .spyOn(api.apiClient, "post")
+      .mockResolvedValue({ id: "new-1" });
+    const del = vi.spyOn(api.apiClient, "delete").mockResolvedValue({});
+    vi.spyOn(api, "uploadFile")
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(
+        new ApiError({
+          kind: "server",
+          status: 500,
+          code: ERROR_CODES.INTERNAL_ERROR,
+          requestId: "partial-2",
+          message: "storage unreachable",
+        }),
+      );
+
+    renderWith();
+    await pickBoth(user);
+    await user.click(screen.getByRole("button", { name: LABELS.create }));
+
+    await waitFor(() => expect(screen.getByText(/partial-2/)).toBeTruthy());
+
+    // The draft stays. It is inactive and cannot be activated with a
+    // language missing, so no visitor can see it — and the operator
+    // keeps the upload that worked.
+    expect(del).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledTimes(1);
   });
 });

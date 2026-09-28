@@ -53,7 +53,17 @@ function buildProducts(row: Record<string, any> | null = productRow()) {
     productMedia: { findMany: jest.fn(async () => []) },
     taxonomyNode: { findUnique: jest.fn(async () => ({ id: "n", isActive: true })) },
     salesUnit: { findUnique: jest.fn(async () => ({ id: "u", isActive: true })) },
-    $transaction: jest.fn(async (fn: any) => fn({ product: { update }, productMedia: { findMany: jest.fn(async () => []) } })),
+    $transaction: jest.fn(async (fn: any) =>
+      fn({
+        product: { update },
+        productMedia: { findMany: jest.fn(async () => []) },
+        // NO PUBLISHED OFFER, which is the state every case below was
+        // written in. A product a buyer can reach is not editable at all
+        // — «إذا نشره خلاص ما يقدر يعدل عليه» — and the case that proves
+        // that refusal sets its own count.
+        opportunity: { count: jest.fn(async () => 0) },
+      }),
+    ),
   };
   const service = new ProductsService(prisma as any, { log: jest.fn() } as any);
   return { service, prisma, update };

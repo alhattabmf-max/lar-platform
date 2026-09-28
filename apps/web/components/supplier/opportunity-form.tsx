@@ -23,10 +23,10 @@ import {
   type OpportunityFormErrors,
   type OpportunityFormValues,
 } from "@/lib/opportunity-form";
-import { localized } from "@/lib/localized";
+import { ProductPicker } from "@/components/supplier/product-picker";
 import type { AppLocale } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldError } from "@/components/ui/field";
+import { Input, Label, FieldError, Textarea } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { ErrorSummary, FormSection, useUnsavedChangesWarning } from "@/components/forms/form-shell";
 
@@ -58,7 +58,12 @@ export interface OpportunityFormProps {
   locale: AppLocale;
   opportunityId?: string;
   initialValues: OpportunityFormValues;
-  /** APPROVED, unarchived products only — nothing else can be published on. */
+  /**
+   * The picker's FIRST PAGE of publishable products — APPROVED and
+   * unarchived — plus the product this listing already names.
+   *
+   * Not the catalogue. The picker searches the server for the rest.
+   */
   products: readonly ProductSummary[];
   locations: readonly SupplierLocation[];
   backHref: string;
@@ -83,15 +88,7 @@ export interface OpportunityFormProps {
 
 export interface OpportunityFormLabels {
   sections: { what: string; terms: string; window: string; description: string };
-  sectionHints: { what: string; terms: string; window: string; description: string };
   fields: Record<keyof OpportunityFormValues, string>;
-  hints: {
-    /** Shown when the limits could not be read — no figures. */
-    boundsUnknown: string;
-    /** Already interpolated by the caller, with the real figures. */
-    bounds: string;
-    frozenAtPublish: string;
-  };
   /** Pre-submit warnings, already interpolated. Shown, never blocking. */
   warnings: {
     quantityTooLow: string;
@@ -100,6 +97,10 @@ export interface OpportunityFormLabels {
     durationTooLong: string;
   };
   placeholderProduct: string;
+  /** Describes the picker's text box to a screen reader. */
+  searchProduct: string;
+  /** Shown when a search matched no publishable product. */
+  noMatchingProduct: string;
   placeholderLocation: string;
   noProducts: string;
   required: string;
@@ -272,7 +273,7 @@ export function OpportunityForm({
           {labels.fields[field]}
         </Label>
         {options.multiline ? (
-          <textarea
+          <Textarea
             id={fieldId(field)}
             value={values[field]}
             onChange={(event) => set(field, event.target.value)}
@@ -296,15 +297,17 @@ export function OpportunityForm({
             onChange={(event) => set(field, event.target.value)}
             invalid={Boolean(issue)}
             describedById={issue ? errorId(field) : undefined}
-            className="min-h-11"
+           
           />
         )}
       </>
     );
   };
 
+  // A MAXIMUM WIDTH. The portal frame caps nothing, which is right for
+  // a table and wrong for a form.
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+    <form onSubmit={submit} noValidate className="flex max-w-5xl flex-col gap-6">
       <ErrorSummary title={labels.errorSummaryTitle} entries={summaryEntries} />
 
       {failure ? (
@@ -321,31 +324,37 @@ export function OpportunityForm({
         </div>
       ) : null}
 
-      <FormSection title={labels.sections.what} description={labels.sectionHints.what}>
+      <FormSection title={labels.sections.what}>
         {wrap(
           "productId",
           <>
             <Label htmlFor={fieldId("productId")} required requiredLabel={labels.required}>
               {labels.fields.productId}
             </Label>
-            <Select
+            {/* FOUND BY TYPING, NOT SCROLLED THROUGH.
+                This was a `<select>` fed with the supplier's whole
+                catalogue, filtered in the browser down to what could be
+                published on. A supplier with five thousand products put
+                five thousand options into the page — as markup and again
+                in the RSC payload — to choose one. The picker holds the
+                first page and asks the server for anything typed.
+
+                No pre-selected first product: a default nobody chose is
+                a listing built on the wrong item. */}
+            <ProductPicker
               id={fieldId("productId")}
+              locale={locale}
               value={values.productId}
-              onChange={(event) => set("productId", event.target.value)}
+              initial={products}
+              onChange={(productId) => set("productId", productId)}
               invalid={Boolean(errors.productId)}
-              describedById={errors.productId ? errorId("productId") : undefined}
-              className="min-h-11"
-              disabled={products.length === 0}
-            >
-              {/* No pre-selected first product: a default nobody chose is a
-                  listing built on the wrong item. */}
-              <option value="">{labels.placeholderProduct}</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {localized(locale, product.nameAr, product.nameEn)}
-                </option>
-              ))}
-            </Select>
+              testId="opportunity-product-picker"
+              labels={{
+                placeholder: labels.placeholderProduct,
+                searchLabel: labels.searchProduct,
+                emptyLabel: labels.noMatchingProduct,
+              }}
+            />
             {products.length === 0 ? (
               // Publishing requires an APPROVED product; there is nothing
               // to choose from, and the form says why rather than showing
@@ -373,7 +382,7 @@ export function OpportunityForm({
               describedById={
                 errors.fulfillmentLocationId ? errorId("fulfillmentLocationId") : undefined
               }
-              className="min-h-11"
+             
             >
               <option value="">{labels.placeholderLocation}</option>
               {locations.map((location) => (
@@ -386,7 +395,9 @@ export function OpportunityForm({
         )}
       </FormSection>
 
-      <FormSection title={labels.sections.terms} description={labels.sectionHints.terms}>
+      {/* A price and a quantity are both a handful of digits, and they
+          are read together — how much, and how many. */}
+      <FormSection title={labels.sections.terms} columns={2}>
         {textField("unitPriceAmount", { required: true, inputMode: "decimal" })}
         {textField("targetQuantity", { required: true, inputMode: "numeric" })}
 
@@ -411,24 +422,19 @@ export function OpportunityForm({
           </ul>
         ) : null}
 
-        {/* Said once: the tax split and the share size are the server's,
-            frozen at publish. Nothing on this form estimates them. */}
-        <p className="text-xs text-content-muted">{labels.hints.frozenAtPublish}</p>
       </FormSection>
 
-      <FormSection title={labels.sections.window} description={labels.sectionHints.window}>
+      {/* Two dates and a number of days: the whole window read across
+          one line instead of down three. */}
+      <FormSection title={labels.sections.window} columns={3}>
         {textField("startAt", { required: true, type: "datetime-local" })}
         {textField("endAt", { required: true, type: "datetime-local" })}
         {textField("expectedPreparationDays", { required: true, inputMode: "numeric" })}
-        {/* The real figures when the policy could be read; the
-            figure-free hint when it could not. A number invented here
-            would be worse than no number at all. */}
-        <p className="text-xs text-content-muted">
-          {limits ? labels.hints.bounds : labels.hints.boundsUnknown}
-        </p>
       </FormSection>
 
-      <FormSection title={labels.sections.description} description={labels.sectionHints.description}>
+      {/* NOT split into columns. A paragraph in a half-width box is a
+          box nobody can read back. */}
+      <FormSection title={labels.sections.description}>
         {textField("descriptionAr", { multiline: true })}
         {textField("descriptionEn", { multiline: true })}
       </FormSection>
@@ -437,7 +443,7 @@ export function OpportunityForm({
         <div className="flex flex-wrap gap-3">
           <Button
             type="submit"
-            className="min-h-11"
+           
             isLoading={submitting}
             disabled={submitting || (mode === "edit" && !dirty)}
           >
@@ -450,7 +456,7 @@ export function OpportunityForm({
           <Button
             type="button"
             variant="ghost"
-            className="min-h-11"
+           
             disabled={submitting}
             onClick={() => (dirty ? setConfirmingCancel(true) : router.push(backHref))}
           >
@@ -471,7 +477,7 @@ export function OpportunityForm({
               <Button
                 type="button"
                 size="sm"
-                className="min-h-11"
+               
                 onClick={() => router.push(backHref)}
               >
                 {labels.cancel}
@@ -480,7 +486,7 @@ export function OpportunityForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="min-h-11"
+               
                 onClick={() => setConfirmingCancel(false)}
               >
                 {labels.close}

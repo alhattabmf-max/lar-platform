@@ -9,8 +9,10 @@ import { AppModule } from "../src/app.module";
 import { createE2eApplication } from "./support/create-e2e-application";
 import { hashPassword } from "../src/common/security/argon2.util";
 import { publishTestPolicy } from "./fixtures/policy.fixture";
-import { ensureTestCity } from "./fixtures/city.fixture";
+import { ensureTestPlace, type TestPlace } from "./fixtures/city.fixture";
+import { createBranch, verifySupplierThroughReview } from "./fixtures/branch.fixture";
 import sharp from "sharp";
+import { uniqueMobile } from "./fixtures/unique";
 
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
@@ -31,7 +33,7 @@ async function getActivePolicyIds(app: INestApplication): Promise<string[]> {
   return res.body.map((p: { id: string }) => p.id);
 }
 
-async function registerCompany(app: INestApplication, kind: "supplier" | "trader", cityId: string, prefix: string) {
+async function registerCompany(app: INestApplication, kind: "supplier" | "trader", prefix: string) {
   const acceptedPolicyVersionIds = await getActivePolicyIds(app);
   const crNumber = randomCr(prefix);
   const password = "correct-horse-battery-staple";
@@ -43,12 +45,7 @@ async function registerCompany(app: INestApplication, kind: "supplier" | "trader
       legalName: `7A ${kind}`,
       email: `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`,
       password,
-      primaryMobile1: "+966500000001",
-      primaryMobile2: "+966500000002",
-      cityId,
-      shortAddress: "Riyadh",
-      latitude: 24.7136,
-      longitude: 46.6753,
+      primaryMobile1: uniqueMobile(),
       acceptedPolicyVersionIds,
     });
   await prisma.company.updateMany({ where: { crNumber }, data: { verificationStatus: "VERIFIED" } });
@@ -82,8 +79,8 @@ async function createAuthenticatedAdminAgent(app: INestApplication) {
 
 describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => {
   let app: INestApplication;
+  let place: TestPlace;
   let adminAgent: request.Agent;
-  let cityId: string;
   let taxonomyNodeId: string;
 
   beforeAll(async () => {
@@ -92,7 +89,9 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
     await resetThrottleCounters();
 
     await publishTestPolicy(prisma);
-    cityId = await ensureTestCity(prisma);
+    // Registration no longer creates a branch; each company makes its
+    // own through the branches endpoint, which needs a real region.
+    place = await ensureTestPlace(prisma);
     await prisma.systemSetting.deleteMany({
       where: { key: { in: ["company_verification_mode", "email_verification_enabled"] } },
     });
@@ -114,19 +113,28 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
     await resetThrottleCounters();
   });
 
+  /**
+   * A supplier with a complete record that an administrator approved.
+   *
+   * THE BRANCH IS PART OF BEING READY. Registration no longer creates
+   * one, and a record without a branch cannot be submitted for review;
+   * the approval is also what activates the bank account, which is why
+   * `POST /admin/bank-accounts/:id/approve` no longer exists.
+   */
   async function makeFinanciallyReadySupplier() {
-    const { agent, crNumber } = await registerCompany(app, "supplier", cityId, "SUP7A");
-    const bankRes = await agent
+    const { agent, crNumber } = await registerCompany(app, "supplier", "SUP7A");
+    await agent
       .post("/api/v1/companies/me/bank-account")
       .set("Origin", ORIGIN)
-      .send({ accountHolderName: "Holder", bankName: "Test Bank", iban: VALID_IBAN });
-    await adminAgent.post(`/api/v1/admin/bank-accounts/${bankRes.body.id}/approve`).set("Origin", ORIGIN);
+      .send({ accountHolderName: "Holder", iban: VALID_IBAN });
     await agent.put("/api/v1/companies/me/tax-profile").set("Origin", ORIGIN).send({ isVatRegistered: false });
     await agent
       .put("/api/v1/companies/me/invoicing-profile")
       .set("Origin", ORIGIN)
       .send({ invoicingLegalName: "7A Supplier LLC" });
-    return { agent, crNumber };
+    const branch = await createBranch(agent, ORIGIN, place);
+    await verifySupplierThroughReview(agent, adminAgent, ORIGIN, branch.companyId as string);
+    return { agent, crNumber, branch };
   }
 
   async function makeTestJpeg(): Promise<Buffer> {
@@ -208,7 +216,7 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
     const productId = createRes.body.id;
     await submitWithMainImage(supplierAgent, productId);
 
-    const { agent: traderAgent } = await registerCompany(app, "trader", cityId, "TRD7A");
+    const { agent: traderAgent } = await registerCompany(app, "trader", "TRD7A");
 
     const supplierAsTraderAttempt = await supplierAgent
       .post("/api/v1/trader/product-reports")
@@ -244,13 +252,12 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
   });
 
   it("admin suspend -> SCHEDULED opportunities become ACTION_REQUIRED, ACTIVE become PAUSED; reactivate does not auto-resume opportunities", async () => {
-    const { agent } = await makeFinanciallyReadySupplier();
+    const { agent, branch } = await makeFinanciallyReadySupplier();
     const createRes = await agent.post("/api/v1/companies/me/products").set("Origin", ORIGIN).send(validProductBody());
     const productId = createRes.body.id;
     await submitWithMainImage(agent, productId);
 
-    const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
-    const fulfillmentLocationId = locationRes.body[0].id;
+    const fulfillmentLocationId = branch.id;
 
     const activeCreate = await agent
       .post("/api/v1/companies/me/opportunities")
@@ -336,18 +343,17 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
   });
 
   it("commission policy: admin sets a new Append-Only version, bounded 0..10000, previously-published opportunities keep their original rate", async () => {
-    const { agent } = await makeFinanciallyReadySupplier();
+    const { agent, branch } = await makeFinanciallyReadySupplier();
     const createRes = await agent.post("/api/v1/companies/me/products").set("Origin", ORIGIN).send(validProductBody());
     const productId = createRes.body.id;
     await submitWithMainImage(agent, productId);
-    const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
 
     const oppCreate = await agent
       .post("/api/v1/companies/me/opportunities")
       .set("Origin", ORIGIN)
       .send({
         productId,
-        fulfillmentLocationId: locationRes.body[0].id,
+        fulfillmentLocationId: branch.id,
         targetQuantity: 40,
         unitPriceAmount: 10,
         startAt: new Date(Date.now() - 60_000).toISOString(),
@@ -383,7 +389,7 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
   });
 
   it("publishing reads sales unit + package content from the SNAPSHOT, not the live (since-edited) product", async () => {
-    const { agent } = await makeFinanciallyReadySupplier();
+    const { agent, branch } = await makeFinanciallyReadySupplier();
     const createRes = await agent
       .post("/api/v1/companies/me/products")
       .set("Origin", ORIGIN)
@@ -401,13 +407,12 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
       .set("Origin", ORIGIN)
       .send({ salesUnitNameAr: "صندوق", salesUnitNameEn: "Box" });
 
-    const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
     const oppCreate = await agent
       .post("/api/v1/companies/me/opportunities")
       .set("Origin", ORIGIN)
       .send({
         productId,
-        fulfillmentLocationId: locationRes.body[0].id,
+        fulfillmentLocationId: branch.id,
         targetQuantity: 40,
         unitPriceAmount: 10,
         startAt: new Date(Date.now() - 60_000).toISOString(),
@@ -436,7 +441,7 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
   });
 
   it("historical compatibility: publishing against a LEGACY-shape snapshot (salesUnitId only, no salesUnitNameAr/En) resolves the name live without ever rewriting the immutable snapshot", async () => {
-    const { agent } = await makeFinanciallyReadySupplier();
+    const { agent, branch } = await makeFinanciallyReadySupplier();
     const createRes = await agent.post("/api/v1/companies/me/products").set("Origin", ORIGIN).send(validProductBody());
     const productId = createRes.body.id;
     await submitWithMainImage(agent, productId);
@@ -456,13 +461,12 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
       },
     });
 
-    const locationRes = await agent.get("/api/v1/companies/me/locations").set("Origin", ORIGIN);
     const oppCreate = await agent
       .post("/api/v1/companies/me/opportunities")
       .set("Origin", ORIGIN)
       .send({
         productId,
-        fulfillmentLocationId: locationRes.body[0].id,
+        fulfillmentLocationId: branch.id,
         targetQuantity: 40,
         unitPriceAmount: 10,
         startAt: new Date(Date.now() - 60_000).toISOString(),
@@ -495,8 +499,8 @@ describe("Phase 7A — product auto-approval, reports, commission (e2e)", () => 
     const productId = createRes.body.id;
     await submitWithMainImage(supplierAgent, productId);
 
-    const { agent: traderAAgent } = await registerCompany(app, "trader", cityId, "TRDA7A");
-    const { agent: traderBAgent } = await registerCompany(app, "trader", cityId, "TRDB7A");
+    const { agent: traderAAgent } = await registerCompany(app, "trader", "TRDA7A");
+    const { agent: traderBAgent } = await registerCompany(app, "trader", "TRDB7A");
 
     const reportA = await traderAAgent
       .post("/api/v1/trader/product-reports")

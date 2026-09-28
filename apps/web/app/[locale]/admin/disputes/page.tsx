@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { DISPUTE_STATUSES } from "@platform/types";
@@ -9,13 +10,13 @@ import { formatDate, formatDateTime } from "@/lib/localized";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge, disputeTone } from "@/components/trader/status-badge";
-import { AdminFilters } from "@/components/admin/admin-filters";
+import { ListToolbar } from "@/components/admin/list-toolbar";
 import {
-  AdminPagination,
-  adminPaginationLabels,
   firstParam,
   parseAdminPage,
 } from "@/components/admin/admin-pagination";
+import { DataTablePagination } from "@/components/admin/data-table-pagination";
+import { parsePageSize } from "@/lib/admin-list-query";
 
 /**
  * Every dispute, newest first.
@@ -29,7 +30,23 @@ import {
  * passed, because a supplier who has not answered in time is the single
  * thing that decides whether this case is waiting on them or on us.
  */
-const PAGE_SIZE = 25;
+
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.disputes",
+  });
+  return { title: t("title") };
+}
 
 export default async function AdminDisputesPage({
   params,
@@ -42,29 +59,53 @@ export default async function AdminDisputesPage({
   const appLocale = locale as AppLocale;
   await requireAdminOrRedirect(appLocale);
 
-  const t = await getTranslations({ locale: appLocale, namespace: "admin.disputes" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
-  const filters = await getTranslations({ locale: appLocale, namespace: "admin.filters" });
-  const vocab = await getTranslations({ locale: appLocale, namespace: "admin.vocab" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.disputes",
+  });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
+  const toolbar = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.toolbar",
+  });
+  const filters = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.filters",
+  });
+  const vocab = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.vocab",
+  });
 
   const page = parseAdminPage(query.page);
+  const pageSize = parsePageSize(query.pageSize);
   const status = firstParam(query.status);
-  const basePath = `/${appLocale}/admin/disputes`;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
-      </header>
+      {/* STILL A HEADING, just not a second copy of the sidebar.
+          Reading it off the screen was redundant; reading it with a
+          screen reader is how somebody knows which page they landed
+          on, because they cannot see which sidebar entry is lit. */}
+      <h1 className="sr-only">{t("title")}</h1>
 
-      <AdminFilters
-        action={basePath}
+      <ListToolbar
+        searchable={false}
+        labels={{
+          regionLabel: toolbar("regionLabel"),
+          openLabel: filters("search"),
+          searchLabel: filters("search"),
+          searchPlaceholder: toolbar("searchPlaceholder"),
+          filtersPanelLabel: toolbar("filtersPanelLabel"),
+          reset: toolbar("reset"),
+        }}
         selects={[
           {
             name: "status",
             label: t("status"),
-            value: status,
             options: [
               { value: "", label: filters("any") },
               // All seven, including the four RESOLVED_* separately: which
@@ -77,18 +118,18 @@ export default async function AdminDisputesPage({
             ],
           },
         ]}
-        labels={{
-          regionLabel: filters("regionLabel"),
-          apply: filters("apply"),
-          clear: filters("clear"),
-        }}
       />
 
       <Suspense
         key={`${page}:${status ?? ""}`}
         fallback={<LoadingState label={common("loading")} rows={6} />}
       >
-        <Disputes locale={appLocale} basePath={basePath} page={page} status={status} />
+        <Disputes
+          locale={appLocale}
+          page={page}
+          pageSize={pageSize}
+          status={status}
+        />
       </Suspense>
     </div>
   );
@@ -96,21 +137,22 @@ export default async function AdminDisputesPage({
 
 async function Disputes({
   locale,
-  basePath,
   page,
+  pageSize,
   status,
 }: {
   locale: AppLocale;
-  basePath: string;
   page: number;
+  pageSize: number;
   status?: string;
 }) {
   const t = await getTranslations({ locale, namespace: "admin.disputes" });
   const vocab = await getTranslations({ locale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale, namespace: "states" });
+  const toolbar = await getTranslations({ locale, namespace: "admin.toolbar" });
   const pagination = await getTranslations({ locale, namespace: "pagination" });
 
-  const result = await loadAdminDisputes({ page, pageSize: PAGE_SIZE, status });
+  const result = await loadAdminDisputes({ page, pageSize, status });
 
   if (!result.ok) {
     return (
@@ -124,7 +166,9 @@ async function Disputes({
   }
 
   if (result.data.total === 0) {
-    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
+    return (
+      <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+    );
   }
 
   // ONE clock reading for the whole table. Calling `new Date()` per row
@@ -156,7 +200,9 @@ async function Disputes({
               return (
                 <TR key={dispute.id}>
                   <TD>
-                    <time dateTime={dispute.openedAt}>{formatDate(dispute.openedAt, locale)}</time>
+                    <time dateTime={dispute.openedAt}>
+                      {formatDate(dispute.openedAt, locale)}
+                    </time>
                   </TD>
                   <TD>{vocab(`disputeReason.${dispute.reasonCode}`)}</TD>
                   <TD>
@@ -180,7 +226,7 @@ async function Disputes({
                   <TD>
                     <Link
                       href={`/${locale}/admin/orders/${dispute.masterOrderId}`}
-                      className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                      className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                     >
                       {t("openOrder")}
                     </Link>
@@ -188,7 +234,7 @@ async function Disputes({
                   <TD>
                     <Link
                       href={`/${locale}/admin/disputes/${dispute.id}`}
-                      className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                      className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                     >
                       {t("openCase")}
                     </Link>
@@ -200,18 +246,27 @@ async function Disputes({
         </Table>
       </div>
 
-      <AdminPagination
-        basePath={basePath}
+      <DataTablePagination
         page={result.data.page}
         pageSize={result.data.pageSize}
         total={result.data.total}
-        query={{ status }}
-        labels={adminPaginationLabels(
-          pagination,
-          result.data.page,
-          result.data.pageSize,
-          result.data.total
-        )}
+        labels={{
+          navLabel: pagination("navLabel"),
+          first: pagination("first"),
+          previous: pagination("previous"),
+          next: pagination("next"),
+          last: pagination("last"),
+          rowsPerPage: toolbar("rowsPerPage"),
+          rowsPerPageUnit: toolbar("rowsPerPageUnit"),
+          range: pagination("range", {
+            from: (result.data.page - 1) * result.data.pageSize + 1,
+            to: Math.min(
+              result.data.page * result.data.pageSize,
+              result.data.total,
+            ),
+            total: result.data.total,
+          }),
+        }}
       />
     </div>
   );

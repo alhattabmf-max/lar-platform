@@ -25,12 +25,6 @@ export async function opportunityFormLabels(
       window: t("sections.window"),
       description: t("sections.description"),
     },
-    sectionHints: {
-      what: t("sectionHints.what"),
-      terms: t("sectionHints.terms"),
-      window: t("sectionHints.window"),
-      description: t("sectionHints.description"),
-    },
     fields: {
       productId: t("fields.productId"),
       fulfillmentLocationId: t("fields.fulfillmentLocationId"),
@@ -41,22 +35,6 @@ export async function opportunityFormLabels(
       expectedPreparationDays: t("fields.expectedPreparationDays"),
       descriptionAr: t("fields.descriptionAr"),
       descriptionEn: t("fields.descriptionEn"),
-    },
-    hints: {
-      boundsUnknown: t("hints.boundsUnknown"),
-      // Interpolated here rather than in the client component: the
-      // figures then format for the reader's locale, and the message
-      // catalogue keeps real ICU arguments instead of a template the
-      // browser has to fill by substitution.
-      bounds: limits
-        ? t("hints.bounds", {
-            minHours: limits.minDurationHours,
-            maxDays: limits.maxDurationDays,
-            minQuantity: limits.minTargetQuantity,
-            maxQuantity: limits.maxTargetQuantity,
-          })
-        : t("hints.boundsUnknown"),
-      frozenAtPublish: t("hints.frozenAtPublish"),
     },
     warnings: {
       quantityTooLow: limits
@@ -73,6 +51,8 @@ export async function opportunityFormLabels(
         : "",
     },
     placeholderProduct: t("placeholderProduct"),
+    searchProduct: t("searchProduct"),
+    noMatchingProduct: t("noMatchingProduct"),
     placeholderLocation: t("placeholderLocation"),
     noProducts: t("noProducts"),
     required: common("required"),

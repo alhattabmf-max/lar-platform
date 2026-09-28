@@ -42,6 +42,31 @@ const envSchema = z
       .string()
       .regex(/^[0-9a-f]{64}$/, "must be a 64-character hex string (32 bytes)"),
 
+    // THE NAME AN ADMINISTRATOR SEES IN THEIR AUTHENTICATOR APP.
+    //
+    // It was the literal string `PROJECT_NAME Admin`, hard-coded, and
+    // it reached every enrolment: the otpauth URI read
+    // `issuer=PROJECT_NAME%20Admin`, which is what the app shows
+    // beside the six digits, for ever.
+    //
+    // READ AT START-UP, NEVER AT ENROLMENT. The platform's real trade
+    // name lives in `branding_settings`, but a QR that depends on a
+    // database read is a QR that can fail while somebody is standing
+    // in front of it. This is resolved once, when the process boots.
+    //
+    // CHANGING IT BREAKS NOTHING. Verification is the secret and the
+    // clock — see `verifyTotpCode`, which never receives an issuer —
+    // so an administrator enrolled under the old name keeps signing in
+    // unchanged, and only new enrolments carry the new one.
+    ADMIN_TOTP_ISSUER: z
+      .string()
+      .trim()
+      .min(1, "must not be empty")
+      // Authenticator apps truncate long issuers, and the string is
+      // stamped into an enrolment that is never revisited.
+      .max(64, "must be 64 characters or fewer")
+      .default("Azier Plus Admin"),
+
     STORAGE_ENDPOINT: z.string().url(),
     STORAGE_REGION: z.string().min(1),
     STORAGE_ACCESS_KEY: z.string().min(1),

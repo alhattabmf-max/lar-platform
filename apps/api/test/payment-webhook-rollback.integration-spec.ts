@@ -8,13 +8,8 @@ import { seedPaymentFixture, paymentFixturePrisma } from "./fixtures/payment.fix
 import { notificationEvents } from "./fixtures/notifications.fixture";
 
 /**
- * STATUS: WRITTEN — NOT EXECUTED — STATUS UNKNOWN.
- *
- * This suite has never been run. It needs a real PostgreSQL, and no
- * database is reachable in the current environment (port 5432 is
- * closed). Nothing below should be read as a passing result.
- *
- * ---------------------------------------------------------------
+ * Runs against a real PostgreSQL — there is no way to test a rollback
+ * without one.
  *
  * WHY THIS EXISTS, and what it adds over
  * `src/payments/payment-webhook-atomicity.spec.ts`.
@@ -122,6 +117,11 @@ describe("payment webhook — real rollback (integration, real DB)", () => {
       providerEventId: `evt-rollback-${Date.now()}`,
       eventType: "SUCCESS",
       currency: "SAR",
+      // A SUCCESS CARRIES THE MOMENT OF CAPTURE. The webhook refuses one
+      // that does not: the moment decides whether the lock was still
+      // alive and which attempt won, and the column pair
+      // (provider_captured_at, provider_captured_amount) must be whole.
+      providerCapturedAt: new Date(),
       providerCapturedAmount: fixture.providerAmount,
     });
 
@@ -170,6 +170,11 @@ describe("payment webhook — real rollback (integration, real DB)", () => {
       providerEventId,
       eventType: "SUCCESS",
       currency: "SAR",
+      // A SUCCESS CARRIES THE MOMENT OF CAPTURE. The webhook refuses one
+      // that does not: the moment decides whether the lock was still
+      // alive and which attempt won, and the column pair
+      // (provider_captured_at, provider_captured_amount) must be whole.
+      providerCapturedAt: new Date(),
       providerCapturedAmount: fixture.providerAmount,
     });
 
@@ -202,6 +207,11 @@ describe("payment webhook — real rollback (integration, real DB)", () => {
       providerEventId: `evt-commit-${Date.now()}`,
       eventType: "SUCCESS",
       currency: "SAR",
+      // A SUCCESS CARRIES THE MOMENT OF CAPTURE. The webhook refuses one
+      // that does not: the moment decides whether the lock was still
+      // alive and which attempt won, and the column pair
+      // (provider_captured_at, provider_captured_amount) must be whole.
+      providerCapturedAt: new Date(),
       providerCapturedAmount: fixture.providerAmount,
     });
 

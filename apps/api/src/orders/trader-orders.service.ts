@@ -65,11 +65,15 @@ function parseProduct(raw: unknown): SnapshotProduct {
  * "needs attention" without opening each order.
  */
 function isOverdue(
-  allocation: { preparationDueAt: Date; shippedAt: Date | null; status: string },
+  allocation: { preparationDueAt: Date | null; shippedAt: Date | null; status: string },
   now: Date
 ): boolean {
   if (allocation.shippedAt !== null) return false;
   if (allocation.status === "SHIPPED" || allocation.status === "DELIVERED") return false;
+  // NO DATE, NO LATENESS. The clock starts when the offer closes, not
+  // when this buyer paid — so while the offer is still gathering its
+  // target there is nothing to be late against.
+  if (allocation.preparationDueAt === null) return false;
   return allocation.preparationDueAt.getTime() < now.getTime();
 }
 
@@ -387,7 +391,7 @@ export class TraderOrdersService {
       createdAt: Date;
       paymentAttempt: { currency: string };
       checkoutSession: { opportunity: { productApprovalSnapshot: { snapshot: Prisma.JsonValue } | null } };
-      allocations: { id: string; status: string; preparationDueAt: Date; shippedAt: Date | null }[];
+      allocations: { id: string; status: string; preparationDueAt: Date | null; shippedAt: Date | null }[];
     },
     now: Date
   ): OrderSummary {
@@ -427,7 +431,9 @@ export class TraderOrdersService {
       regionNameAr: location.regionNameArSnapshot,
       regionNameEn: location.regionNameEnSnapshot,
       address: location.addressSnapshot,
-      preparationDueAt: row.preparationDueAt.toISOString(),
+      // NULL UNTIL THE OFFER CLOSES — see `isOverdue`. `iso` already
+      // carries an absence through; `toISOString` on nothing throws.
+      preparationDueAt: iso(row.preparationDueAt),
       isPreparationOverdue: isOverdue(row, now),
       preparationStartedAt: iso(row.preparationStartedAt),
       readyToShipAt: iso(row.readyToShipAt),

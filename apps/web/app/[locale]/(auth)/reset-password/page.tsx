@@ -5,6 +5,10 @@ import type { AppLocale } from "@/i18n/routing";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/states";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("auth.resetPassword");
+
 
 /**
  * The token is NOT read here.
@@ -31,17 +35,16 @@ export default async function ResetPasswordPage({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle as="h1">{t("title")}</CardTitle>
       </CardHeader>
       <CardBody>
-        <p className="mb-4 text-sm text-content-muted">{t("description")}</p>
 
         <Suspense fallback={<LoadingState label={common("loading")} rows={2} />}>
           <ResetPasswordForm locale={appLocale} />
         </Suspense>
 
         <p className="mt-6 text-sm">
-          <Link href={`/${appLocale}/login`} className="text-secondary hover:opacity-90">
+          <Link href={`/${appLocale}/login`} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
             {t("backToLogin")}
           </Link>
         </p>

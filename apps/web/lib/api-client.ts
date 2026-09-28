@@ -134,12 +134,28 @@ async function apiFetch<T>(
 export async function uploadFile<T>(
   path: string,
   file: File,
-  fieldName = "file"
+  fieldName = "file",
+  /**
+   * Fields that travel WITH the file rather than in a second request.
+   *
+   * The unified listing needs this: its image and its details are one
+   * submission, and splitting them would mean a product that exists
+   * with no picture whenever the second call fails. Values are stringified
+   * because that is what multipart carries — the DTO on the other side
+   * transforms them back, which is why its `@Transform`s are not
+   * decoration.
+   */
+  fields?: Record<string, string | number | undefined>
 ): Promise<T> {
   assertCallablePath(path);
 
   const body = new FormData();
   body.append(fieldName, file);
+  for (const [key, value] of Object.entries(fields ?? {})) {
+    // An omitted optional field is ABSENT, not the string "undefined".
+    if (value === undefined || value === "") continue;
+    body.append(key, String(value));
+  }
 
   let response: Response;
   try {
@@ -163,6 +179,75 @@ export async function uploadFile<T>(
   return (await parseBody(response)) as T;
 }
 
+/**
+ * Fetches a file and hands it to the browser as a download.
+ *
+ * NOT AN `<a href>`. The API is a different origin, so a plain link
+ * would be a top-level cross-site navigation — whether the session
+ * cookie travels with it depends on its SameSite policy, which means a
+ * download that works in one browser and silently returns a sign-in
+ * page in another. `fetch` with `credentials: "include"` is explicit
+ * about sending it.
+ *
+ * Failures map through the same `mapApiError`, so a rejected export
+ * shows the same message and request id as any other call rather than
+ * downloading a file containing an error envelope.
+ */
+export async function downloadFile(
+  path: string,
+  fallbackName: string,
+): Promise<void> {
+  assertCallablePath(path);
+
+  let response: Response;
+  try {
+    response = await fetch(`${resolveApiBaseUrl()}${API_PREFIX}${path}`, {
+      method: "GET",
+      headers: { Accept: "*/*" },
+      cache: "no-store",
+      credentials: "include",
+    });
+  } catch (cause) {
+    throw networkError(cause);
+  }
+
+  if (!response.ok) {
+    throw mapApiError(
+      response.status,
+      await parseBody(response),
+      response.headers.get("x-request-id"),
+    );
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download =
+    nameFromDisposition(response.headers.get("content-disposition")) ??
+    fallbackName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Released on the next tick: revoking it synchronously can cancel the
+  // download the click just started.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * The filename the SERVER chose, when it named one.
+ *
+ * Read as a plain quoted value only, and any path separator dropped —
+ * a header is data, and `filename="../../x"` must not become a path.
+ */
+function nameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const match = /filename="?([^";]+)"?/i.exec(header);
+  if (!match) return null;
+  const name = match[1].split(/[\\/]/).pop()?.trim();
+  return name && name !== "" && name !== "." && name !== ".." ? name : null;
+}
+
 export const apiClient = {
   get: <T>(path: string, options: RequestOptions = {}) =>
     apiFetch<T>("GET", path, undefined, options),
@@ -176,8 +261,15 @@ export const apiClient = {
   patch: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
     apiFetch<T>("PATCH", path, body ?? {}, options),
 
-  delete: <T>(path: string, options: RequestOptions = {}) =>
-    apiFetch<T>("DELETE", path, undefined, options),
+  /**
+   * A DELETE may carry a body.
+   *
+   * Removing a company takes a reason, the name typed out and a
+   * two-factor code — none of which belongs in a query string, where it
+   * would be logged by every proxy on the way.
+   */
+  delete: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
+    apiFetch<T>("DELETE", path, body, options),
 };
 
 export { ApiError };

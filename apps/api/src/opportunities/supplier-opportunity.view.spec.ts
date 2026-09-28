@@ -36,7 +36,15 @@ function summaryRow(overrides: Record<string, any> = {}) {
   return {
     id: OPPORTUNITY,
     productId: "77777777-7777-4777-8777-777777777777",
-    product: { nameAr: "زيت زيتون", nameEn: "Olive oil" },
+    // ONE PICTURE, the main one. The list shows a supplier their own
+    // photograph, through the route scoped to their company rather
+    // than the public one — which serves ACTIVE offers only and would
+    // answer 404 for a draft to the person who owns it.
+    product: {
+      nameAr: "زيت زيتون",
+      nameEn: "Olive oil",
+      media: [{ id: "88888888-8888-4888-8888-888888888888" }],
+    },
     salesUnitNameAr: "كرتون",
     salesUnitNameEn: "Carton",
     status: "ACTIVE",
@@ -183,10 +191,37 @@ describe("money is a fixed-scale decimal string, never a float", () => {
     const source = readFileSync(join(__dirname, "opportunities.controller.ts"), "utf8");
     const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-    const returns = code.match(/return (this\.opportunities\.\w+)/g) ?? [];
+    const returns = code.match(/return this\.opportunities\.(\w+)/g) ?? [];
     expect(returns.length).toBeGreaterThan(0);
+
+    /**
+     * TWO WAYS TO SATISFY THE RULE, and the rule itself has not moved:
+     * what leaves a handler is a PROJECTION, never a row.
+     *
+     * The first way is to re-read through `getOwnedProjected`, which is
+     * what every handler that only changes a status does.
+     *
+     * The second arrived with the direct-sale actions. `setDirectStock`
+     * answers with the listing AND the stock left on it — a number it
+     * computed under the row lock and that a second read could not
+     * reproduce — and `stopDirect` answers from inside its own
+     * transaction. Both map through `toSupplierOpportunityDetail`
+     * themselves, so requiring the NAME to say `Projected` would have
+     * forced a second query whose only purpose was to satisfy a regex.
+     *
+     * So the service is read: a method named here must project, one way
+     * or the other.
+     */
+    const service = readFileSync(join(__dirname, "opportunities.service.ts"), "utf8");
     for (const statement of returns) {
-      expect([statement, /Projected/.test(statement)]).toEqual([statement, true]);
+      const method = statement.replace("return this.opportunities.", "");
+      if (/Projected/.test(method)) continue;
+
+      const body = service.match(
+        new RegExp(`\\n  async ${method}\\(([\\s\\S]*?)\\n  \\}\\n`)
+      );
+      expect([method, body !== null]).toEqual([method, true]);
+      expect([method, body![1].includes("toSupplierOpportunityDetail(")]).toEqual([method, true]);
     }
 
     // `getOwned` hands back the full row and must not be a handler's
@@ -331,14 +366,17 @@ describe("the wire vocabularies match the real ones", () => {
     expect(values.sort()).toEqual([...SUPPLIER_OPPORTUNITY_STATUSES].sort());
   });
 
-  it("lists all ten ACTION_REQUIRED reason codes, matching @platform/domain", () => {
+  it("lists all eleven ACTION_REQUIRED reason codes, matching @platform/domain", () => {
     // The shared contract restates them so a web client can translate
     // every one without depending on a server-side package. This is what
     // keeps the restatement honest.
     expect([...SUPPLIER_OPPORTUNITY_REASON_CODES].sort()).toEqual(
       Object.values(OPPORTUNITY_REASON_CODES).sort()
     );
-    expect(SUPPLIER_OPPORTUNITY_REASON_CODES).toHaveLength(10);
+    // ELEVEN since LOCATION_REGION_INACTIVE joined it. The region is
+    // what blocks a listing now; the city code stays because listings
+    // blocked under the old rule still carry it.
+    expect(SUPPLIER_OPPORTUNITY_REASON_CODES).toHaveLength(11);
   });
 });
 

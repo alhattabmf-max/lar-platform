@@ -159,7 +159,7 @@ export function ReferenceDataManager({
     <div className="flex flex-col gap-4">
       <form
         onSubmit={create}
-        className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4"
+        className="flex flex-col gap-3 rounded-card bg-surface shadow-card px-card-x py-card-y"
         noValidate
       >
         <fieldset className="flex flex-col gap-3">
@@ -216,7 +216,7 @@ export function ReferenceDataManager({
             <Button
               type="submit"
               size="sm"
-              className="min-h-11"
+             
               isLoading={busy}
               disabled={busy || !canAdd}
             >
@@ -261,7 +261,7 @@ export function ReferenceDataManager({
                   <Button
                     type="button"
                     size="sm"
-                    className="min-h-11"
+                   
                     isLoading={busy}
                     disabled={busy || editAr.trim() === "" || editEn.trim() === ""}
                     onClick={() => rename(row.id)}
@@ -272,7 +272,7 @@ export function ReferenceDataManager({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="min-h-11"
+                   
                     disabled={busy}
                     onClick={() => setEditing(null)}
                   >
@@ -300,7 +300,7 @@ export function ReferenceDataManager({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-h-11"
+                 
                   disabled={busy}
                   onClick={() => {
                     setEditing(row.id);
@@ -324,7 +324,7 @@ export function ReferenceDataManager({
                       type="button"
                       variant="danger"
                       size="sm"
-                      className="min-h-11"
+                     
                       isLoading={busy}
                       disabled={busy}
                       onClick={() => {
@@ -338,7 +338,7 @@ export function ReferenceDataManager({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="min-h-11"
+                     
                       disabled={busy}
                       onClick={() => setConfirming(null)}
                     >
@@ -350,7 +350,7 @@ export function ReferenceDataManager({
                     type="button"
                     variant={row.isActive ? "danger" : "primary"}
                     size="sm"
-                    className="min-h-11"
+                   
                     disabled={busy}
                     onClick={() => {
                       if (row.isActive) {

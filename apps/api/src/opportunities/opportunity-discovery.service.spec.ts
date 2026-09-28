@@ -1,4 +1,5 @@
 import { Prisma, OpportunityStatus } from "@prisma/client";
+import { TAXONOMY_MAX_DEPTH } from "@platform/types";
 import { OpportunityDiscoveryService } from "./opportunity-discovery.service";
 
 /** Window close on the public view, added when the contract widened in 8C. */
@@ -21,6 +22,22 @@ function fakePrisma(overrides: Record<string, unknown> = {}) {
       count: jest.fn().mockResolvedValue(0),
       ...(overrides.opportunity as Record<string, unknown> | undefined),
     },
+    // A taxonomy filter now widens to the node's subtree, so the double
+    // has to answer for the tree too. The default is a LEAF — no
+    // children — which is what almost every test here means when it
+    // passes a node id and cares about something else entirely.
+    taxonomyNode: {
+      findMany: jest.fn().mockResolvedValue([]),
+      ...(overrides.taxonomyNode as Record<string, unknown> | undefined),
+    },
+    // NOTHING IS LOCKED IN THESE DOUBLES. The trader projection asks how
+    // much of each listing sits in live baskets, so it can publish a
+    // ceiling a quantity picker may offer; with no checkout sessions
+    // the answer is empty and `availableQuantity` falls back to target
+    // minus funded. The lock arithmetic is proved against a real
+    // database, where a lock can actually exist.
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    ...overrides,
   } as never;
 }
 
@@ -92,6 +109,11 @@ describe("OpportunityDiscoveryService", () => {
             salesUnitNameEn: null,
             fulfillmentRegionNameAr: "منطقة الرياض",
             fulfillmentRegionNameEn: "Riyadh Region",
+            unitPriceAmount: new Prisma.Decimal("287.50"),
+            currency: "SAR",
+            targetQuantity: 100,
+            fundedQuantity: 10,
+            shareQuantity: 10,
             startAt: PUBLIC_START_AT,
             endAt: PUBLIC_END_AT,
             status: OpportunityStatus.ACTIVE,
@@ -123,15 +145,40 @@ describe("OpportunityDiscoveryService", () => {
         fulfillmentRegionNameEn: "Riyadh Region",
         salesUnitNameAr: null,
         salesUnitNameEn: null,
+        unitPriceInclTaxAmount: "287.50",
+        currency: "SAR",
+        targetQuantity: 100,
+        unsoldQuantity: 90,
+        progressPercentage: 10,
+        shareQuantity: 10,
         startAt: PUBLIC_START_AT,
         endAt: PUBLIC_END_AT,
         status: OpportunityStatus.ACTIVE,
+        // THE PRODUCT'S OWN FACTS, read from the same frozen snapshot.
+        // Null here because THIS fixture is a legacy four-key snapshot,
+        // which is exactly the shape a pre-7A row has: an absence must
+        // read as one, never as a zero.
+        taxonomyNodeId: null,
+        weightPerUnit: null,
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null,
+        packageContentQuantity: null,
+        packageContentUnitNameAr: null,
+        packageContentUnitNameEn: null,
+        // No media in the fixture, so no gallery.
+        imageUrls: [],
+        thumbnailUrls: [],
       });
+      // Price and quantities are public BY DECISION now. What stays
+      // out is the raw Decimal column, the absolute amount sold, and
+      // the supplier preparation commitment.
       expect(result).not.toHaveProperty("expectedPreparationDays");
       expect(result).not.toHaveProperty("unitPriceAmount");
-      expect(result).not.toHaveProperty("targetQuantity");
       expect(result).not.toHaveProperty("fundedQuantity");
-      expect(result).not.toHaveProperty("shareQuantity");
+      // shareQuantity IS public now — it is the minimum order a visitor
+      // needs to judge an offer. shareBasisPoints and the percentage
+      // derived from it are not.
       expect(result).not.toHaveProperty("shareBasisPoints");
       expect(result).not.toHaveProperty("sharePercentage");
       expect(result).not.toHaveProperty("shareTierPolicyVersionId");
@@ -156,10 +203,39 @@ describe("OpportunityDiscoveryService", () => {
       expect(selectArg).not.toHaveProperty("fulfillmentLocationId");
       expect(selectArg).not.toHaveProperty("companyId");
       expect(selectArg).not.toHaveProperty("product");
-      expect(selectArg).not.toHaveProperty("unitPriceAmount");
-      expect(selectArg).not.toHaveProperty("targetQuantity");
+      // Share sizing internals stay out: `sharePercentage` is derived
+      // from shareBasisPoints and remains trader-only.
       expect(selectArg).not.toHaveProperty("shareBasisPoints");
       expect(selectArg).not.toHaveProperty("shareTierPolicyVersionId");
+    });
+
+    it("does select the columns the PUBLIC terms are derived from", async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const prisma = fakePrisma({
+        opportunity: { findMany, count: jest.fn().mockResolvedValue(0) },
+      });
+      const service = new OpportunityDiscoveryService(
+        prisma,
+        settingsStub(false),
+      );
+
+      await service.listPublic({});
+
+      const selectArg = findMany.mock.calls[0][0].select;
+      // Price, target and share size are returned; fundedQuantity is
+      // read only to derive unsold and progress, and never returned —
+      // the response-shape tests above are what prove that.
+      for (const column of [
+        "unitPriceAmount",
+        "currency",
+        "targetQuantity",
+        "fundedQuantity",
+        "shareQuantity",
+        "fulfillmentRegionNameAr",
+        "fulfillmentRegionNameEn",
+      ]) {
+        expect(selectArg).toHaveProperty(column);
+      }
     });
   });
 
@@ -263,7 +339,27 @@ describe("OpportunityDiscoveryService", () => {
     });
   });
 
-  describe("filters — taxonomyNodeId, cityId, productId", () => {
+  describe("filters — taxonomyNodeId, regionId, cityId, productId", () => {
+    /**
+     * THE REGION IS THE PLACE FILTER. A listing ships from a branch and
+     * a branch is recorded against a region, so this is what a buyer
+     * narrows by. The city is the refinement beneath it, and both are
+     * matched against the FROZEN snapshot on the listing — never
+     * through a join to the branch, whose place may have changed since.
+     */
+    it("filters by fulfillmentRegionId directly (no join needed)", async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
+      const service = new OpportunityDiscoveryService(prisma, settingsStub(false));
+
+      await service.listPublic({ regionId: "region-1" });
+
+      expect(findMany.mock.calls[0][0].where.fulfillmentRegionId).toBe("region-1");
+      // The city is not implied by the region, and no default is
+      // invented for it.
+      expect(findMany.mock.calls[0][0].where.fulfillmentCityId).toBeUndefined();
+    });
+
     it("filters by fulfillmentCityId directly (no join needed)", async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
@@ -272,6 +368,30 @@ describe("OpportunityDiscoveryService", () => {
       await service.listPublic({ cityId: "city-1" });
 
       expect(findMany.mock.calls[0][0].where.fulfillmentCityId).toBe("city-1");
+    });
+
+    it("applies both when both are sent, narrowing rather than replacing", async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
+      const service = new OpportunityDiscoveryService(prisma, settingsStub(false));
+
+      await service.listPublic({ regionId: "region-1", cityId: "city-1" });
+
+      const where = findMany.mock.calls[0][0].where;
+      expect(where.fulfillmentRegionId).toBe("region-1");
+      expect(where.fulfillmentCityId).toBe("city-1");
+    });
+
+    it("neither is applied when neither is sent", async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
+      const service = new OpportunityDiscoveryService(prisma, settingsStub(false));
+
+      await service.listPublic({});
+
+      const where = findMany.mock.calls[0][0].where;
+      expect(where.fulfillmentRegionId).toBeUndefined();
+      expect(where.fulfillmentCityId).toBeUndefined();
     });
 
     it("filters by productId directly", async () => {
@@ -286,16 +406,63 @@ describe("OpportunityDiscoveryService", () => {
 
     it("filters by taxonomyNodeId via the FROZEN snapshot JSON, never a live Product join", async () => {
       const findMany = jest.fn().mockResolvedValue([]);
-      const prisma = fakePrisma({ opportunity: { findMany, count: jest.fn().mockResolvedValue(0) } });
+      const prisma = fakePrisma({
+        opportunity: { findMany, count: jest.fn().mockResolvedValue(0) },
+        // A leaf: no children, so the subtree is the node itself.
+        taxonomyNode: { findMany: jest.fn().mockResolvedValue([]) },
+      });
       const service = new OpportunityDiscoveryService(prisma, settingsStub(false));
 
       await service.listPublic({ taxonomyNodeId: "node-1" });
 
       expect(findMany.mock.calls[0][0].where.productApprovalSnapshot).toEqual({
-        is: { snapshot: { path: ["taxonomyNodeId"], equals: "node-1" } },
+        is: { OR: [{ snapshot: { path: ["taxonomyNodeId"], equals: "node-1" } }] },
       });
       expect(findMany.mock.calls[0][0].where).not.toHaveProperty("product");
       expect(findMany.mock.calls[0][0].select).not.toHaveProperty("product");
+    });
+
+    it("REACHES THE WHOLE SUBTREE, because nothing is filed on a parent any more", async () => {
+      // `TAXONOMY_ALLOWS_NON_LEAF_PRODUCTS` is false: a node with active
+      // children cannot hold a product. Equality matching would then make
+      // every parent in the category bar an empty page — the two
+      // constants are one decision, and this is the half that proves it.
+      const findMany = jest.fn().mockResolvedValue([]);
+      const nodes = jest
+        .fn()
+        .mockResolvedValueOnce([{ id: "child-1" }, { id: "child-2" }])
+        .mockResolvedValueOnce([{ id: "grandchild-1" }]);
+      const prisma = fakePrisma({
+        opportunity: { findMany, count: jest.fn().mockResolvedValue(0) },
+        taxonomyNode: { findMany: nodes },
+      });
+      const service = new OpportunityDiscoveryService(prisma, settingsStub(false));
+
+      await service.listPublic({ taxonomyNodeId: "root" });
+
+      expect(findMany.mock.calls[0][0].where.productApprovalSnapshot.is.OR).toEqual([
+        { snapshot: { path: ["taxonomyNodeId"], equals: "root" } },
+        { snapshot: { path: ["taxonomyNodeId"], equals: "child-1" } },
+        { snapshot: { path: ["taxonomyNodeId"], equals: "child-2" } },
+        { snapshot: { path: ["taxonomyNodeId"], equals: "grandchild-1" } },
+      ]);
+    });
+
+    it("stops widening at the tree's own maximum depth", async () => {
+      // Two widening steps reach every descendant a 3-deep tree can
+      // have. A third would be walking a tree that cannot exist, and an
+      // unbounded loop here is how a filter becomes a table scan.
+      const findMany = jest.fn().mockResolvedValue([]);
+      const nodes = jest.fn().mockResolvedValue([{ id: "always-more" }]);
+      const prisma = fakePrisma({
+        opportunity: { findMany, count: jest.fn().mockResolvedValue(0) },
+        taxonomyNode: { findMany: nodes },
+      });
+      const service = new OpportunityDiscoveryService(prisma, settingsStub(false));
+
+      await service.listPublic({ taxonomyNodeId: "root" });
+
+      expect(nodes).toHaveBeenCalledTimes(TAXONOMY_MAX_DEPTH - 1);
     });
   });
 

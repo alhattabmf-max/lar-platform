@@ -7,6 +7,10 @@ import { loadTraderOrder } from "@/lib/trader-data";
 import { formatDateTime } from "@/lib/localized";
 import { ErrorState } from "@/components/ui/states";
 import { OpenDisputeForm } from "@/components/trader/open-dispute-form";
+import { pageTitle } from "@/lib/page-metadata";
+
+export const generateMetadata = pageTitle("trader.disputes.open");
+
 
 /**
  * Opening a dispute on one delivered allocation.
@@ -77,7 +81,7 @@ export default async function OpenDisputePage({
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label={orders("breadcrumbLabel")} className="text-sm">
-        <Link href={orderHref} className="text-secondary hover:opacity-90">
+        <Link href={orderHref} className="text-secondary hover:opacity-[var(--state-hover-opacity)]">
           {t("backToOrder")}
         </Link>
       </nav>
@@ -141,10 +145,10 @@ function Ineligible({
   actionHref: string;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+    <section className="flex flex-col gap-3 rounded-card bg-surface shadow-card px-card-x py-card-y">
       <h2 className="text-base font-semibold text-content">{title}</h2>
       <p className="text-sm text-content-muted">{description}</p>
-      <Link href={actionHref} className="self-start text-sm text-secondary hover:opacity-90">
+      <Link href={actionHref} className="self-start text-sm text-secondary hover:opacity-[var(--state-hover-opacity)]">
         {actionLabel}
       </Link>
     </section>

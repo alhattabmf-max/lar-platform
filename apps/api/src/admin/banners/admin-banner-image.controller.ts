@@ -19,7 +19,11 @@ import type { Request, Response } from "express";
 import { BannerImageService } from "../../banners/banner-image.service";
 import { ImageDeliveryService } from "../../common/media/image-delivery.service";
 import { MEDIA_SIZE_HARD_CEILING_BYTES } from "../../settings/media-policy.service";
-import { ImageVariantQueryDto, wantsThumbnail } from "../../banners/dto/image-variant.dto";
+import {
+  ImageVariantQueryDto,
+  wantsThumbnail,
+} from "../../banners/dto/image-variant.dto";
+import { BannerLocaleQueryDto } from "../../banners/dto/banner-locale.dto";
 import { AdminSessionAuthGuard } from "../admin-auth/admin-session-auth.guard";
 import { CsrfGuard } from "../../common/security/csrf.guard";
 import { CurrentAdminSession } from "../admin-auth/current-admin-session.decorator";
@@ -44,18 +48,18 @@ import { getRequestId } from "../../common/logger/request-id.util";
 export class AdminBannerImageController {
   constructor(
     private readonly images: BannerImageService,
-    private readonly delivery: ImageDeliveryService
+    private readonly delivery: ImageDeliveryService,
   ) {}
 
   @Get(":id/image")
   async getImage(
     @Param("id") id: string,
-    @Query() query: ImageVariantQueryDto,
+    @Query() query: ImageVariantQueryDto & BannerLocaleQueryDto,
     @Headers("if-none-match") ifNoneMatch: string | undefined,
     @Headers("if-modified-since") ifModifiedSince: string | undefined,
-    @Res() res: Response
+    @Res() res: Response,
   ): Promise<void> {
-    const image = await this.images.findAdminImage(id);
+    const image = await this.images.findAdminImage(id, query.locale);
     // An unknown banner and a banner with no image are the same answer.
     if (!image) throw new NotFoundException("Image not found");
 
@@ -68,7 +72,7 @@ export class AdminBannerImageController {
         etag: thumb ? image.imageThumbnailETag : image.imageETag,
         lastModified: image.imageUpdatedAt,
       },
-      { ifNoneMatch, ifModifiedSince }
+      { ifNoneMatch, ifModifiedSince },
     );
 
     res.set(result.headers).status(result.status);
@@ -77,26 +81,40 @@ export class AdminBannerImageController {
   }
 
   @Post(":id/image")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MEDIA_SIZE_HARD_CEILING_BYTES } }))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: MEDIA_SIZE_HARD_CEILING_BYTES },
+    }),
+  )
   upload(
     @Param("id") id: string,
+    @Query() query: BannerLocaleQueryDto,
     @UploadedFile() file: Express.Multer.File | undefined,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
     if (!file) {
       throw new BadRequestException('A file field named "file" is required');
     }
-    return this.images.upload(id, file.buffer, ctxFrom(session, req));
+    // The language is a QUERY PARAMETER on the existing route, not a new
+    // route per language: it selects which artwork this upload replaces,
+    // and the work either side of it is identical.
+    return this.images.upload(
+      id,
+      query.locale,
+      file.buffer,
+      ctxFrom(session, req),
+    );
   }
 
   @Delete(":id/image")
   async remove(
     @Param("id") id: string,
+    @Query() query: BannerLocaleQueryDto,
     @CurrentAdminSession() session: AdminSessionData,
-    @Req() req: Request
+    @Req() req: Request,
   ) {
-    await this.images.remove(id, ctxFrom(session, req));
+    await this.images.remove(id, query.locale, ctxFrom(session, req));
     return { status: "ok" };
   }
 }

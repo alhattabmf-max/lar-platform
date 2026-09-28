@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { RELAY_SUPPORTED_EVENT_TYPES, validateEmailNotificationV1 } from "@platform/email";
 import { NotificationWriterService, buildDedupeKey } from "../src/notifications/notification-writer.service";
+import { uniqueMobile } from "./fixtures/unique";
 
 /**
  * STATUS: WRITTEN — NOT EXECUTED — STATUS UNKNOWN.
@@ -37,8 +38,8 @@ async function seedCompanyWithUsers(count: number) {
           companyId: company.id,
           email: `notif-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}@example.com`,
           passwordHash: "x",
-          primaryMobile1: "+966500000001",
-          primaryMobile2: "+966500000002",
+          primaryMobile1: uniqueMobile(),
+          primaryMobile2: uniqueMobile(),
           status: "ACTIVE",
         },
       })
@@ -80,7 +81,7 @@ describe("the three writes are one atomic unit", () => {
   });
 
   it("a rollback leaves none of the three", async () => {
-    const { company } = await seedCompanyWithUsers(1);
+    const { company, users } = await seedCompanyWithUsers(1);
     const entityId = crypto.randomUUID();
 
     await expect(
@@ -100,9 +101,24 @@ describe("the three writes are one atomic unit", () => {
       entityId,
     });
     expect(await prisma.notification.findUnique({ where: { dedupeKey } })).toBeNull();
-    expect(
-      await prisma.outboxEvent.count({ where: { eventType: EMAIL_EVENT, payload: { path: ["notificationId"], not: undefined } } })
-    ).toBeGreaterThanOrEqual(0);
+    // AND NO EMAIL INTENT SURVIVED EITHER.
+    //
+    // This asserted `count(...) >= 0`, which is true of every count
+    // that ever ran — and the filter it counted, `path: ["notificationId"],
+    // not: undefined`, is not a Prisma JSON filter at all. The test
+    // said nothing, and could not have failed.
+    //
+    // The intent rows carry no entityId, but they do carry the
+    // recipient, and this company and its user were created for this
+    // test alone — so an intent naming that user could only have come
+    // from the transaction that was rolled back.
+    const survivingIntents = await prisma.outboxEvent.count({
+      where: {
+        eventType: EMAIL_EVENT,
+        payload: { path: ["recipientUserId"], equals: users[0].id },
+      },
+    });
+    expect(survivingIntents).toBe(0);
   });
 });
 

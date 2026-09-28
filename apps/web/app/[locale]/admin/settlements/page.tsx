@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { SUPPLIER_PAYOUT_OUTCOMES } from "@platform/types";
@@ -6,17 +7,17 @@ import type { AppLocale } from "@/i18n/routing";
 import { requireAdminOrRedirect } from "@/lib/admin-redirects";
 import { loadAdminSettlements } from "@/lib/admin-data";
 import { formatDate } from "@/lib/localized";
-import { formatMoney } from "@/lib/money";
+import { Money } from "@/components/ui/money";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/trader/status-badge";
-import { AdminFilters } from "@/components/admin/admin-filters";
+import { ListToolbar } from "@/components/admin/list-toolbar";
 import {
-  AdminPagination,
-  adminPaginationLabels,
   firstParam,
   parseAdminPage,
 } from "@/components/admin/admin-pagination";
+import { DataTablePagination } from "@/components/admin/data-table-pagination";
+import { parsePageSize } from "@/lib/admin-list-query";
 
 /**
  * Payouts, as the operator who executed them sees them.
@@ -33,7 +34,23 @@ import {
  * three branches settles three times, and a total computed here would be
  * a second source of truth against the transfers that actually happened.
  */
-const PAGE_SIZE = 25;
+
+
+/**
+ * The tab's name. The layout supplies « | لوحة التحكم ».
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale: locale as AppLocale,
+    namespace: "admin.settlements",
+  });
+  return { title: t("title") };
+}
 
 export default async function AdminSettlementsPage({
   params,
@@ -46,31 +63,53 @@ export default async function AdminSettlementsPage({
   const appLocale = locale as AppLocale;
   await requireAdminOrRedirect(appLocale);
 
-  const t = await getTranslations({ locale: appLocale, namespace: "admin.settlements" });
-  const common = await getTranslations({ locale: appLocale, namespace: "common" });
-  const filters = await getTranslations({ locale: appLocale, namespace: "admin.filters" });
-  const vocab = await getTranslations({ locale: appLocale, namespace: "admin.vocab" });
+  const t = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.settlements",
+  });
+  const common = await getTranslations({
+    locale: appLocale,
+    namespace: "common",
+  });
+  const toolbar = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.toolbar",
+  });
+  const filters = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.filters",
+  });
+  const vocab = await getTranslations({
+    locale: appLocale,
+    namespace: "admin.vocab",
+  });
 
   const page = parseAdminPage(query.page);
+  const pageSize = parsePageSize(query.pageSize);
   const outcome = firstParam(query.outcome);
   const search = firstParam(query.search);
-  const basePath = `/${appLocale}/admin/settlements`;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">{t("title")}</h1>
-        <p className="text-sm text-content-muted">{t("description")}</p>
-      </header>
+      {/* STILL A HEADING, just not a second copy of the sidebar.
+          Reading it off the screen was redundant; reading it with a
+          screen reader is how somebody knows which page they landed
+          on, because they cannot see which sidebar entry is lit. */}
+      <h1 className="sr-only">{t("title")}</h1>
 
-      <AdminFilters
-        action={basePath}
-        search={{ name: "search", label: filters("searchSupplier"), value: search }}
+      <ListToolbar
+        labels={{
+          regionLabel: toolbar("regionLabel"),
+          openLabel: filters("search"),
+          searchLabel: filters("searchSupplier"),
+          searchPlaceholder: toolbar("searchPlaceholder"),
+          filtersPanelLabel: toolbar("filtersPanelLabel"),
+          reset: toolbar("reset"),
+        }}
         selects={[
           {
             name: "outcome",
             label: t("outcome"),
-            value: outcome,
             options: [
               { value: "", label: filters("any") },
               // The SHARED vocabulary, not a local copy: the API's own
@@ -82,11 +121,6 @@ export default async function AdminSettlementsPage({
             ],
           },
         ]}
-        labels={{
-          regionLabel: filters("regionLabel"),
-          apply: filters("apply"),
-          clear: filters("clear"),
-        }}
       />
 
       <Suspense
@@ -95,8 +129,8 @@ export default async function AdminSettlementsPage({
       >
         <Settlements
           locale={appLocale}
-          basePath={basePath}
           page={page}
+          pageSize={pageSize}
           outcome={outcome}
           search={search}
         />
@@ -107,23 +141,29 @@ export default async function AdminSettlementsPage({
 
 async function Settlements({
   locale,
-  basePath,
   page,
+  pageSize,
   outcome,
   search,
 }: {
   locale: AppLocale;
-  basePath: string;
   page: number;
+  pageSize: number;
   outcome?: string;
   search?: string;
 }) {
   const t = await getTranslations({ locale, namespace: "admin.settlements" });
   const vocab = await getTranslations({ locale, namespace: "admin.vocab" });
   const states = await getTranslations({ locale, namespace: "states" });
+  const toolbar = await getTranslations({ locale, namespace: "admin.toolbar" });
   const pagination = await getTranslations({ locale, namespace: "pagination" });
 
-  const result = await loadAdminSettlements({ page, pageSize: PAGE_SIZE, outcome, search });
+  const result = await loadAdminSettlements({
+    page,
+    pageSize,
+    outcome,
+    search,
+  });
 
   if (!result.ok) {
     return (
@@ -137,7 +177,9 @@ async function Settlements({
   }
 
   if (result.data.total === 0) {
-    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
+    return (
+      <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+    );
   }
 
   return (
@@ -165,11 +207,20 @@ async function Settlements({
                   </time>
                 </TD>
                 <TD>{settlement.supplierLegalName}</TD>
-                <TD>{formatMoney(settlement.netAmount, settlement.currency, locale) ?? "—"}</TD>
+                <TD>
+                  <Money
+                    amount={settlement.netAmount}
+                    currency={settlement.currency}
+                    locale={locale}
+                    fallback={<span className="text-content-muted">—</span>}
+                  />
+                </TD>
                 <TD>
                   <StatusBadge
                     label={vocab(`payoutOutcome.${settlement.outcome}`)}
-                    tone={settlement.outcome === "EXECUTED" ? "done" : "neutral"}
+                    tone={
+                      settlement.outcome === "EXECUTED" ? "done" : "neutral"
+                    }
                   />
                 </TD>
                 {/* A ZERO_BALANCE payout has no transfer and therefore
@@ -181,7 +232,7 @@ async function Settlements({
                 <TD>
                   <Link
                     href={`/${locale}/admin/orders/${settlement.masterOrderId}`}
-                    className="inline-flex min-h-11 items-center text-secondary hover:opacity-90"
+                    className="inline-flex items-center text-secondary hover:opacity-[var(--state-hover-opacity)]"
                   >
                     {t("openOrder")}
                   </Link>
@@ -192,18 +243,27 @@ async function Settlements({
         </Table>
       </div>
 
-      <AdminPagination
-        basePath={basePath}
+      <DataTablePagination
         page={result.data.page}
         pageSize={result.data.pageSize}
         total={result.data.total}
-        query={{ outcome, search }}
-        labels={adminPaginationLabels(
-          pagination,
-          result.data.page,
-          result.data.pageSize,
-          result.data.total
-        )}
+        labels={{
+          navLabel: pagination("navLabel"),
+          first: pagination("first"),
+          previous: pagination("previous"),
+          next: pagination("next"),
+          last: pagination("last"),
+          rowsPerPage: toolbar("rowsPerPage"),
+          rowsPerPageUnit: toolbar("rowsPerPageUnit"),
+          range: pagination("range", {
+            from: (result.data.page - 1) * result.data.pageSize + 1,
+            to: Math.min(
+              result.data.page * result.data.pageSize,
+              result.data.total,
+            ),
+            total: result.data.total,
+          }),
+        }}
       />
     </div>
   );

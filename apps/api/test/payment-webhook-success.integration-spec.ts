@@ -54,8 +54,16 @@ describe("PaymentWebhookService — full success cycle (integration, real DB)", 
 
     const allocations = await prisma.orderAllocation.findMany({ where: { masterOrderId: order.id } });
     expect(allocations).toHaveLength(1);
-    expect(allocations[0].status).toBe("AWAITING_PREPARATION");
-    expect(allocations[0].preparationDueAt.getTime()).toBeGreaterThan(capturedAt.getTime());
+    // BORN WAITING — «لا يتم شحن البضاعة إلا بعد ما يتم العرض شروطه
+    // ووصوله لهدفه». This fixture pays for part of the target, so the
+    // offer has not closed and no work is owed yet.
+    //
+    // IT USED TO ASSERT `AWAITING_PREPARATION` WITH A DUE DATE, which
+    // was the defect: the clock started at PAYMENT, so a supplier whose
+    // offer stood at 20% was reported late on three screens for work he
+    // was not permitted to begin.
+    expect(allocations[0].status).toBe("AWAITING_FUNDING");
+    expect(allocations[0].preparationDueAt).toBeNull();
 
     const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id: fixture.opportunityId } });
     expect(opp.fundedQuantity).toBe(4);

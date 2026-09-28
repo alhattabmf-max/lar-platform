@@ -5,7 +5,7 @@ import { ShippingTariffPolicyService } from "../src/settings/shipping-tariff-pol
 import { CheckoutSettingsService } from "../src/settings/checkout-settings.service";
 import { AuditService } from "../src/audit/audit.service";
 import { AdminOpportunitiesService } from "../src/admin/opportunities/admin-opportunities.service";
-import { publishTestPolicy } from "./fixtures/policy.fixture";
+import { publishTestPolicy, withdrawPolicyAcceptances } from "./fixtures/policy.fixture";
 import { seedCheckoutFixture, checkoutFixturePrisma } from "./fixtures/checkout.fixture";
 
 const rawPrisma = checkoutFixturePrisma;
@@ -76,8 +76,22 @@ describe("Checkout — explicit required scenarios (integration, real DB)", () =
   });
 
   it("checkout is rejected when the trader has NOT accepted the latest mandatory policy version", async () => {
-    const fixture = await seedCheckoutFixture({ traderCrPrefix: "NOPOLICY" });
+    // THERE HAS TO BE A POLICY TO NOT HAVE ACCEPTED.
+    //
+    // Against the development database there always was one, left by
+    // the owner or by an older run. Against the suites' own database a
+    // fresh install has none, a trader is trivially compliant, and
+    // withdrawing acceptances removes nothing — so the gate this case
+    // exists to prove could never fire. `publishTestPolicy` is
+    // find-or-create, so this costs one row on the first run and
+    // nothing afterwards.
     await publishTestPolicy(rawPrisma as unknown as PrismaClient);
+    const fixture = await seedCheckoutFixture({ traderCrPrefix: "NOPOLICY" });
+    // This trader stops being compliant — nobody else does. Publishing a
+    // new mandatory policy here invalidated every OTHER suite's trader
+    // too, in whatever worker happened to be mid-flight.
+    const withdrawn = await withdrawPolicyAcceptances(rawPrisma as unknown as PrismaClient, fixture.traderCompanyId);
+    expect(withdrawn).toBeGreaterThan(0);
 
     const service = buildService(prismaA);
     await expect(
@@ -138,7 +152,7 @@ describe("Checkout — explicit required scenarios (integration, real DB)", () =
       ctxFor(fixture)
     )) as { id: string };
 
-    const adminOpportunities = new AdminOpportunitiesService(rawPrisma as unknown as PrismaService);
+    const adminOpportunities = new AdminOpportunitiesService(rawPrisma as unknown as PrismaService, {} as never);
     await adminOpportunities.pause(fixture.opportunityId, "admin pause", {
       actorId: crypto.randomUUID(),
       requestId: "req-pause",

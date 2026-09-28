@@ -60,8 +60,16 @@ export interface CheckoutAllocationView {
   /** The trader's own company location. Never another company's. */
   companyLocationId: string;
   locationName: string;
-  cityNameAr: string;
-  cityNameEn: string;
+  /**
+   * Null when the branch named no city.
+   *
+   * The region below is never null — a branch always has one — so a
+   * reader always has a place to read, and the city refines it when
+   * there is one. Rendering an empty string here instead would put a
+   * blank where an address belongs.
+   */
+  cityNameAr: string | null;
+  cityNameEn: string | null;
   regionNameAr: string;
   regionNameEn: string;
   address: string;

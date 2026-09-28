@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { AuditActorType, Prisma } from "@prisma/client";
-import { isValidOpportunityTransition, type OpportunityStatus } from "@platform/domain";
+import { AuditActorType, Prisma, RefundObligationReasonCode } from "@prisma/client";
+import { isValidOpportunityTransition, type OpportunityStatus, type SaleMode } from "@platform/domain";
 import { PrismaService } from "../../database/prisma.service";
 import { BusinessException } from "../../common/errors/business-exception";
 import { ERROR_CODES } from "@platform/types";
 import type { MoneyString } from "@platform/types";
 import type { ListAdminOpportunitiesQueryDto } from "./dto/list-admin-opportunities-query.dto";
 import { releaseActiveLocksForOpportunityTx } from "../../checkout/checkout-lock-release.util";
+import { refundOfferPaymentsTx } from "../../opportunities/refund-offer-payments.util";
+import { OpportunitiesService } from "../../opportunities/opportunities.service";
+import type { UpdateOpportunityDto } from "../../opportunities/dto/update-opportunity.dto";
+import { assertNoBuyerCommitted, deleteOffersTx } from "../../common/removal";
 
 interface ActorContext {
   actorId: string;
@@ -46,12 +50,15 @@ export interface AdminOpportunityView {
   companyId: string;
   productId: string;
   fulfillmentLocationId: string;
+  /** Which of the two sales paths this listing is. */
+  saleMode: SaleMode;
   targetQuantity: number;
   fundedQuantity: number;
   unitPriceAmount: MoneyString;
   currency: string;
   startAt: Date;
-  endAt: Date;
+  /** NULL for a direct sale, which has no window. */
+  endAt: Date | null;
   expectedPreparationDays: number;
   descriptionAr: string | null;
   descriptionEn: string | null;
@@ -92,6 +99,7 @@ const ADMIN_SELECT = {
   companyId: true,
   productId: true,
   fulfillmentLocationId: true,
+  saleMode: true,
   targetQuantity: true,
   fundedQuantity: true,
   unitPriceAmount: true,
@@ -142,6 +150,7 @@ function toAdminOpportunityView(row: AdminRow): AdminOpportunityView {
     companyId: row.companyId,
     productId: row.productId,
     fulfillmentLocationId: row.fulfillmentLocationId,
+    saleMode: row.saleMode as SaleMode,
     targetQuantity: row.targetQuantity,
     fundedQuantity: row.fundedQuantity,
     unitPriceAmount: money(row.unitPriceAmount),
@@ -194,7 +203,10 @@ function toAdminOpportunityView(row: AdminRow): AdminOpportunityView {
  */
 @Injectable()
 export class AdminOpportunitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly opportunities: OpportunitiesService
+  ) {}
 
   async list(query: ListAdminOpportunitiesQueryDto): Promise<PaginatedResult<AdminOpportunityView>> {
     const page = Math.max(1, query.page ?? 1);
@@ -305,7 +317,13 @@ export class AdminOpportunitiesService {
       const resumed = await tx.$queryRaw<{ id: string }[]>`
         UPDATE opportunities
         SET status = 'ACTIVE', paused_at = NULL, pause_reason = NULL, updated_at = now()
-        WHERE id = ${id}::uuid AND status = 'PAUSED' AND end_at > now()
+        -- A DIRECT listing has no window: end_at is NULL on it, and a
+        -- comparison against NULL is NULL, which would have made a
+        -- paused direct listing impossible to resume and sent it to the
+        -- expiry branch below instead — where it could not match
+        -- either, leaving it stuck PAUSED for good.
+        WHERE id = ${id}::uuid AND status = 'PAUSED'
+          AND (end_at IS NULL OR end_at > now())
         RETURNING id
       `;
 
@@ -399,6 +417,31 @@ export class AdminOpportunitiesService {
   async cancel(id: string, reason: string, ctx: ActorContext): Promise<AdminOpportunityView> {
     const existing = await this.requireExisting(id);
 
+    // A PLAIN CANCEL LEAVES MONEY WHERE IT IS, so it may only be used
+    // where there is none.
+    //
+    // «العرض منشور وليس عليه أي عمليات شراء — يقدر يلغيه… وإذا كان عليه
+    //  عملية شراء يطلب المورد من الإدارة، الإدارة توقف العرض ويكون عندها
+    //  زر استرداد الأموال.»
+    //
+    // WHAT IT USED TO DO. It set CANCELLED and released the LIVE locks —
+    // sessions nobody had paid for. Anyone who HAD paid was untouched:
+    // status cancelled, order still standing, buyer with neither goods
+    // nor money. That is the last hole in the money path, and it is
+    // closed by refusing rather than by silently refunding: an operator
+    // must choose to give the money back, and `cancelAndRefund` is where
+    // that choice is made.
+    const paidOrders = await this.prisma.masterOrder.count({
+      where: { opportunityId: id },
+    });
+    if (paidOrders > 0) {
+      throw new BusinessException(
+        409,
+        ERROR_CODES.CONFLICT,
+        `Cannot cancel an opportunity that has been bought: ${paidOrders} paid order(s) stand on it. Use cancel-and-refund.`
+      );
+    }
+
     const cancellableFrom = (
       ["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED"] as const
     ).filter((status) => isValidOpportunityTransition(status, "CANCELLED"));
@@ -444,10 +487,222 @@ export class AdminOpportunitiesService {
     });
   }
 
+/**
+   * STOP THE OFFER AND GIVE THE MONEY BACK.
+   *
+   * «الإدارة توقف العرض ويكون عندها زر استرداد الأموال، عند الضغط يكون
+   *  مثل أن فرصة انتهت ولم تكتمل — بس بدون ما هو آلي، يكون يدوي عن طريق
+   *  الإدارة قبل أن تنتهي مدة العرض.»
+   *
+   * THE SAME PATH THE CLOCK TAKES, PRESSED BY HAND. One route for the
+   * money and two triggers: the scheduler when a window closes without
+   * filling, an administrator when something is wrong before then. Two
+   * separate implementations would mean a buyer's refund depended on who
+   * ended the offer.
+   *
+   * A REASON IS REQUIRED, unlike the product delete the owner asked to
+   * be free of one. This is not an operator removing his own row — it is
+   * a supplier's offer being stopped and buyers' money being moved, and
+   * both of them will ask why.
+   *
+   * THE LIVE LOCKS GO TOO, exactly as a plain cancel does: a session
+   * holding stock on an offer that no longer exists would keep that
+   * stock out of everyone's reach for its whole lifetime.
+   */
+  async cancelAndRefund(
+    id: string,
+    reason: string,
+    ctx: ActorContext
+  ): Promise<AdminOpportunityView> {
+    const existing = await this.requireExisting(id);
+
+    /**
+     * NOT FOR A DIRECT LISTING, and this is a guard about real money.
+     *
+     * The whole premise of this button is an offer whose buyers paid and
+     * are WAITING: their goods were never prepared, because a group
+     * offer holds every order in `AWAITING_FUNDING` until the target is
+     * reached. Stopping such an offer strands them, so the money must go
+     * back.
+     *
+     * A DIRECT SALE HAS NO WAITING BUYERS. Every paid order went to
+     * preparation the moment it was paid — it is being packed, shipped,
+     * disputed or settled on its own terms. Sweeping the listing would
+     * write a refund obligation against every one of them, including
+     * goods already delivered, in one press.
+     *
+     * WHAT TO DO INSTEAD, and it already exists: stop the listing (the
+     * supplier's own `POST :id/stop`, or a plain `cancel` here), which
+     * ends new sales and touches no order; and refund an individual
+     * buyer through the dispute and refund path, where a decision is
+     * made about one order by someone looking at it.
+     */
+    if (existing.saleMode === "DIRECT") {
+      throw new BusinessException(
+        409,
+        ERROR_CODES.CONFLICT,
+        "A direct listing's paid orders are already in fulfilment — stop the listing and refund individual orders through the dispute path"
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // CANCELLABLE FROM THE SAME STATES A PLAIN CANCEL ALLOWS, read
+      // from the shared transition table rather than listed again here.
+      const cancellableFrom = (
+        ["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED"] as const
+      ).filter((status) => isValidOpportunityTransition(status, "CANCELLED"));
+      const cancellableFromSql = Prisma.join(
+        cancellableFrom.map((state) => Prisma.sql`${state}::"OpportunityStatus"`)
+      );
+
+      const claimed = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE opportunities
+        SET status = 'CANCELLED',
+            cancel_reason = ${reason},
+            decision_window_closes_at = NULL,
+            updated_at = now()
+        WHERE id = ${id}::uuid AND status IN (${cancellableFromSql})
+        RETURNING id
+      `;
+      if (claimed.length === 0) {
+        throw new BusinessException(
+          400,
+          ERROR_CODES.VALIDATION_FAILED,
+          "This opportunity cannot be cancelled from its current status"
+        );
+      }
+
+      const refunded = await refundOfferPaymentsTx(
+        tx,
+        id,
+        RefundObligationReasonCode.TARGET_NOT_REACHED
+      );
+
+      await tx.auditLog.create({
+        data: {
+          actorType: AuditActorType.ADMIN,
+          actorId: ctx.actorId,
+          companyId: existing.companyId,
+          action: "OPPORTUNITY_CANCELLED_AND_REFUNDED",
+          entityType: "opportunity",
+          entityId: id,
+          afterData: { refundedPayments: refunded } as Prisma.InputJsonValue,
+          reason,
+          requestId: ctx.requestId,
+          ipAddress: ctx.ipAddress,
+          userAgent: ctx.userAgent,
+        },
+      });
+      await tx.outboxEvent.create({
+        data: {
+          eventType: "OPPORTUNITY_CANCELLED_AND_REFUNDED",
+          payload: { opportunityId: id, refundedPayments: refunded } as Prisma.InputJsonValue,
+        },
+      });
+
+      await releaseActiveLocksForOpportunityTx(tx, id);
+
+      const updated = await tx.opportunity.findUniqueOrThrow({
+        where: { id },
+        select: ADMIN_SELECT,
+      });
+      return toAdminOpportunityView(updated);
+    });
+  }
+
+  /**
+   * EDIT AN OFFER FROM THE CONSOLE — «حذف وتعديل العرض من صفحة
+   * الإدارة، دام المشتري ما بعد دفع».
+   *
+   * IT DELEGATES RATHER THAN REIMPLEMENTS. Editing an offer
+   * recomputes the tax, the share tier and the commission against
+   * pinned policy versions and rewrites the snapshot in the same
+   * transaction; a second copy of that here would be a second chance
+   * to get it wrong. `OpportunitiesService` owns what a valid offer
+   * is, and it is asked.
+   *
+   * WHAT THE ADMIN PATH SKIPS IS THE OWNERSHIP CHECK, and only
+   * that: the supplier's own route reads the row through his
+   * company, this one reads it directly. Every rule about what may
+   * be changed — and the buyer's veto over all of them — is the
+   * same function.
+   */
+  async update(
+    id: string,
+    dto: UpdateOpportunityDto,
+    ctx: ActorContext
+  ): Promise<AdminOpportunityView> {
+    await this.opportunities.updateAsAdmin(id, dto, ctx);
+    return this.getById(id);
+  }
+
+  /**
+   * ERASE AN OFFER, ROW AND ALL.
+   *
+   * PAUSE, CANCEL AND DELETE ARE THREE DIFFERENT ANSWERS. Pausing
+   * stops the sales and keeps the offer; cancelling ends it and
+   * keeps the record; deleting says it should never have been there
+   * — a duplicate, a test, a price typed with a zero too many — and
+   * until now the console could not say it at all.
+   *
+   * THE PRODUCT IS NOT TOUCHED. An offer is an event on a product,
+   * not the product itself, and the product has its own delete.
+   *
+   * THE AUDIT ENTRY IS WRITTEN BEFORE THE ROWS GO and carries the
+   * offer's own identity — afterwards there is nothing left for an
+   * entity id to join to.
+   */
+  async deletePermanently(
+    id: string,
+    reasonNote: string | undefined,
+    ctx: ActorContext
+  ): Promise<{ id: string; deleted: true }> {
+    const existing = await this.prisma.opportunity.findUnique({
+      where: { id },
+      select: { id: true, companyId: true, productId: true, status: true },
+    });
+    if (!existing) throw new NotFoundException("Opportunity not found");
+
+    return this.prisma.$transaction(async (tx) => {
+      await assertNoBuyerCommitted(tx, [id]);
+
+      await tx.auditLog.create({
+        data: {
+          actorType: AuditActorType.ADMIN,
+          actorId: ctx.actorId,
+          companyId: existing.companyId,
+          action: "OPPORTUNITY_DELETED",
+          entityType: "opportunity",
+          entityId: id,
+          beforeData: {
+            productId: existing.productId,
+            status: existing.status,
+          } as Prisma.InputJsonValue,
+          reason: reasonNote ?? null,
+          requestId: ctx.requestId,
+          ipAddress: ctx.ipAddress,
+          userAgent: ctx.userAgent,
+        },
+      });
+      await tx.outboxEvent.create({
+        data: {
+          eventType: "OPPORTUNITY_DELETED",
+          payload: {
+            opportunityId: id,
+            companyId: existing.companyId,
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      await deleteOffersTx(tx, [id]);
+      return { id, deleted: true as const };
+    });
+  }
+
   private async requireExisting(id: string) {
     const row = await this.prisma.opportunity.findUnique({
       where: { id },
-      select: { id: true, companyId: true, status: true, pauseReason: true },
+      select: { id: true, companyId: true, status: true, saleMode: true, pauseReason: true },
     });
     if (!row) throw new NotFoundException("Opportunity not found");
     return row;

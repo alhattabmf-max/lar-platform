@@ -41,6 +41,48 @@ export interface ConfirmDeliveryButtonProps {
   requestIdLabel: string;
 }
 
+/**
+ * The refusal, with what it was and where to quote it.
+ *
+ * AT MODULE SCOPE, like every other component. Declared inside the
+ * button it was a new function on every render, and to React a function
+ * identity IS a component type — so this alert was unmounted and
+ * remounted on each keystroke elsewhere in the tree, which announces
+ * itself again to a screen reader every time. Nothing visible went
+ * wrong, which is exactly why it survived until a guard looked.
+ */
+function Failure({
+  failure,
+  errorTitle,
+  requestIdLabel,
+}: {
+  failure: UserFacingError | null;
+  errorTitle: string;
+  requestIdLabel: string;
+}) {
+  // ITS OWN TRANSLATOR, not one passed in. A function as a prop is a
+  // function that could arrive from a Server Component, which React
+  // cannot serialise — a 500 on a real request that no type check and
+  // no unit test would see. This module is `"use client"`, so it can
+  // just ask.
+  const root = useTranslations();
+
+  if (!failure) return null;
+  return (
+    <div role="alert" className="flex flex-col gap-1 text-sm">
+      <p className="font-medium text-danger-text">{errorTitle}</p>
+      {/* The translated message for a KNOWN code, never the API's own
+          text — that is an English developer string. */}
+      <p className="text-content">{root(failure.messageKey)}</p>
+      {failure.requestId ? (
+        <p className="text-content-muted">
+          {requestIdLabel}: <span className="font-mono">{failure.requestId}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ConfirmDeliveryButton({
   resource,
   id,
@@ -53,7 +95,6 @@ export function ConfirmDeliveryButton({
   requestIdLabel,
 }: ConfirmDeliveryButtonProps) {
   const router = useRouter();
-  const root = useTranslations();
 
   const [asking, setAsking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -89,7 +130,13 @@ export function ConfirmDeliveryButton({
         <Button type="button" variant="secondary" size="sm" onClick={() => setAsking(true)}>
           {label}
         </Button>
-        {failure ? <Failure /> : null}
+        {failure ? (
+          <Failure
+            failure={failure}
+            errorTitle={errorTitle}
+            requestIdLabel={requestIdLabel}
+          />
+        ) : null}
       </div>
     );
   }
@@ -123,24 +170,14 @@ export function ConfirmDeliveryButton({
         </Button>
       </div>
 
-      {failure ? <Failure /> : null}
+      {failure ? (
+          <Failure
+            failure={failure}
+            errorTitle={errorTitle}
+            requestIdLabel={requestIdLabel}
+          />
+        ) : null}
     </div>
   );
 
-  function Failure() {
-    if (!failure) return null;
-    return (
-      <div role="alert" className="flex flex-col gap-1 text-sm">
-        <p className="font-medium text-danger-text">{errorTitle}</p>
-        {/* The translated message for a KNOWN code, never the API's own
-            text — that is an English developer string. */}
-        <p className="text-content">{root(failure.messageKey)}</p>
-        {failure.requestId ? (
-          <p className="text-content-muted">
-            {requestIdLabel}: <span className="font-mono">{failure.requestId}</span>
-          </p>
-        ) : null}
-      </div>
-    );
-  }
 }

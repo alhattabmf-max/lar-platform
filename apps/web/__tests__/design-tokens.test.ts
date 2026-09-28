@@ -15,7 +15,7 @@ const APPROVED_PALETTE: Record<string, string> = {
   "--color-surface": "#ffffff",
   "--color-text": "#0f172a",
   "--color-text-muted": "#475569",
-  "--color-border": "#e2e8f0",
+  "--color-border": "#b6c2d1",
   "--color-success": "#15803d",
   "--color-warning": "#d97706",
   "--color-danger": "#dc2626",
