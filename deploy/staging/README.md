@@ -21,6 +21,20 @@ HTTPS and an extra review password before the platform's own authentication.
 
    `docker compose --env-file staging.env -f compose.yml ps`
 
+## Automatic updates
+
+The `staging` branch has a GitHub Actions deployment workflow. On the server,
+create `/opt/lar-staging` owned by the SSH deployment user and keep the real
+`deploy/staging/staging.env` there. Add repository secrets
+`STAGING_SSH_HOST`, `STAGING_SSH_USER`, `STAGING_SSH_PRIVATE_KEY` and
+`STAGING_SSH_KNOWN_HOSTS` (the server SSH host key line). Set repository
+variable `STAGING_READY` to `true` only after the server has Docker Compose,
+the environment file, and SSH access. Every subsequent push to `staging`
+syncs the code and rebuilds the stack. The sync preserves `staging.env`.
+
+When generating `STAGING_BASIC_AUTH_HASH` for `staging.env`, wrap the hash in
+single quotes so Compose does not interpolate the dollar signs.
+
 ## Updates
 
 Replace the application source, then rerun the same `up -d --build` command.

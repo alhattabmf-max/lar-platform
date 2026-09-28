@@ -1,0 +1,37 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: vars.STAGING_READY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Copy project and restart staging
+        env:
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
+          USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          rsync -az --delete \
+            --exclude '/.git/' \
+            --exclude '/deploy/staging/staging.env' \
+            -e 'ssh -o StrictHostKeyChecking=yes' \
+            ./ "$USER@$HOST:/opt/lar-staging/"
+          ssh -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            'cd /opt/lar-staging && docker compose --env-file deploy/staging/staging.env -f deploy/staging/compose.yml up -d --build'
