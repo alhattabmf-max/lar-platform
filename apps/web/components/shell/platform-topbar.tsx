@@ -426,22 +426,13 @@ export async function RowControls({
   return (
     <>
       {audience === "visitor" ? (
-        <>
-          <a
-            href={`/${locale}/login`}
-            className={VISITOR_TEXT_CONTROL}
-            data-testid="header-sign-in"
-          >
-            {t("header.signIn")}
-          </a>
-          <a
-            href={`/${locale}/register`}
-            className={VISITOR_TEXT_CONTROL}
-            data-testid="header-register"
-          >
-            {t("header.register")}
-          </a>
-        </>
+        <a
+          href={`/${locale}/login`}
+          className={VISITOR_TEXT_CONTROL}
+          data-testid="header-sign-in"
+        >
+          {t("header.signInOrRegister")}
+        </a>
       ) : (
         <UserMenu
           inline={inline}

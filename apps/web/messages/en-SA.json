@@ -12,6 +12,7 @@
     "header": {
       "signIn": "Sign in",
       "register": "Register",
+      "signInOrRegister": "Sign in or register",
       "language": "Language",
       "switchLocale": "Switch to Arabic",
       "signOut": "Sign out",
@@ -298,7 +299,7 @@
     "nav": {
       "label": "Control panel navigation",
       "dashboard": "Home",
-      "opportunities": "Marketplace",
+      "opportunities": "Marketplace & Offers",
       "orders": "My orders",
       "notifications": "Notifications",
       "account": "Company details",
@@ -313,7 +314,7 @@
       "switchLocale": "Switch to Arabic",
       "notificationsLabel": "Notifications",
       "group": {
-        "market": "Marketplace",
+        "market": "Marketplace & Offers",
         "orders": "Orders and follow-up",
         "account": "Account and settings"
       },
@@ -999,6 +1000,7 @@
         "empty": "No listings are running.",
         "of": "of",
         "fundedNote": "Counted on paid quantities",
+        "soldNote": "Sold from stock",
         "endsIn": "ends in",
         "endsToday": "ends today",
         "day": "day",
@@ -3916,7 +3918,7 @@
     "nav": {
       "label": "Site navigation",
       "home": "Home",
-      "market": "Market",
+      "market": "Market & Offers",
       "openMenu": "Open menu",
       "closeMenu": "Close menu"
     }

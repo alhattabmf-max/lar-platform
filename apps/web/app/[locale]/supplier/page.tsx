@@ -174,6 +174,7 @@ export default async function SupplierDashboardPage({
             empty: t("listings.empty"),
             of: t("listings.of"),
             fundedNote: t("listings.fundedNote"),
+            soldNote: t("listings.soldNote"),
             endsIn: t("listings.endsIn"),
             endsToday: t("listings.endsToday"),
             day: t("listings.day"),

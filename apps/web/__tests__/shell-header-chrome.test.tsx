@@ -99,14 +99,15 @@ describe("one bar, on every screen", () => {
     );
     expect(bar).toContain("export async function RowControls");
     // Signed-in rows retain the shared account and language controls.
-    // The public row has its own compact, filled three-control group.
+    // The public row has one account entry and a language control.
     expect(bar).toContain("const LOCALE_CONTROL_BASE =");
     expect(bar).toContain("${LOCALE_CONTROL_BASE} text-primary");
 
     const row = bar.slice(bar.indexOf("export async function RowControls"));
     expect(row).toContain("const VISITOR_TEXT_CONTROL");
     expect(row).toContain("const VISITOR_LOCALE_CONTROL");
-    expect(row).toContain('data-testid="header-register"');
+    expect(row).toContain('data-testid="header-sign-in"');
+    expect(row).not.toContain('data-testid="header-register"');
     expect(row).not.toContain("ACCOUNT_TONE");
   });
 

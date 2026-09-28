@@ -46,6 +46,7 @@ vi.mock("@/lib/site-content", () => ({
 const TEXTS: Record<string, string> = {
   "header.signIn": "تسجيل الدخول",
   "header.register": "تسجيل",
+  "header.signInOrRegister": "دخول أو تسجيل",
   "header.signOut": "تسجيل الخروج",
   "header.signingOut": "جارٍ تسجيل الخروج…",
   "header.switchLocale": "Switch to English",
@@ -180,22 +181,19 @@ describe("the header's account control", () => {
 });
 
 describe("the public row's compact actions", () => {
-  it("offers sign in and registration beside an icon-only language action", async () => {
+  it("offers one account entry beside the language action", async () => {
     const { container } = render(
       await RowControls({ locale: "ar-SA", audience: "visitor" }),
     );
 
     const signIn = screen.getByTestId("header-sign-in");
-    const register = screen.getByTestId("header-register");
     const locale = screen.getByTestId("locale-switch");
 
     expect(signIn).toHaveAttribute("href", "/ar-SA/login");
-    expect(register).toHaveAttribute("href", "/ar-SA/register");
-    expect(signIn).toHaveTextContent("تسجيل الدخول");
-    expect(register).toHaveTextContent("تسجيل");
+    expect(signIn).toHaveTextContent("دخول أو تسجيل");
+    expect(screen.queryByTestId("header-register")).toBeNull();
 
-    expect(signIn.className).toBe(register.className);
-    for (const control of [signIn, register, locale]) {
+    for (const control of [signIn, locale]) {
       expect(control.className).toContain("h-9");
       expect(control.className).toContain("rounded-control");
       expect(control.className).toContain("bg-primary");
@@ -203,11 +201,10 @@ describe("the public row's compact actions", () => {
     }
 
     expect(signIn.querySelector("svg")).toBeNull();
-    expect(register.querySelector("svg")).toBeNull();
     expect(locale.querySelector("svg")).not.toBeNull();
     expect(locale).toHaveAccessibleName("Switch to English");
     expect(locale).toHaveTextContent("");
-    expect(container.querySelectorAll("a")).toHaveLength(3);
+    expect(container.querySelectorAll("a")).toHaveLength(2);
   });
 });
 

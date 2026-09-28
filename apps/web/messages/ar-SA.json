@@ -12,6 +12,7 @@
     "header": {
       "signIn": "دخول",
       "register": "تسجيل",
+      "signInOrRegister": "دخول أو تسجيل",
       "language": "اللغة",
       "switchLocale": "التبديل إلى الإنجليزية",
       "signOut": "تسجيل الخروج",
@@ -298,7 +299,7 @@
     "nav": {
       "label": "تنقل لوحة التحكم",
       "dashboard": "الرئيسية",
-      "opportunities": "السوق",
+      "opportunities": "السوق والعروض",
       "orders": "طلباتي",
       "notifications": "الإشعارات",
       "account": "بيانات المنشأة",
@@ -313,7 +314,7 @@
       "switchLocale": "التبديل إلى الإنجليزية",
       "notificationsLabel": "الإشعارات",
       "group": {
-        "market": "السوق",
+        "market": "السوق والعروض",
         "orders": "الطلبات والمتابعة",
         "account": "الحساب والإعدادات"
       },
@@ -999,6 +1000,7 @@
         "empty": "لا توجد عروض جارية.",
         "of": "من",
         "fundedNote": "احتساب الكميات المدفوعة",
+        "soldNote": "المباع من المخزون",
         "endsIn": "ينتهي بعد",
         "endsToday": "ينتهي اليوم",
         "day": "يوم",
@@ -3916,7 +3918,7 @@
     "nav": {
       "label": "تنقل الموقع",
       "home": "الرئيسية",
-      "market": "السوق",
+      "market": "السوق والعروض",
       "openMenu": "فتح القائمة",
       "closeMenu": "إغلاق القائمة"
     }
