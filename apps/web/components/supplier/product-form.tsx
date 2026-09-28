@@ -331,6 +331,8 @@ export function ProductForm({
       <FormSection title={labels.sections.identity} columns={2}>
         {textField("nameAr", { required: true })}
         {textField("nameEn", { required: true })}
+        {textField("supplierSku")}
+        {textField("gtin")}
         <div className="sm:col-span-2">{textField("descriptionAr", { multiline: true })}</div>
         <div className="sm:col-span-2">{textField("descriptionEn", { multiline: true })}</div>
       </FormSection>

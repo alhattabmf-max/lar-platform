@@ -5,12 +5,22 @@ export const PRODUCT_IMPORT_COLUMNS = [
   "weightPerUnit", "lengthCm", "widthCm", "heightCm", "descriptionAr",
   "descriptionEn", "packageContentQuantity", "packageContentUnitNameAr",
   "packageContentUnitNameEn", "supplierSku", "gtin", "images",
+  "directStock", "directUnitPrice", "directLocationId", "directPreparationDays",
 ] as const;
+
+export interface DirectImportListing {
+  saleMode: "DIRECT";
+  targetQuantity: number;
+  unitPriceAmount: number;
+  fulfillmentLocationId: string;
+  expectedPreparationDays: number;
+}
 
 export interface ProductImportRow {
   line: number;
   product: CreateProductRequest;
   imageNames: string[];
+  direct?: DirectImportListing;
 }
 
 /** RFC-style quoted CSV cells, including commas, escaped quotes and line breaks. */
@@ -42,7 +52,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const requiredText = ["nameAr", "nameEn", "salesUnitNameAr", "salesUnitNameEn"] as const;
 const decimalFields = ["weightPerUnit", "lengthCm", "widthCm", "heightCm"] as const;
 
-export function parseProductImport(source: string, validTaxonomyIds: ReadonlySet<string>): ProductImportRow[] {
+export function parseProductImport(source: string, validTaxonomyIds: ReadonlySet<string>, validLocationIds?: ReadonlySet<string>): ProductImportRow[] {
   const [header, ...rows] = parseCsv(source);
   if (!header) throw new Error("Missing header");
   const columns = header.map((cell) => cell.trim());
@@ -92,7 +102,26 @@ export function parseProductImport(source: string, validTaxonomyIds: ReadonlySet
     if (imageNames.some((name) => name.includes("/") || name.includes("\\")) || new Set(imageNames).size !== imageNames.length) {
       throw new Error(`Row ${line}: image names must be unique filenames`);
     }
-    return { line, product, imageNames };
+    const directValues = [value("directStock"), value("directUnitPrice"), value("directLocationId"), value("directPreparationDays")];
+    let direct: DirectImportListing | undefined;
+    if (directValues.some(Boolean)) {
+      if (directValues.some((part) => !part)) throw new Error(`Row ${line}: direct sale needs stock, unit price, location and preparation days`);
+      const positiveInteger = (raw: string, key: string) => {
+        if (!/^[1-9]\d*$/.test(raw) || !Number.isSafeInteger(Number(raw))) throw new Error(`Row ${line}: ${key} must be a positive integer`);
+        return Number(raw);
+      };
+      const price = directValues[1];
+      if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(price) || Number(price) <= 0 || Number(price) > 9999999999.99) {
+        throw new Error(`Row ${line}: directUnitPrice must be a positive price with at most two decimals`);
+      }
+      if (!uuid.test(directValues[2]) || !validLocationIds?.has(directValues[2])) throw new Error(`Row ${line}: select one of your fulfillment location IDs`);
+      direct = {
+        saleMode: "DIRECT", targetQuantity: positiveInteger(directValues[0], "directStock"),
+        unitPriceAmount: Number(price), fulfillmentLocationId: directValues[2],
+        expectedPreparationDays: positiveInteger(directValues[3], "directPreparationDays"),
+      };
+    }
+    return { line, product, imageNames, ...(direct ? { direct } : {}) };
   });
 }
 

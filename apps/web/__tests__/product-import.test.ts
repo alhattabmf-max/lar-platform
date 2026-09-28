@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseCsv, parseProductImport, productImportTemplate } from "@/lib/product-import";
 
 const category = "123e4567-e89b-42d3-a456-426614174000";
-const row = `${category},اسم,"Name, with comma",قطعة,Piece,1.25,12,8,4,وصف,Description,,,,SKU-1,12345670,main.jpg|side.png`;
+const row = `${category},اسم,"Name, with comma",قطعة,Piece,1.25,12,8,4,وصف,Description,,,,SKU-1,12345670,main.jpg|side.png,,,,`;
+const location = "223e4567-e89b-42d3-a456-426614174000";
 
 describe("bulk product CSV", () => {
   it("reads quotes, escaped quotes and line breaks without splitting a product", () => {
@@ -30,5 +31,15 @@ describe("bulk product CSV", () => {
 
   it("rejects a GTIN with an invalid check digit", () => {
     expect(() => parseProductImport(productImportTemplate() + row.replace("12345670", "12345671"), new Set([category]))).toThrow(/GTIN/);
+  });
+  it("maps complete direct stock fields to one listing per approved product", () => {
+    const direct = row.replace(/,,,,$/, `,12,39.95,${location},3`);
+    expect(parseProductImport(productImportTemplate() + direct, new Set([category]), new Set([location]))[0].direct).toEqual({
+      saleMode: "DIRECT", targetQuantity: 12, unitPriceAmount: 39.95,
+      fulfillmentLocationId: location, expectedPreparationDays: 3,
+    });
+    expect(() => parseProductImport(productImportTemplate() + direct, new Set([category]), new Set())).toThrow(/location/);
+    expect(() => parseProductImport(productImportTemplate() + direct.replace("39.95", "39.999"), new Set([category]), new Set([location]))).toThrow(/price/);
+    expect(() => parseProductImport(productImportTemplate() + direct.replace(`,${location},3`, ",,3"), new Set([category]), new Set([location]))).toThrow(/direct sale/);
   });
 });

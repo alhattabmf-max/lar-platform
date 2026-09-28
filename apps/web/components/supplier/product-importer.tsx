@@ -3,17 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { TaxonomyNodeItem } from "@platform/types";
+import type { SupplierLocation } from "@/lib/supplier-data";
 import { apiClient, uploadFile } from "@/lib/api-client";
 import { parseProductImport, productImportTemplate, type ProductImportRow } from "@/lib/product-import";
 import { Button } from "@/components/ui/button";
 
-interface RowProgress { id?: string; uploaded?: boolean; done?: boolean; error?: string }
+interface RowProgress { id?: string; uploaded?: boolean; submitted?: boolean; listingId?: string; done?: boolean; error?: string }
 
 export function ProductImporter({
-  locale, taxonomy, labels,
+  locale, taxonomy, locations, labels,
 }: {
   locale: string;
   taxonomy: TaxonomyNodeItem[];
+  locations: SupplierLocation[];
   labels: Record<string, string>;
 }) {
   const [rows, setRows] = useState<ProductImportRow[]>([]);
@@ -38,7 +40,7 @@ export function ProductImporter({
     if (!file) return;
     try {
       if (file.size > 2 * 1024 * 1024) throw new Error(labels.fileTooLarge);
-      const parsed = parseProductImport(await file.text(), new Set(taxonomy.map((node) => node.id)));
+      const parsed = parseProductImport(await file.text(), new Set(taxonomy.map((node) => node.id)), new Set(locations.map((location) => location.id)));
       setRows(parsed);
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
@@ -65,7 +67,7 @@ export function ProductImporter({
         if (current.done) continue;
         try {
           const id = current.id ?? (await apiClient.post<{ id: string }>("/companies/me/products", row.product)).id;
-          next[row.line] = { id };
+          next[row.line] = { ...current, id, error: undefined };
           setProgress({ ...next });
           for (const name of current.uploaded ? [] : row.imageNames) {
             // A retry after an uncertain upload must not silently duplicate
@@ -73,10 +75,22 @@ export function ProductImporter({
             if (current.id && current.error) throw new Error(labels.inspectDraft);
             await uploadFile(`/companies/me/products/${id}/media`, photoMap.get(name)!, "file");
           }
-          next[row.line] = { id, uploaded: true };
+          next[row.line] = { ...next[row.line], uploaded: true };
           setProgress({ ...next });
-          await apiClient.post(`/companies/me/products/${id}/submit`);
-          next[row.line] = { id, done: true };
+          if (!current.submitted) {
+            await apiClient.post(`/companies/me/products/${id}/submit`);
+            next[row.line] = { ...next[row.line], submitted: true };
+            setProgress({ ...next });
+          }
+          if (row.direct) {
+            const listingId = current.listingId ?? (await apiClient.post<{ id: string }>(
+              "/companies/me/opportunities", { productId: id, ...row.direct },
+            )).id;
+            next[row.line] = { ...next[row.line], listingId };
+            setProgress({ ...next });
+            await apiClient.post(`/companies/me/listings/${listingId}/publish`);
+          }
+          next[row.line] = { ...next[row.line], done: true, error: undefined };
         } catch (error) {
           next[row.line] = { ...next[row.line], error: error instanceof Error ? error.message : String(error) };
         }
@@ -95,6 +109,12 @@ export function ProductImporter({
           {taxonomy.map((node) => <li key={node.id}><span>{locale === "ar-SA" ? node.nameAr : node.nameEn}</span> <code dir="ltr" className="select-all">{node.id}</code></li>)}
         </ul>
       </div>
+      <div className="rounded-card border border-line p-4">
+        <h2 className="font-semibold">{labels.locations}</h2>
+        <ul className="mt-2 max-h-44 overflow-auto text-sm">
+          {locations.map((location) => <li key={location.id}>{location.name} <code dir="ltr" className="select-all">{location.id}</code></li>)}
+        </ul>
+      </div>
       <label className="text-sm font-medium">{labels.csv}<input type="file" accept=".csv,text/csv" className="mt-2 block" disabled={busy} onChange={(event) => void selectCsv(event.target.files?.[0])} /></label>
       <label className="text-sm font-medium">{labels.photos}<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="mt-2 block" disabled={busy} onChange={(event) => setPhotos(Array.from(event.target.files ?? []))} /></label>
       {problem && <p role="alert" className="text-sm text-danger">{problem}</p>}
@@ -104,6 +124,7 @@ export function ProductImporter({
           {rows.map((row) => <li key={row.line} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
             <span>{row.line}. {locale === "ar-SA" ? row.product.nameAr : row.product.nameEn} ({row.imageNames.length})</span>
             {progress[row.line]?.id && <Link href={`/${locale}/supplier/products/${progress[row.line].id}`} className="underline">{labels.view}</Link>}
+            {progress[row.line]?.listingId && <Link href={`/${locale}/supplier/opportunities/${progress[row.line].listingId}`} className="underline">{labels.viewListing}</Link>}
             <span role={progress[row.line]?.error ? "alert" : undefined}>{progress[row.line]?.error ?? (progress[row.line]?.done ? labels.saved : "")}</span>
           </li>)}
         </ul>

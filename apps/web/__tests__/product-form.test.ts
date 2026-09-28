@@ -38,6 +38,8 @@ const FILLED: ProductFormValues = {
   salesUnitNameEn: "Carton",
   nameAr: "زيت زيتون",
   nameEn: "Olive oil",
+  supplierSku: "",
+  gtin: "",
   descriptionAr: "وصف",
   descriptionEn: "Description",
   weightPerUnit: "12.5",
@@ -59,6 +61,13 @@ const WITH_PACKAGE: ProductFormValues = {
 // ------------------------------------------------------------ validation
 
 describe("validation mirrors the DTO, from the same shared constants", () => {
+  it("validates optional product identifiers", () => {
+    expect(validateProductForm({ ...FILLED, gtin: "12345678" }).gtin).toEqual({ key: "invalidGtin" });
+    expect(validateProductForm({ ...FILLED, gtin: "96385074" }).gtin).toBeUndefined();
+    expect(validateProductForm({ ...FILLED, supplierSku: "x".repeat(65) }).supplierSku).toEqual({
+      key: "tooLong", values: { max: 64 },
+    });
+  });
   it("passes a complete form", () => {
     expect(validateProductForm(FILLED)).toEqual({});
     expect(hasErrors(validateProductForm(FILLED))).toBe(false);
