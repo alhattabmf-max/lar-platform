@@ -353,6 +353,8 @@ describe("clearing sends null; omitting sends nothing", () => {
 describe("prefilling from the API's detail", () => {
   const detail = {
     id: "p-1",
+    supplierSku: null,
+    gtin: null,
     nameAr: "زيت",
     nameEn: "Oil",
     approvalStatus: "APPROVED",

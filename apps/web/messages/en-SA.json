@@ -1175,6 +1175,8 @@
     },
     "products": {
       "title": "Products",
+      "supplierSku": "Supplier SKU",
+      "gtin": "GTIN",
       "bulkImport": {
         "title": "Import products in bulk",
         "back": "Back to products",

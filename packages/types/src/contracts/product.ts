@@ -35,6 +35,8 @@ export function productNeedsSupplierAction(status: ProductApprovalStatus): boole
 /** One product in the supplier's catalogue. */
 export interface ProductSummary {
   id: string;
+  supplierSku: string | null;
+  gtin: string | null;
   nameAr: string;
   nameEn: string;
   approvalStatus: ProductApprovalStatus;
@@ -95,6 +97,8 @@ export interface ProductSummary {
 
 export const PRODUCT_SUMMARY_KEYS = [
   "id",
+  "supplierSku",
+  "gtin",
   "nameAr",
   "nameEn",
   "approvalStatus",

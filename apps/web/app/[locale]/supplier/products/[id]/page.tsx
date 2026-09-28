@@ -335,6 +335,8 @@ export default async function ProductDetailsPage({
                   label={<ReadName>{sectionText("fields.nameEn")}</ReadName>}
                   control={<ReadValue dir="ltr">{product.nameEn}</ReadValue>}
                 />
+                {product.supplierSku && <FieldRow label={<ReadName>{t("supplierSku")}</ReadName>} control={<ReadValue dir="ltr">{product.supplierSku}</ReadValue>} />}
+                {product.gtin && <FieldRow label={<ReadName>{t("gtin")}</ReadName>} control={<ReadValue dir="ltr">{product.gtin}</ReadValue>} />}
                 <FieldRow
                   label={<ReadName>{sectionText("fields.category")}</ReadName>}
                   control={<ReadValue>{filedUnder.root}</ReadValue>}

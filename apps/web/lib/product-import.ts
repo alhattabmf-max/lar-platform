@@ -1,10 +1,10 @@
-import type { CreateProductRequest } from "@platform/types";
+import { isValidGtin, type CreateProductRequest } from "@platform/types";
 
 export const PRODUCT_IMPORT_COLUMNS = [
   "taxonomyNodeId", "nameAr", "nameEn", "salesUnitNameAr", "salesUnitNameEn",
   "weightPerUnit", "lengthCm", "widthCm", "heightCm", "descriptionAr",
   "descriptionEn", "packageContentQuantity", "packageContentUnitNameAr",
-  "packageContentUnitNameEn", "images",
+  "packageContentUnitNameEn", "supplierSku", "gtin", "images",
 ] as const;
 
 export interface ProductImportRow {
@@ -75,6 +75,11 @@ export function parseProductImport(source: string, validTaxonomyIds: ReadonlySet
     };
     if (value("descriptionAr")) product.descriptionAr = value("descriptionAr");
     if (value("descriptionEn")) product.descriptionEn = value("descriptionEn");
+    if (value("supplierSku")) product.supplierSku = value("supplierSku");
+    if (value("gtin")) {
+      if (!isValidGtin(value("gtin"))) throw new Error(`Row ${line}: invalid GTIN check digit`);
+      product.gtin = value("gtin");
+    }
     const packageFields = [value("packageContentQuantity"), value("packageContentUnitNameAr"), value("packageContentUnitNameEn")];
     if (packageFields.some(Boolean)) {
       if (packageFields.some((part) => !part)) throw new Error(`Row ${line}: package content needs quantity and both unit names`);

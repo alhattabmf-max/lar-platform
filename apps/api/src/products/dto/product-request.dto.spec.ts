@@ -88,6 +88,12 @@ describe("the DTOs and the shared request contracts agree", () => {
     expect(errorsFor(UpdateProductDto, { attributes: {} }).length).toBeGreaterThan(0);
   });
 
+  it("accepts supplier identifiers but rejects an invalid GTIN check digit", () => {
+    expect(errorsFor(CreateProductDto, { ...VALID_CREATE, supplierSku: "SUP-001", gtin: "12345670" })).toHaveLength(0);
+    expect(errorsFor(CreateProductDto, { ...VALID_CREATE, gtin: "12345671" }).length).toBeGreaterThan(0);
+    expect(errorsFor(UpdateProductDto, { gtin: null })).toHaveLength(0);
+  });
+
   it("requires every field the contract marks required", () => {
     for (const field of CREATE_PRODUCT_REQUIRED_KEYS) {
       const body = { ...VALID_CREATE } as Record<string, unknown>;

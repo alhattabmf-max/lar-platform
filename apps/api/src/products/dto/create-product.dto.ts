@@ -1,6 +1,6 @@
-import { IsNumber, IsOptional, IsPositive, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
+import { IsNumber, IsOptional, IsPositive, IsString, IsUUID, MaxLength, MinLength, ValidateBy, ValidateIf } from "class-validator";
 import { Transform } from "class-transformer";
-import { PRODUCT_DECIMAL_FIELDS, PRODUCT_TEXT_LIMITS } from "@platform/types";
+import { PRODUCT_DECIMAL_FIELDS, PRODUCT_IDENTIFIER_LIMITS, PRODUCT_TEXT_LIMITS, isValidGtin } from "@platform/types";
 import { IsDecimalAmount } from "../../common/validation/is-decimal-amount.decorator";
 
 /**
@@ -24,6 +24,18 @@ const trim = () => Transform(({ value }) => (typeof value === "string" ? value.t
 export class CreateProductDto {
   @IsUUID()
   taxonomyNodeId!: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @trim()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(PRODUCT_IDENTIFIER_LIMITS.supplierSku)
+  supplierSku?: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @trim()
+  @ValidateBy({ name: "isGtin", validator: { validate: (value: unknown) => typeof value === "string" && isValidGtin(value) } })
+  gtin?: string;
 
   /** SOFT reference — an autocomplete source. The NAMES are authoritative. */
   @IsOptional()
